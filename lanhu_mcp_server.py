@@ -6779,4 +6779,13 @@ if __name__ == "__main__":
     else:
         SERVER_HOST = os.getenv("SERVER_HOST", "0.0.0.0")
         SERVER_PORT = int(os.getenv("SERVER_PORT", "8000"))
+        mcp_url = f"http://localhost:{SERVER_PORT}/mcp"
+        print(f"\nCursor MCP 配置示例（端口来自 .env 的 SERVER_PORT={SERVER_PORT}）：")
+        print("{")
+        print('  "mcpServers": {')
+        print('    "lanhu": {')
+        print(f'      "url": "{mcp_url}?role=Developer&name=YourName"')
+        print("    }")
+        print("  }")
+        print("}\n")
         mcp.run(transport="http", path="/mcp", host=SERVER_HOST, port=SERVER_PORT)
