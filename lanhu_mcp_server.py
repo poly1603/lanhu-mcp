@@ -3585,6 +3585,94 @@ class LanhuExtractor:
         await self.client.aclose()
 
 
+def _format_axure_rect(rect: Optional[dict]) -> str:
+    """Format a page-space rectangle returned by the browser extractor."""
+    if not rect:
+        return "unknown"
+
+    def fmt(value):
+        if value is None:
+            return "?"
+        if isinstance(value, (int, float)):
+            if float(value).is_integer():
+                return str(int(value))
+            return f"{float(value):.1f}".rstrip("0").rstrip(".")
+        return str(value)
+
+    return (
+        f"x={fmt(rect.get('pageX'))} y={fmt(rect.get('pageY'))} "
+        f"w={fmt(rect.get('width'))} h={fmt(rect.get('height'))}"
+    )
+
+
+def _strip_annotation_html(value: str) -> str:
+    """Convert Axure annotation HTML into compact plain text."""
+    if not value:
+        return ""
+    text = re.sub(r'<br\s*/?>', '\n', str(value), flags=re.IGNORECASE)
+    text = re.sub(r'</p\s*>', '\n', text, flags=re.IGNORECASE)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    return text.strip()
+
+
+def _format_axure_annotations_for_text(axure_annotations: Optional[dict]) -> str:
+    """
+    Format extracted Axure annotations for MCP text output.
+
+    Annotation positions come from Axure native .annnote nodes; annotation
+    content comes from page.annotations mapped through objectPaths[ownerId].scriptId.
+    """
+    if not axure_annotations:
+        return ""
+
+    located = axure_annotations.get('located') or []
+    unlocated = axure_annotations.get('unlocated') or []
+    total = axure_annotations.get('total') or len(located) + len(unlocated)
+    if not total:
+        return ""
+
+    lines = ["[Axure 标注信息]"]
+    lines.append(f"  总数 {total}，已定位 {len(located)}，未定位 {len(unlocated)}")
+
+    if located:
+        lines.append("  已定位标注:")
+        for item in located:
+            fn = item.get('fn', '?')
+            label = item.get('label') or "(无标题)"
+            note_text = item.get('noteText') or _strip_annotation_html(item.get('noteHtml', ''))
+            owner_id = item.get('ownerId') or "?"
+            script_id = item.get('scriptId') or "?"
+            ann_id = item.get('annId') or "?"
+
+            lines.append(f"    [{fn}] {label}")
+            lines.append(f"      ownerId={owner_id} scriptId={script_id} annId={ann_id}")
+            lines.append(f"      标注位置: {_format_axure_rect(item.get('position'))}")
+            if item.get('targetRect'):
+                lines.append(f"      目标位置: {_format_axure_rect(item.get('targetRect'))}")
+            if note_text:
+                lines.append(f"      注释: {note_text}")
+
+    if unlocated:
+        lines.append("  未定位标注:")
+        for item in unlocated:
+            fn = item.get('fn', '?')
+            label = item.get('label') or "(无标题)"
+            reason = item.get('reason') or "unknown"
+            owner_id = item.get('ownerId') or "?"
+            script_id = item.get('scriptId')
+            note_text = item.get('noteText') or _strip_annotation_html(item.get('noteHtml', ''))
+
+            line = f"    [{fn}] {label} reason={reason} ownerId={owner_id}"
+            if script_id:
+                line += f" scriptId={script_id}"
+            lines.append(line)
+            if note_text:
+                lines.append(f"      注释: {note_text}")
+
+    return "\n".join(lines)
+
+
 def _format_page_design_info(design_info: dict, resource_dir: str = "") -> str:
     """
     将页面设计样式信息格式化为可读文本，供 AI 在生成代码时参考。
@@ -3696,6 +3784,7 @@ def fix_html_files(directory: str):
             mapping_script.string = '''
 // 蓝湖Axure映射数据处理函数
 function lanhu_Axure_Mapping_Data(data) {
+    window.__lanhuAxurePageData = data;
     return data;
 }
 '''
@@ -3740,10 +3829,11 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
         screenshot_file = output_path / f"{safe_name}.png"
         text_file = output_path / f"{safe_name}.txt"
         styles_file = output_path / f"{safe_name}_styles.json"
+        annotations_file = output_path / f"{safe_name}_annotations.json"
         
         # 如果版本相同且文件存在，复用缓存
         if (version_id and cached_version == version_id and 
-            screenshot_file.exists()):
+            screenshot_file.exists() and annotations_file.exists()):
             # 读取缓存的文本内容
             page_text = ""
             if text_file.exists():
@@ -3760,6 +3850,14 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
                         page_design_info = json.load(sf)
                 except Exception:
                     pass
+
+            page_annotations = None
+            if annotations_file.exists():
+                try:
+                    with open(annotations_file, 'r', encoding='utf-8') as af:
+                        page_annotations = json.load(af)
+                except Exception:
+                    pass
             
             cached_results.append({
                 'page_name': page_name,
@@ -3767,6 +3865,7 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
                 'screenshot_path': str(screenshot_file),
                 'page_text': page_text if page_text else "(Cached result)",
                 'page_design_info': page_design_info,
+                'page_annotations': page_annotations,
                 'size': f"{screenshot_file.stat().st_size / 1024:.1f}KB",
                 'from_cache': True
             })
@@ -3874,6 +3973,114 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
                     return sections.join("\\n\\n");
                 }''')
 
+                axure_annotations = await page.evaluate('''() => {
+                    const data = window.__lanhuAxurePageData || null;
+                    const annotations = Array.isArray(data?.page?.annotations)
+                        ? data.page.annotations
+                        : [];
+                    const objectPaths = data?.objectPaths || {};
+
+                    const round = value => Math.round(value * 10) / 10;
+                    const rectOf = node => {
+                        if (!node) return null;
+                        const rect = node.getBoundingClientRect();
+                        return {
+                            pageX: round(rect.left + window.scrollX),
+                            pageY: round(rect.top + window.scrollY),
+                            width: round(rect.width),
+                            height: round(rect.height)
+                        };
+                    };
+                    const noteTextOf = html => {
+                        if (!html) return "";
+                        const div = document.createElement('div');
+                        div.innerHTML = String(html)
+                            .replace(/<br\\s*\\/?\\s*>/gi, '\\n')
+                            .replace(/<\\/p\\s*>/gi, '\\n');
+                        return (div.textContent || '').replace(/\\n{3,}/g, '\\n\\n').trim();
+                    };
+
+                    const records = annotations.map((annotation, index) => {
+                        const ownerId = annotation.ownerId || null;
+                        const scriptId = ownerId && objectPaths[ownerId]
+                            ? objectPaths[ownerId].scriptId
+                            : null;
+                        const noteHtml = annotation['注释'] || annotation.note || annotation.description || '';
+                        return {
+                            index,
+                            fn: annotation.fn ?? null,
+                            ownerId,
+                            label: annotation.label || '',
+                            noteHtml,
+                            noteText: noteTextOf(noteHtml),
+                            scriptId: scriptId || null
+                        };
+                    });
+
+                    const byScriptId = new Map();
+                    records.forEach(record => {
+                        if (record.scriptId && !byScriptId.has(record.scriptId)) {
+                            byScriptId.set(record.scriptId, record);
+                        }
+                    });
+
+                    const located = [];
+                    const locatedIndexes = new Set();
+                    document.querySelectorAll('.annnote').forEach(node => {
+                        const annId = node.id || '';
+                        const scriptId = annId.replace(/_ann$/, '');
+                        if (!scriptId) return;
+
+                        const record = byScriptId.get(scriptId);
+                        if (record) locatedIndexes.add(record.index);
+                        const target = document.getElementById(scriptId);
+
+                        located.push({
+                            fn: record?.fn ?? null,
+                            ownerId: record?.ownerId ?? null,
+                            label: record?.label || '',
+                            noteHtml: record?.noteHtml || '',
+                            noteText: record?.noteText || '',
+                            scriptId,
+                            annId,
+                            position: rectOf(node),
+                            targetRect: rectOf(target)
+                        });
+                    });
+
+                    const annnoteIds = new Set(
+                        Array.from(document.querySelectorAll('.annnote')).map(node => node.id)
+                    );
+                    const unlocated = records
+                        .filter(record => !locatedIndexes.has(record.index))
+                        .map(record => {
+                            let reason = 'missing_annnote';
+                            if (!record.scriptId) {
+                                reason = 'missing_script_id';
+                            } else if (!annnoteIds.has(`${record.scriptId}_ann`)) {
+                                reason = 'missing_annnote';
+                            }
+                            return {
+                                fn: record.fn,
+                                ownerId: record.ownerId,
+                                label: record.label,
+                                noteHtml: record.noteHtml,
+                                noteText: record.noteText,
+                                scriptId: record.scriptId,
+                                reason
+                            };
+                        });
+
+                    return {
+                        total: annotations.length,
+                        located,
+                        unlocated
+                    };
+                }''')
+                axure_annotation_text = _format_axure_annotations_for_text(axure_annotations)
+                if axure_annotation_text:
+                    page_text = page_text + "\n\n" + axure_annotation_text
+
                 # 提取页面设计样式信息（字体颜色、背景色、图片资源等）
                 page_design_info = await page.evaluate('''() => {
                     const allEls = document.querySelectorAll('*');
@@ -3937,6 +4144,7 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
                 screenshot_path = output_path / f"{safe_name}.png"
                 text_path = output_path / f"{safe_name}.txt"
                 styles_path = output_path / f"{safe_name}_styles.json"
+                annotations_path = output_path / f"{safe_name}_annotations.json"
 
                 # 获取截图字节
                 screenshot_bytes = await page.screenshot(full_page=True)
@@ -3957,12 +4165,20 @@ async def screenshot_page_internal(resource_dir: str, page_names: List[str], out
                 except Exception:
                     pass
 
+                # 保存 Axure 标注信息到文件（用于缓存）
+                try:
+                    with open(annotations_path, 'w', encoding='utf-8') as af:
+                        json.dump(axure_annotations, af, ensure_ascii=False)
+                except Exception:
+                    pass
+
                 result = {
                     'page_name': page_name,
                     'success': True,
                     'screenshot_path': str(screenshot_path),
                     'page_text': page_text,
                     'page_design_info': page_design_info,
+                    'page_annotations': axure_annotations,
                     'size': f"{len(screenshot_bytes) / 1024:.1f}KB",
                     'from_cache': False
                 }
