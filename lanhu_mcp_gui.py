@@ -162,6 +162,8 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Cursor' / 'Cursor.exe',
             Path(os.environ.get('LOCALAPPDATA', '')) / 'cursor' / 'Cursor.exe',
+            Path('D:/Apps/cursor/Cursor.exe'),
+            Path('D:/Apps/Cursor/Cursor.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'Cursor' / 'User' / 'globalStorage' / 'saoudrizwan.claude-dev' / 'settings' / 'cline_mcp_settings.json',
@@ -171,6 +173,8 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Windsurf' / 'Windsurf.exe',
             Path(os.environ.get('LOCALAPPDATA', '')) / 'windsurf' / 'Windsurf.exe',
+            Path('D:/Apps/Windsurf/Windsurf.exe'),
+            Path('D:/Apps/windsurf/Windsurf.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'Windsurf' / 'User' / 'globalStorage' / 'saoudrizwan.claude-dev' / 'settings' / 'cline_mcp_settings.json',
@@ -180,6 +184,7 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Claude' / 'Claude.exe',
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Claude' / 'Claude.exe',
+            Path('D:/Apps/Claude/Claude.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'Claude' / 'claude_desktop_config.json',
@@ -189,6 +194,8 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Microsoft VS Code' / 'Code.exe',
             Path(os.environ.get('PROGRAMFILES', '')) / 'Microsoft VS Code' / 'Code.exe',
+            Path('D:/Apps/Microsoft VS Code/Code.exe'),
+            Path('D:/Apps/VS Code/Code.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'Code' / 'User' / 'globalStorage' / 'saoudrizwan.claude-dev' / 'settings' / 'cline_mcp_settings.json',
@@ -198,6 +205,8 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Trae' / 'Trae.exe',
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Trae' / 'Trae.exe',
+            Path('D:/Apps/Trae/Trae.exe'),
+            Path('D:/Apps/trae/Trae.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'Trae' / 'User' / 'globalStorage' / 'saoudrizwan.claude-dev' / 'settings' / 'cline_mcp_settings.json',
@@ -207,6 +216,8 @@ IDE_REGISTRY = {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'cherry-studio' / 'Cherry Studio.exe',
             Path(os.environ.get('APPDATA', '')) / 'cherry-studio' / 'Cherry Studio.exe',
+            Path('D:/Apps/CherryStudio/Cherry Studio/Cherry Studio.exe'),
+            Path('D:/Apps/CherryStudio/Cherry Studio.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'cherry-studio' / 'mcp.json',
@@ -215,6 +226,8 @@ IDE_REGISTRY = {
     'ChatBox': {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'chatbox' / 'Chatbox.exe',
+            Path('D:/Apps/ChatBox/Chatbox.exe'),
+            Path('D:/Apps/chatbox/Chatbox.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'chatbox' / 'config.json',
@@ -223,6 +236,7 @@ IDE_REGISTRY = {
     'Continue': {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'Microsoft VS Code' / 'Code.exe',
+            Path('D:/Apps/Microsoft VS Code/Code.exe'),
         ],
         'config': [
             Path.home() / '.continue' / 'config.yaml',
@@ -231,14 +245,35 @@ IDE_REGISTRY = {
     'Cline (OpenCode)': {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'opencode' / 'OpenCode.exe',
+            Path('D:/Apps/OpenCode/OpenCode.exe'),
+            Path('D:/Apps/opencode/OpenCode.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'opencode' / 'mcp.json',
         ],
     },
+    'CodeBuddy': {
+        'exe': [
+            Path('D:/Apps/CodeBuddyCN/CodeBuddy CN.exe'),
+            Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'CodeBuddy' / 'CodeBuddy CN.exe',
+        ],
+        'config': [
+            Path(os.environ.get('APPDATA', '')) / 'CodeBuddy' / 'mcp.json',
+        ],
+    },
+    'MimoCode': {
+        'exe': [
+            Path('D:/Apps/mimocode-windows-x64/mimo.exe'),
+            Path(os.environ.get('LOCALAPPDATA', '')) / 'Programs' / 'mimocode' / 'mimo.exe',
+        ],
+        'config': [
+            Path(os.environ.get('APPDATA', '')) / 'mimocode' / 'mcp.json',
+        ],
+    },
     'Junie (JetBrains)': {
         'exe': [
             Path(os.environ.get('LOCALAPPDATA', '')) / 'JetBrains' / 'Toolbox' / 'apps' / 'Junie' / 'ch-0' / 'Junie.exe',
+            Path('D:/Apps/JetBrains/Toolbox/apps/Junie/ch-0/Junie.exe'),
         ],
         'config': [
             Path(os.environ.get('APPDATA', '')) / 'JetBrains' / 'Junie' / 'mcp.json',
@@ -510,136 +545,155 @@ class ServiceManager:
 
 
 # ============================================
-# Cookie获取（自动获取）
+# Cookie获取（自动获取 - Bookmarklet方案）
 # ============================================
 
 import http.server
 import socketserver
 import urllib.parse
+import json
 
 # 全局变量：Cookie回调服务器
 _cookie_server = None
 _cookie_server_port = None
+_pending_cookie = None
 
 
 class CookieCallbackHandler(http.server.BaseHTTPRequestHandler):
-    """处理Cookie回调的HTTP处理器"""
+    """处理Cookie回调的HTTP处理器（Bookmarklet方案）"""
     
     def log_message(self, format, *args):
         pass  # 禁用HTTP服务器日志
     
     def do_GET(self):
-        if self.path.startswith('/callback'):
-            # 解析URL中的cookie参数
-            parsed = urllib.parse.urlparse(self.path)
-            params = urllib.parse.parse_qs(parsed.query)
+        global _pending_cookie
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        params = urllib.parse.parse_qs(parsed.query)
+        
+        if path == '/callback':
+            # Bookmarklet发回cookie
             cookie = params.get('cookie', [''])[0]
-            
             if cookie:
-                # 发送成功响应
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html; charset=utf-8')
                 self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
-                response = '''
-                <html><body>
-                <h2>Cookie获取成功！</h2>
-                <p>请返回Lanhu MCP Server查看。</p>
-                <script>setTimeout(function(){window.close();}, 2000);</script>
-                </body></html>
-                '''
-                self.wfile.write(response.encode('utf-8'))
+                self.wfile.write('<html><body><h2>Cookie获取成功！</h2><p>可关闭此页面。</p><script>setTimeout(function(){window.close();},2000);</script></body></html>'.encode('utf-8'))
                 
-                # 通过全局变量传递cookie
-                global _pending_cookie
                 _pending_cookie = cookie
             else:
                 self.send_response(400)
-                self.send_header('Content-type', 'text/html; charset=utf-8')
+                self.send_header('Content-type', 'text/plain; charset=utf-8')
                 self.end_headers()
                 self.wfile.write('Cookie为空'.encode('utf-8'))
+        
+        elif path == '/poll':
+            # GUI轮询：检查是否收到cookie
+            if _pending_cookie:
+                cookie = _pending_cookie
+                _pending_cookie = None
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(json.dumps({'cookie': cookie}).encode('utf-8'))
+            else:
+                self.send_response(204)
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+        
         else:
-            # 主页面：显示使用说明和bookmarket
+            # 主页面：简化版 - 纯剪贴板方案（避免HTTPS Mixed Content问题）
+            page = '''<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lanhu MCP - Cookie获取</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+     background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;
+     display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:#fff;border-radius:16px;padding:32px;max-width:520px;width:100%;
+      box-shadow:0 20px 60px rgba(0,0,0,0.3)}
+h1{font-size:24px;color:#1e293b;margin-bottom:8px}
+.sub{color:#64748b;margin-bottom:24px;font-size:14px}
+.step{background:#f8fafc;border-left:4px solid #4a6cf7;padding:14px 16px;
+      margin:12px 0;border-radius:0 10px 10px 0;font-size:14px;line-height:1.6}
+.step-num{color:#4a6cf7;font-weight:bold;margin-right:8px}
+code{background:#eef2ff;padding:2px 8px;border-radius:4px;font-family:Consolas,monospace;font-size:13px}
+.btn{display:inline-block;padding:14px 28px;border-radius:10px;text-decoration:none;
+     font-weight:600;font-size:15px;cursor:pointer;border:none;transition:all 0.2s}
+.btn-p{background:#4a6cf7;color:#fff}
+.btn-p:hover{background:#3b5de7;transform:translateY(-1px)}
+.btn-g{background:#22c55e;color:#fff;margin-left:12px}
+.btn-g:hover{background:#16a34a}
+.btn-grp{margin-top:20px;display:flex;gap:12px;flex-wrap:wrap}
+.copy-btn{display:block;width:100%;margin-top:12px;padding:12px;background:#1e293b;color:#fff;
+          border:none;border-radius:8px;font-size:14px;cursor:pointer;font-family:Consolas,monospace}
+.copy-btn:hover{background:#334155}
+.note{font-size:12px;color:#94a3b8;margin-top:8px}
+</style>
+</head><body>
+<div class="card">
+    <h1>Lanhu MCP Server</h1>
+    <p class="sub">获取蓝湖Cookie（剪贴板方案）</p>
+    <div class="step">
+        <span class="step-num">1.</span> 打开蓝湖登录你的账号
+    </div>
+    <div class="step">
+        <span class="step-num">2.</span> 登录后按 <code>F12</code> 打开浏览器控制台
+    </div>
+    <div class="step">
+        <span class="step-num">3.</span> 在控制台粘贴以下代码并回车：
+        <button class="copy-btn" onclick="copyCode()" id="copyBtn">📋 点击复制代码</button>
+        <div class="code-box" style="background:#1e293b;color:#a5f3a5;padding:10px;border-radius:6px;margin-top:8px;font-size:12px;word-break:break-all;font-family:Consolas,monospace">copy(document.cookie)</div>
+        <div class="note">执行后Cookie自动复制到剪贴板</div>
+    </div>
+    <div class="step">
+        <span class="step-num">4.</span> 回到 LanhuMCP 程序，点击「粘贴Cookie」按钮
+    </div>
+    <div class="btn-grp">
+        <a class="btn btn-p" href="https://lanhuapp.com/web/" target="_blank">打开蓝湖登录</a>
+    </div>
+</div>
+<script>
+var jsCode = "copy(document.cookie)";
+function copyCode(){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(jsCode).then(function(){
+            var b=document.getElementById("copyBtn");
+            b.textContent="\u2705 已复制！去蓝湖控制台粘贴执行";
+            b.style.background="#22c55e";
+            setTimeout(function(){b.textContent="\U0001f4cb 点击复制代码";b.style.background="#1e293b"},3000);
+        })
+    }else{
+        var t=document.createElement("textarea");t.value=jsCode;
+        document.body.appendChild(t);t.select();document.execCommand("copy");
+        document.body.removeChild(t);
+        var b=document.getElementById("copyBtn");
+        b.textContent="\u2705 已复制！";b.style.background="#22c55e";
+    }
+}
+</script>
+</body></html>'''
+            
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
             self.end_headers()
-            page = '''
-            <html><head><meta charset="utf-8"><title>Lanhu MCP - Cookie获取</title>
-            <style>
-                body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; 
-                       max-width: 600px; margin: 50px auto; padding: 20px;
-                       background: #f5f7fa; color: #1e293b; }
-                .card { background: white; border-radius: 12px; padding: 24px; 
-                        box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-                h1 { color: #4a6cf7; margin-top: 0; }
-                .step { background: #f8fafc; border-left: 4px solid #4a6cf7;
-                        padding: 12px 16px; margin: 12px 0; border-radius: 0 8px 8px 0; }
-                .step-num { color: #4a6cf7; font-weight: bold; margin-right: 8px; }
-                .btn { display: inline-block; background: #4a6cf7; color: white;
-                       padding: 12px 24px; border-radius: 8px; text-decoration: none;
-                       font-weight: bold; margin-top: 16px; cursor: pointer; }
-                .btn:hover { background: #3b5de7; }
-                .success { color: #22c55e; font-weight: bold; }
-            </style>
-            </head><body>
-            <div class="card">
-                <h1>Lanhu MCP - Cookie自动获取</h1>
-                <p>请按以下步骤操作：</p>
-                <div class="step">
-                    <span class="step-num">1.</span> 点击下方按钮打开蓝湖登录页面
-                </div>
-                <div class="step">
-                    <span class="step-num">2.</span> 在蓝湖页面完成登录
-                </div>
-                <div class="step">
-                    <span class="step-num">3.</span> 登录成功后，点击下方「获取Cookie」按钮
-                </div>
-                <div class="step">
-                    <span class="step-num">4.</span> Cookie将自动保存，可关闭此页面
-                </div>
-                <a class="btn" href="https://lanhuapp.com/web/" target="_blank">打开蓝湖登录</a>
-                <a class="btn" id="getCookieBtn" style="background:#22c55e;margin-left:12px;">获取Cookie</a>
-                <div id="status" style="margin-top:16px;"></div>
-            </div>
-            <script>
-            document.getElementById('getCookieBtn').onclick = function() {
-                var cookie = document.cookie;
-                if (!cookie || cookie.length < 10) {
-                    document.getElementById('status').innerHTML = '<span style="color:red">未检测到Cookie，请先登录蓝湖</span>';
-                    return;
-                }
-                var xhr = new XMLHttpRequest();
-                xhr.open('GET', '/callback?cookie=' + encodeURIComponent(cookie), true);
-                xhr.onload = function() {
-                    if (xhr.status === 200) {
-                        document.getElementById('status').innerHTML = '<span class="success">Cookie获取成功！可关闭此页面。</span>';
-                        document.getElementById('getCookieBtn').style.background = '#94a3b8';
-                    }
-                };
-                xhr.send();
-            };
-            </script>
-            </body></html>
-            '''
             self.wfile.write(page.encode('utf-8'))
 
 
 def _start_cookie_server():
-    """启动Cookie回调服务器"""
+    """启动Cookie回调服务器（后台守护线程）"""
     global _cookie_server, _cookie_server_port
     if _cookie_server is not None:
         return _cookie_server_port
     
     try:
-        # 尝试绑定到随机可用端口
-        handler = CookieCallbackHandler
-        _cookie_server = socketserver.TCPServer(("127.0.0.1", 0), handler)
+        _cookie_server = socketserver.TCPServer(("127.0.0.1", 0), CookieCallbackHandler)
         _cookie_server_port = _cookie_server.server_address[1]
-        
-        # 在后台线程运行服务器
-        server_thread = threading.Thread(target=_cookie_server.serve_forever, daemon=True)
-        server_thread.start()
-        
+        t = threading.Thread(target=_cookie_server.serve_forever, daemon=True)
+        t.start()
         return _cookie_server_port
     except Exception:
         _cookie_server = None
@@ -648,8 +702,12 @@ def _start_cookie_server():
 
 
 def open_lanhu_login():
-    """打开蓝湖登录页面"""
-    webbrowser.open(LANHU_URL)
+    """打开Cookie自动获取页面"""
+    port = _start_cookie_server()
+    if port:
+        webbrowser.open(f'http://127.0.0.1:{port}')
+    else:
+        webbrowser.open(LANHU_URL)
 
 
 # ============================================
@@ -835,7 +893,7 @@ def create_gui():
     right_btns.pack(side=tk.RIGHT)
 
     ttk.Button(right_btns, text="🔗 打开MCP页面", style='Small.TButton',
-               command=lambda: webbrowser.open(f"http://localhost:{port_var.get()}/mcp")).pack(side=tk.LEFT)
+               command=lambda: webbrowser.open(f"http://localhost:{port_var.get()}/")).pack(side=tk.LEFT)
 
     # ==================== 日志卡片 ====================
     log_sf = ttk.LabelFrame(main, text=" 📋 运行日志 ", style='Card.TLabelframe', padding=12)
@@ -926,7 +984,7 @@ def create_gui():
             status_lbl.config(text=f"● 运行中 (:{port_var.get()})", style='StatusRunning.TLabel')
             start_btn.config(state=tk.DISABLED)
             stop_btn.config(state=tk.NORMAL)
-            log(f"✅ {msg} → http://localhost:{port_var.get()}/mcp", 'success')
+            log(f"✅ {msg} → http://localhost:{port_var.get()}/", 'success')
             update_mcp_code()
         else:
             status_lbl.config(text="● 启动失败", style='StatusError.TLabel')
@@ -965,30 +1023,20 @@ def create_gui():
     cookie_entry.pack(side=tk.LEFT, padx=(8, 12), fill=tk.X, expand=True)
 
     def do_open_lanhu():
-        """启动Cookie自动获取服务器并打开蓝湖登录"""
-        port = _start_cookie_server()
-        if port:
-            # 打开本地回调页面
-            callback_url = f"http://127.0.0.1:{port}"
-            webbrowser.open(callback_url)
-            log(f"🌐 已打开Cookie获取页面，请在浏览器中登录蓝湖", 'info')
-            log(f"💡 登录后点击页面上的「获取Cookie」按钮", 'info')
-            # 启动定时检查线程
-            def check_cookie():
-                global _pending_cookie
-                for _ in range(120):  # 最多等待2分钟
-                    time.sleep(1)
-                    if _pending_cookie:
-                        cookie = _pending_cookie
-                        _pending_cookie = None
-                        root.after(0, lambda c=cookie: _on_cookie_received(c))
-                        return
-                root.after(0, lambda: log("⚠️ Cookie获取超时，请重试", 'warn'))
-            threading.Thread(target=check_cookie, daemon=True).start()
-        else:
-            # 服务器启动失败，降级到手动模式
-            open_lanhu_login()
-            log("⚠️ 自动获取服务启动失败，请手动复制Cookie", 'warn')
+        """打开蓝湖并复制获取Cookie的代码到剪贴板"""
+        # 复制简单代码到剪贴板
+        js_code = "copy(document.cookie)"
+        try:
+            root.clipboard_clear()
+            root.clipboard_append(js_code)
+            log("📋 已复制代码到剪贴板: copy(document.cookie)", 'info')
+        except Exception:
+            log("⚠️ 复制到剪贴板失败，请手动复制代码", 'warn')
+        
+        # 打开蓝湖
+        webbrowser.open("https://lanhuapp.com/web/")
+        log("🌐 已打开蓝湖，请登录账号", 'info')
+        log("💡 登录后: F12打开控制台 → 粘贴代码 → 回车 → 回来点「粘贴Cookie」", 'info')
     
     def _on_cookie_received(cookie):
         """Cookie获取成功回调"""
@@ -1015,16 +1063,19 @@ def create_gui():
         messagebox.showinfo("成功", f"Cookie 已保存！\n长度: {len(c)} 字符")
 
     def do_paste_cookie():
-        """从剪贴板粘贴Cookie"""
+        """从剪贴板粘贴Cookie并自动保存"""
         nonlocal full_cookie
         try:
             clip = root.clipboard_get()
             if clip and len(clip) > 10:
                 cookie_var.set(clip[:80] + '...' if len(clip) > 80 else clip)
                 full_cookie = clip
-                log(f"📋 从剪贴板粘贴了 Cookie ({len(clip)} 字符)", 'info')
+                save_cookie(clip)
+                log(f"📋 Cookie已粘贴并保存 ({len(clip)} 字符)", 'success')
+            else:
+                log("⚠️ 剪贴板内容太短，请先在蓝湖控制台执行 copy(document.cookie)", 'warn')
         except tk.TclError:
-            log("剪贴板为空或无法访问", 'warn')
+            log("剪贴板为空，请先在蓝湖控制台执行 copy(document.cookie)", 'warn')
 
     btn_row = ttk.Frame(cf, style='Card.TFrame')
     btn_row.pack(fill=tk.X, pady=(10, 0))
@@ -1037,7 +1088,7 @@ def create_gui():
                command=do_save_cookie).pack(side=tk.LEFT, padx=(8, 0))
 
     ttk.Label(cf,
-              text="💡 点击「一键获取Cookie」→ 浏览器打开后登录蓝湖 → 登录成功后点击页面上的「获取Cookie」按钮 → 自动保存",
+              text="💡 点击「一键获取Cookie」→ 登录蓝湖 → F12控制台粘贴代码 → 回车 → 点「粘贴Cookie」",
               style='Hint.TLabel').pack(anchor='w', pady=(10, 0))
 
     # ==================== AI IDE 配置卡片 ====================
