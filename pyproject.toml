@@ -40,14 +40,25 @@ classifiers = [
     "Topic :: Software Development :: Documentation",
 ]
 dependencies = [
-    "fastmcp>=0.2.0",
+    "fastmcp>=2.0.0",
     "httpx>=0.27.0",
     "beautifulsoup4>=4.12.0",
     "playwright>=1.48.0",
     "lxml>=5.0.0",
+    "python-dotenv>=1.0.0",
+    "htmlmin2>=0.1.12",
+    "mcp[cli]>=1.0.0",
+    "typer>=0.9.0",
 ]
 
 [project.optional-dependencies]
+gui = [
+    "pystray>=0.19.0",
+    "Pillow>=10.0.0",
+]
+build = [
+    "pyinstaller>=6.0.0",
+]
 dev = [
     "black>=23.0.0",
     "flake8>=6.0.0",
@@ -60,6 +71,9 @@ security = [
     "bandit>=1.7.5",
     "safety>=2.3.5",
 ]
+all = [
+    "lanhu-mcp-server[gui,build,dev,security]",
+]
 
 [project.urls]
 Homepage = "https://github.com/dsphper/lanhu-mcp"
@@ -71,13 +85,15 @@ Changelog = "https://github.com/dsphper/lanhu-mcp/blob/main/CHANGELOG.md"
 
 [project.scripts]
 lanhu-mcp = "lanhu_mcp_server:main"
+lanhu-mcp-gui = "lanhu_mcp_gui:create_gui"
+lanhu-mcp-setup = "lanhu_mcp_app:main"
 
 [tool.setuptools]
-py-modules = ["lanhu_mcp_server"]
+py-modules = ["lanhu_mcp_server", "lanhu_mcp_gui", "lanhu_mcp_app", "lanhu_mcp_all"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["lanhu_mcp_server*"]
+include = ["lanhu_mcp*", "lanhu_mcp_server*"]
 
 [tool.black]
 line-length = 120

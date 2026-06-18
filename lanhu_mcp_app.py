@@ -51,10 +51,21 @@ def load_config():
 
 
 def save_config(config):
-    """保存配置"""
+    """保存配置（保留其他已有配置项）"""
     env_path = get_env_path()
+    # 读取现有配置
+    existing = {}
+    if env_path.exists():
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    existing[key.strip()] = value.strip()
+    # 合并：新配置覆盖旧配置
+    existing.update(config)
     with open(env_path, 'w', encoding='utf-8') as f:
-        for key, value in config.items():
+        for key, value in existing.items():
             f.write(f'{key}={value}\n')
     print(f"配置已保存到: {env_path}")
 
