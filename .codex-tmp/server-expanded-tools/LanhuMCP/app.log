@@ -1,0 +1,10 @@
+2026-06-19 00:03:54 [INFO] === LanhuMCP GUI 启动 ===
+2026-06-19 00:03:54 [INFO] APP_DIR: D:\WorkBench\lanhu-mcp
+2026-06-19 00:03:54 [INFO] DATA_DIR: D:\WorkBench\lanhu-mcp\.codex-tmp\server-expanded-tools\LanhuMCP
+2026-06-19 00:03:54 [INFO] LOG_FILE: D:\WorkBench\lanhu-mcp\.codex-tmp\server-expanded-tools\LanhuMCP\app.log
+2026-06-19 00:03:54 [INFO] sys.executable: C:\Users\swiml\AppData\Local\Programs\Python\Python312\python.exe
+2026-06-19 00:03:54 [INFO] sys.frozen: False
+2026-06-19 00:03:54 [INFO] sys.version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
+2026-06-19 00:03:55 [INFO] MCP 内置服务分支启动
+2026-06-19 00:03:56 [INFO] 已加载高还原设计扩展工具
+2026-06-19 00:03:56 [INFO] MCP HTTP 服务监听: 0.0.0.0:60185/mcp

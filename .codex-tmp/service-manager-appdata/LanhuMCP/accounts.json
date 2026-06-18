@@ -1,0 +1,1 @@
+{"active_id": "smoke-user", "accounts": [{"id": "smoke-user", "name": "Smoke User", "email": "smoke@example.com", "role": "Developer", "cookie": "test_token=abc123", "created_at": "2026-06-18 23:47:45", "updated_at": "2026-06-18 23:47:45"}]}

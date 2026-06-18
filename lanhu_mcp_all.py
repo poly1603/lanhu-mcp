@@ -28,6 +28,33 @@ DATA_DIR = Path(os.environ.get('APPDATA', '~')) / 'LanhuMCP'
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 ENV_FILE = DATA_DIR / '.env'
 COOKIE_FILE = DATA_DIR / 'cookie.txt'
+LOG_FILE = DATA_DIR / 'app.log'
+
+# ============================================
+# 文件日志（所有操作记录到文件）
+# ============================================
+import logging
+
+_logger = logging.getLogger('LanhuMCP')
+_logger.setLevel(logging.DEBUG)
+_fh = logging.FileHandler(str(LOG_FILE), encoding='utf-8')
+_fh.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+_logger.addHandler(_fh)
+
+def flog(msg, level='info'):
+    """写日志到文件 + 控制台"""
+    getattr(_logger, level, _logger.info)(msg)
+    print(f"[{level.upper()}] {msg}")
+
+flog(f"=== LanhuMCP 启动 ===")
+flog(f"APP_DIR: {APP_DIR}")
+flog(f"DATA_DIR: {DATA_DIR}")
+flog(f"LOG_FILE: {LOG_FILE}")
+flog(f"sys.executable: {sys.executable}")
+flog(f"sys.frozen: {getattr(sys, 'frozen', False)}")
+flog(f"sys.version: {sys.version}")
+if getattr(sys, 'frozen', False):
+    flog(f"sys._MEIPASS: {getattr(sys, '_MEIPASS', 'N/A')}")
 LANHU_URL = "https://lanhuapp.com/web/"
 
 
@@ -603,27 +630,103 @@ def create_gui():
     cookie_var.set(saved[:70] + "..." if len(saved) > 70 else saved)
     ttk.Entry(row2, textvariable=cookie_var, width=55).pack(side=tk.LEFT, padx=(5, 10), fill=tk.X, expand=True)
 
-    def do_open_lanhu():
-        port = _start_cookie_server()
-        if port:
-            url = f"http://127.0.0.1:{port}"
-            webbrowser.open(url)
-            log(f"🌐 已打开Cookie获取页面（端口 {port}）")
-            log("💡 步骤：拖书签到书签栏 → 登录蓝湖 → 点击书签获取Cookie")
-            def poll_cookie():
-                global _pending_cookie
-                for _ in range(180):
-                    time.sleep(1)
-                    if _pending_cookie:
-                        cookie = _pending_cookie
-                        _pending_cookie = None
-                        root.after(0, lambda c=cookie: _on_cookie_ok(c))
-                        return
-                root.after(0, lambda: log("⚠️ Cookie获取超时，请重试"))
-            threading.Thread(target=poll_cookie, daemon=True).start()
-        else:
-            webbrowser.open(LANHU_URL)
-            log("⚠️ 本地服务器启动失败，已打开蓝湖页面（需手动复制Cookie）")
+    def do_login():
+        """用独立进程弹出WebView登录蓝湖"""
+        try:
+            flog("=== 一键登录开始 ===")
+            log("🌐 正在打开蓝湖登录窗口...", 'info')
+
+            result_file = DATA_DIR / '.login_result.json'
+            if result_file.exists():
+                result_file.unlink()
+
+            helper_path = DATA_DIR / '_login_helper.py'
+            helper_path.write_text(
+                'import json,os,time,sys\n'
+                'result_file=sys.argv[1]\n'
+                'import webview\n'
+                'result={}\n'
+                'def on_loaded(w):\n'
+                '  for i in range(300):\n'
+                '    time.sleep(1)\n'
+                '    try:\n'
+                '      u=w.get_current_url()\n'
+                '      if u and("/item/"in u or"/team/"in u):\n'
+                '        result["cookies"]=w.evaluate_js("document.cookie")or""\n'
+                '        result["user"]=w.evaluate_js("(function(){try{return localStorage.getItem(\'user\')||localStorage.getItem(\'userInfo\')||\'\'}catch(e){return \'\'}})()")or""\n'
+                '        w.destroy()\n'
+                '        return\n'
+                '    except:pass\n'
+                'w=webview.create_window("蓝湖登录","https://lanhuapp.com/web/",width=1200,height=800)\n'
+                'webview.start(on_loaded,(w,))\n'
+                'os.makedirs(os.path.dirname(result_file),exist_ok=True)\n'
+                'with open(result_file,"w",encoding="utf-8")as f:json.dump(result,f,ensure_ascii=False)\n',
+                encoding='utf-8'
+            )
+            flog(f"Helper脚本已写入: {helper_path}")
+
+            import shutil
+            python_exe = shutil.which('python') or shutil.which('python3')
+            if not python_exe:
+                for p in [r'C:\Users\swiml\AppData\Local\Programs\Python\Python312\python.exe']:
+                    if os.path.exists(p):
+                        python_exe = p
+                        break
+            flog(f"python_exe: {python_exe}")
+
+            if not python_exe:
+                messagebox.showerror("错误", "找不到Python解释器！")
+                return
+
+        except Exception as e:
+            flog(f"初始化异常: {e}", 'error')
+            flog(traceback.format_exc(), 'error')
+            messagebox.showerror("错误", f"初始化失败:\n{e}")
+            return
+
+        def _run():
+            try:
+                flog(f"启动子进程: {python_exe} {helper_path}")
+                proc = subprocess.Popen(
+                    [python_exe, str(helper_path), str(result_file)],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                )
+                flog(f"子进程PID: {proc.pid}")
+                stdout, stderr = proc.communicate()
+                flog(f"退出码: {proc.returncode}")
+                if stdout: flog(f"stdout: {stdout.decode('utf-8', errors='replace')[:500]}")
+                if stderr: flog(f"stderr: {stderr.decode('utf-8', errors='replace')[:500]}")
+
+                if result_file.exists():
+                    with open(result_file, 'r', encoding='utf-8') as f:
+                        result = json.loads(f.read())
+                    if result.get('cookies'):
+                        root.after(0, lambda: _on_ok(result))
+                    else:
+                        root.after(0, lambda: log("⚠️ 未检测到登录", 'warn'))
+                else:
+                    root.after(0, lambda: log("⚠️ 登录已取消", 'warn'))
+            except Exception as e:
+                flog(f"异常: {e}", 'error')
+                flog(traceback.format_exc(), 'error')
+                root.after(0, lambda: messagebox.showerror("错误", str(e)))
+
+        def _on_ok(result):
+            cookie_str = result.get('cookies', '')
+            user_str = result.get('user', '')
+            user_info = {}
+            if user_str:
+                try: user_info = json.loads(user_str)
+                except: pass
+            user_name = user_info.get('name','') or user_info.get('username','') or '已登录'
+            user_email = user_info.get('email','')
+            save_cookie(cookie_str)
+            display = f"✅ {user_name}"
+            if user_email and user_email != user_name: display += f" ({user_email})"
+            cookie_var.set(display)
+            log(f"✅ 登录成功！用户: {user_name}", 'success')
+
+        threading.Thread(target=_run, daemon=True).start()
 
     def do_save_cookie():
         c = cookie_var.get()
@@ -632,16 +735,10 @@ def create_gui():
         save_cookie(c)
         log(f"✅ Cookie已保存 ({len(c)} 字符)")
 
-    def _on_cookie_ok(cookie):
-        save_cookie(cookie)
-        cookie_var.set(cookie[:70] + "..." if len(cookie) > 70 else cookie)
-        log(f"✅ Cookie已自动保存 ({len(cookie)} 字符)")
-        messagebox.showinfo("成功", f"Cookie已自动保存！\n长度: {len(cookie)} 字符")
-
-    ttk.Button(row2, text="🌐 一键获取Cookie", command=do_open_lanhu).pack(side=tk.LEFT)
+    ttk.Button(row2, text="🔑 一键登录", command=do_login).pack(side=tk.LEFT)
     ttk.Button(row2, text="💾 保存Cookie", command=do_save_cookie).pack(side=tk.LEFT, padx=(5, 0))
 
-    ttk.Label(cf, text="💡 点击「一键获取Cookie」→ 拖书签到书签栏 → 登录蓝湖 → 点击书签「获取蓝湖Cookie」→ 自动保存", foreground='gray', font=('Microsoft YaHei UI', 8)).pack(anchor='w', pady=(5, 0))
+    ttk.Label(cf, text="💡 点击「一键登录」→ 输入蓝湖邮箱密码 → 自动获取Cookie", foreground='gray', font=('Microsoft YaHei UI', 8)).pack(anchor='w', pady=(5, 0))
 
     # ---- AI IDE ----
     ide_f = ttk.LabelFrame(main, text=" AI IDE 配置（自动检测已安装） ", padding=12)
