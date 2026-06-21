@@ -15,6 +15,7 @@ import os
 import sys
 import json
 import ast
+import base64
 import time
 import socket
 import threading
@@ -30,7 +31,7 @@ import urllib.request
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
-from urllib.parse import quote, urlencode, urlparse
+from urllib.parse import quote, unquote, urlencode, urlparse
 
 # ============================================
 # DPI 感知（高分屏适配）
@@ -76,6 +77,7 @@ DATA_DIR = ensure_writable_data_dir()
 ENV_FILE = DATA_DIR / '.env'
 COOKIE_FILE = DATA_DIR / 'cookie.txt'
 ACCOUNTS_FILE = DATA_DIR / 'accounts.json'
+PROJECTS_FILE = DATA_DIR / 'projects.json'
 WEBVIEW_STORAGE_DIR = DATA_DIR / 'webview'
 AVATAR_CACHE_DIR = DATA_DIR / 'avatars'
 LOG_FILE = DATA_DIR / 'app.log'
@@ -171,26 +173,30 @@ def bootstrap_tcl_tk_runtime() -> None:
 # 现代配色方案
 # ============================================
 COLORS = {
-    'bg': '#F4F6F4',           # 主背景 - 低饱和暖灰
-    'sidebar': '#172033',      # 侧边栏背景 - 深色导航
-    'sidebar_hover': '#243049', # 侧边栏悬停背景
-    'sidebar_active': '#243049',# 侧边栏选中背景
-    'sidebar_text': '#E5E7EB', # 侧边栏文字
+    'bg': '#F6F7F9',           # 主背景 - 冷灰工作台
+    'sidebar': '#101418',      # 侧边栏背景 - 深色导航
+    'sidebar_hover': '#1B232A', # 侧边栏悬停背景
+    'sidebar_active': '#202B33',# 侧边栏选中背景
+    'sidebar_text': '#E6EDF3', # 侧边栏文字
     'card': '#FFFFFF',         # 卡片背景 - 白色
-    'primary': '#1D4ED8',      # 主色调 - 工具蓝
-    'primary_hover': '#1E40AF',
-    'primary_light': '#DBEAFE',# 主色浅色背景
-    'success': '#15803D',      # 成功绿
-    'danger': '#B91C1C',       # 错误红
-    'warning': '#B45309',      # 警告橙
-    'text_primary': '#172033', # 主文字
-    'text_secondary': '#526070',# 次要文字
+    'primary': '#2563EB',      # 主色调 - 工具蓝
+    'primary_hover': '#1D4ED8',
+    'primary_light': '#E8F0FF',# 主色浅色背景
+    'success': '#0F9F6E',      # 成功绿
+    'danger': '#C2413B',       # 错误红
+    'warning': '#B7791F',      # 警告橙
+    'text_primary': '#141922', # 主文字
+    'text_secondary': '#4A5565',# 次要文字
     'text_muted': '#7C8794',   # 弱化文字
-    'border': '#D7DEE7',       # 边框
-    'border_light': '#EEF2F6',
-    'log_bg': '#111827',       # 日志背景（深色终端风）
+    'border': '#D9E0E8',       # 边框
+    'border_light': '#ECF0F4',
+    'log_bg': '#111318',       # 日志背景（深色终端风）
     'log_text': '#E5E7EB',
     'accent': '#0F766E',       # 强调青绿
+    'accent_light': '#DDF7F0',
+    'accent_warm': '#F97345',
+    'accent_warm_light': '#FFF0E9',
+    'surface': '#F8FAFC',
     'shadow': 'rgba(0, 0, 0, 0.05)',  # 卡片阴影色
 }
 
@@ -211,6 +217,36 @@ def find_server_exe() -> Optional[Path]:
         if c.exists():
             return c
     return None
+
+
+def app_runtime_label() -> str:
+    """返回当前程序启动来源，帮助定位是否打开了旧版 exe。"""
+    executable_path = Path(sys.executable).resolve() if getattr(sys, 'frozen', False) else Path(__file__).resolve()
+    try:
+        modified_text = datetime.fromtimestamp(executable_path.stat().st_mtime).strftime("%m-%d %H:%M")
+    except OSError:
+        modified_text = "未知时间"
+    mode_text = "打包版" if getattr(sys, 'frozen', False) else "源码版"
+    return f"{mode_text} · {modified_text} · {executable_path}"
+
+
+def compare_packaged_outputs() -> str:
+    """比较 dist 与 dist2 输出，减少用户误开旧文件的排障成本。"""
+    root_dir = APP_DIR.parent if APP_DIR.name.lower() in {"dist", "dist2"} else APP_DIR
+    primary = root_dir / "dist" / "LanhuMCP.exe"
+    secondary = root_dir / "dist2" / "LanhuMCP.exe"
+    if not primary.exists() or not secondary.exists():
+        return ""
+    try:
+        primary_time = primary.stat().st_mtime
+        secondary_time = secondary.stat().st_mtime
+    except OSError:
+        return ""
+    if abs(primary_time - secondary_time) < 2:
+        return "dist 与 dist2 已同步"
+    if secondary_time < primary_time:
+        return "注意: dist2\\LanhuMCP.exe 比 dist 旧，请使用最新 dist 或重新同步。"
+    return "注意: dist 与 dist2 时间不同，请确认当前打开的是最新构建。"
 
 
 def find_server_dir() -> Optional[Path]:
@@ -306,6 +342,78 @@ def normalize_cookie_value(cookie: object) -> str:
     return ""
 
 
+def parse_cookie_pairs(cookie: str) -> dict[str, str]:
+    """把 Cookie 字符串解析成键值映射，便于提取非敏感资料。"""
+    pairs: dict[str, str] = {}
+    for part in (cookie or "").split(";"):
+        if "=" not in part:
+            continue
+        name, value = part.split("=", 1)
+        normalized_name = name.strip()
+        if normalized_name:
+            pairs[normalized_name] = value.strip()
+    return pairs
+
+
+def decode_jwt_payload(token: str) -> dict:
+    """解析 JWT payload；只用于展示资料，不做安全鉴权。"""
+    parts = (token or "").split(".")
+    if len(parts) < 2:
+        return {}
+    payload = parts[1].strip()
+    if not payload:
+        return {}
+    padding = "=" * (-len(payload) % 4)
+    try:
+        raw = base64.urlsafe_b64decode(f"{payload}{padding}".encode("utf-8"))
+        parsed = json.loads(raw.decode("utf-8", errors="replace"))
+    except (ValueError, json.JSONDecodeError, OSError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def parse_cookie_json_value(value: str) -> object:
+    """解析 Cookie 中可能 URL 编码或 Base64 编码的 JSON 资料。"""
+    candidates = [value, unquote(value or "")]
+    stripped = (value or "").strip()
+    if stripped and len(stripped) % 4 in (0, 2, 3):
+        padding = "=" * (-len(stripped) % 4)
+        try:
+            decoded = base64.urlsafe_b64decode(f"{stripped}{padding}".encode("utf-8"))
+            candidates.append(decoded.decode("utf-8", errors="replace"))
+        except (ValueError, OSError):
+            pass
+    for candidate in candidates:
+        parsed = parse_json_object(candidate)
+        if isinstance(parsed, (dict, list)):
+            return parsed
+    return value
+
+
+def user_info_from_cookie(cookie: str) -> dict:
+    """从 Cookie 的 JWT 或用户资料字段里提取可展示账号信息。"""
+    candidates: list[dict] = []
+    for name, value in parse_cookie_pairs(cookie).items():
+        lowered_name = name.lower()
+        if any(word in lowered_name for word in ("token", "auth", "jwt")):
+            payload = decode_jwt_payload(value)
+            if payload:
+                candidates.append(payload)
+        if any(word in lowered_name for word in ("user", "member", "account", "profile")):
+            parsed_value = parse_cookie_json_value(value)
+            collect_user_candidates(parsed_value, candidates)
+    if not candidates:
+        return {}
+    user_info = parse_user_payload({"cookie": candidates})
+    if user_info.get("name") == "蓝湖用户" and not any(
+        user_info.get(key) for key in ("email", "mobile", "username", "avatar", "id")
+    ):
+        return {}
+    if user_info:
+        user_info["source_url"] = "Cookie/JWT"
+    return user_info
+
+
 def mask_cookie_value(cookie: str) -> str:
     """生成仅用于界面展示的 Cookie 摘要，避免把密钥长时间明文铺在屏幕上。"""
     normalized = (cookie or "").strip()
@@ -365,6 +473,34 @@ USER_CONTAINER_KEYS = (
     "profile",
     "data",
     "result",
+    "payload",
+    "state",
+    "props",
+    "initialState",
+    "initial_state",
+    "currentTeam",
+    "current_team",
+    "workspace",
+    "organization",
+)
+
+PROJECT_CONTAINER_KEYS = (
+    "project",
+    "projectInfo",
+    "project_info",
+    "currentProject",
+    "current_project",
+    "projects",
+    "projectList",
+    "project_list",
+    "items",
+    "list",
+    "records",
+    "data",
+    "result",
+    "teams",
+    "team",
+    "workspace",
 )
 
 
@@ -383,7 +519,7 @@ def parse_json_object(value: object) -> object:
 
 def collect_user_candidates(value: object, candidates: list[dict], depth: int = 0) -> None:
     """递归收集登录结果里可能代表用户资料的字典。"""
-    if depth > 5:
+    if depth > 8:
         return
     parsed = parse_json_object(value)
     if isinstance(parsed, dict):
@@ -412,13 +548,64 @@ def user_candidate_score(candidate: dict) -> int:
         if value in (None, ""):
             continue
         lowered_key = str(key).lower()
-        if lowered_key in {"id", "uid", "userid", "user_id", "memberid", "member_id"}:
+        if lowered_key in {
+            "id",
+            "uid",
+            "userid",
+            "user_id",
+            "memberid",
+            "member_id",
+            "accountid",
+            "account_id",
+            "uuid",
+        }:
             score += 4
-        if lowered_key in {"name", "nickname", "realname", "real_name", "username", "user_name"}:
+        if lowered_key in {
+            "name",
+            "nickname",
+            "nick",
+            "realname",
+            "real_name",
+            "displayname",
+            "display_name",
+            "username",
+            "user_name",
+            "preferred_username",
+            "loginname",
+            "login_name",
+        }:
             score += 3
-        if lowered_key in {"email", "mail", "mobile", "phone", "avatar", "avatarurl"}:
+        if lowered_key in {
+            "email",
+            "mail",
+            "mobile",
+            "phone",
+            "telephone",
+            "avatar",
+            "avatarurl",
+            "avatar_url",
+            "picture",
+            "image",
+            "headimg",
+            "headimgurl",
+            "portrait",
+        }:
             score += 2
-        if lowered_key in {"company", "companyname", "team", "teamname", "role", "rolename"}:
+        if lowered_key in {
+            "company",
+            "companyname",
+            "company_name",
+            "team",
+            "teamname",
+            "team_name",
+            "rolename",
+            "role_name",
+            "role",
+            "position",
+            "department",
+            "departmentname",
+            "deptname",
+        }:
             score += 1
     return score
 
@@ -446,7 +633,21 @@ def text_from_detail(value: object) -> str:
     if parsed in (None, ""):
         return ""
     if isinstance(parsed, dict):
-        for key in ("name", "title", "label", "nickname", "realName", "teamName", "companyName", "roleName"):
+        for key in (
+            "name",
+            "title",
+            "label",
+            "nickname",
+            "nickName",
+            "realName",
+            "displayName",
+            "userName",
+            "teamName",
+            "companyName",
+            "roleName",
+            "departmentName",
+            "value",
+        ):
             nested_value = parsed.get(key)
             if nested_value not in (None, ""):
                 return str(nested_value)
@@ -500,15 +701,43 @@ def parse_user_payload(user_payload: object) -> dict:
         return first_detail_value(primary, keys) or first_detail_value(merged, keys)
 
     name = (
-        read_identity(("name", "nickname", "nickName", "realName", "real_name", "username", "userName"))
+        read_identity((
+            "name",
+            "nickname",
+            "nickName",
+            "nick",
+            "realName",
+            "real_name",
+            "displayName",
+            "display_name",
+            "fullName",
+            "full_name",
+            "username",
+            "userName",
+            "preferred_username",
+            "loginName",
+            "login_name",
+        ))
         or read_identity(("mobile", "phone", "email", "mail"))
         or "蓝湖用户"
     )
-    email = read_identity(("email", "mail"))
-    mobile = read_identity(("mobile", "phone", "tel", "telephone"))
-    username = read_identity(("username", "userName", "account", "loginName"))
-    nickname = read_identity(("nickname", "nickName"))
-    user_id = read_identity(("id", "userId", "uid", "user_id", "memberId", "member_id"))
+    email = read_identity(("email", "mail", "emailAddress", "email_address"))
+    mobile = read_identity(("mobile", "phone", "tel", "telephone", "cellphone"))
+    username = read_identity(("username", "userName", "preferred_username", "account", "loginName", "login_name"))
+    nickname = read_identity(("nickname", "nickName", "nick"))
+    user_id = read_identity((
+        "id",
+        "userId",
+        "uid",
+        "user_id",
+        "memberId",
+        "member_id",
+        "accountId",
+        "account_id",
+        "uuid",
+        "sub",
+        "subject",
+    ))
     avatar = read_identity((
         "avatar",
         "avatarUrl",
@@ -518,10 +747,31 @@ def parse_user_payload(user_payload: object) -> dict:
         "headimgurl",
         "portrait",
         "photo",
+        "photoUrl",
+        "picture",
+        "image",
     ))
-    company = read_identity(("company", "companyName", "enterprise", "organization", "orgName"))
-    team = read_identity(("team", "teamName", "space", "workspace", "projectTeam"))
-    role = read_identity(("role", "roleName", "identity", "permission", "position"))
+    company = read_identity((
+        "company",
+        "companyName",
+        "company_name",
+        "enterprise",
+        "organization",
+        "orgName",
+        "corpName",
+    ))
+    team = read_identity((
+        "team",
+        "teamName",
+        "team_name",
+        "space",
+        "workspace",
+        "projectTeam",
+        "department",
+        "departmentName",
+        "deptName",
+    ))
+    role = read_identity(("role", "roleName", "role_name", "identity", "permission", "position", "jobTitle"))
     source_url = ""
     if isinstance(payload, dict):
         source_url = str(payload.get("url") or payload.get("login_url") or "")
@@ -626,7 +876,11 @@ def upsert_account(cookie: object, user_info: Optional[dict] = None) -> Optional
     cookie = normalize_cookie_value(cookie)
     if not cookie:
         return None
-    user_info = user_info or {}
+    cookie_user_info = user_info_from_cookie(cookie)
+    provided_user_info = dict(user_info or {})
+    if provided_user_info.get("name") == "蓝湖用户" and cookie_user_info.get("name"):
+        provided_user_info.pop("name", None)
+    user_info = merge_identity_info(provided_user_info, cookie_user_info)
     fallback_id = cookie_fingerprint(cookie)
     account_id = str(user_info.get("id") or fallback_id)
     data = migrate_legacy_cookie()
@@ -897,13 +1151,20 @@ PROJECT_ENDPOINTS = [
     "/api/project/list",
     "/api/project/list?type=all",
     "/api/project/list?project_type=all",
+    "/api/project/list?status=all",
+    "/api/project/list?tab=all",
     "/api/projects",
     "/api/projects/list",
     "/api/project/projects",
     "/api/project/my",
+    "/api/project/recent",
+    "/api/project/recent_projects",
+    "/api/project/starred",
     "/api/team/projects",
     "/api/teams/projects",
     "/api/project/my_projects",
+    "/api/workspace/projects",
+    "/api/user/projects",
     "/api/v1/project/list",
     "/api/v1/projects",
 ]
@@ -913,10 +1174,19 @@ USER_PROFILE_ENDPOINTS = [
     "/api/user/profile",
     "/api/user/current",
     "/api/user/getCurrentUser",
+    "/api/user/get_current_user",
+    "/api/users/current",
     "/api/member/info",
+    "/api/member/current",
     "/api/account/info",
+    "/api/account/profile",
     "/api/session",
 ]
+
+PROJECT_URL_PATTERN = re.compile(
+    r"https?://lanhuapp\.(?:com|cn)/web/#/item/project/"
+    r"(?:stage|product|detailDetach)[^\s\"'<>，。；、]*"
+)
 
 
 def tool_source_candidates() -> list[Path]:
@@ -1007,6 +1277,108 @@ def lanhu_api_headers(cookie: str) -> dict[str, str]:
     }
 
 
+def read_projects_data() -> dict:
+    """读取本地项目缓存，文件损坏时返回空结构。"""
+    if not PROJECTS_FILE.exists():
+        return {"projects": []}
+    try:
+        data = json.loads(PROJECTS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"projects": []}
+    projects = data.get("projects", [])
+    return {"projects": [item for item in projects if isinstance(item, dict)]}
+
+
+def write_projects_data(data: dict) -> None:
+    """保存本地项目缓存。"""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    projects = data.get("projects", [])
+    PROJECTS_FILE.write_text(
+        json.dumps({"projects": projects}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def parse_lanhu_project_url(project_url: str) -> Optional[dict]:
+    """从蓝湖项目链接中解析 tid、pid、docId 等关键信息。"""
+    text = (project_url or "").strip()
+    if not text:
+        return None
+    matched = PROJECT_URL_PATTERN.search(text)
+    normalized_url = matched.group(0) if matched else text
+    if "lanhuapp." not in normalized_url or "pid=" not in normalized_url:
+        return None
+    parsed_url = urlparse(normalized_url)
+    query_text = parsed_url.query
+    if parsed_url.fragment and "?" in parsed_url.fragment:
+        query_text = parsed_url.fragment.split("?", 1)[1]
+    params = {}
+    for part in query_text.split("&"):
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        params[key] = value
+    project_id = params.get("pid") or params.get("project_id")
+    if not project_id:
+        return None
+    team_id = params.get("tid") or params.get("team_id") or ""
+    doc_id = params.get("docId") or params.get("doc_id") or params.get("image_id") or ""
+    if "/product" in normalized_url:
+        project_type = "原型"
+    elif "/detailDetach" in normalized_url:
+        project_type = "详情"
+    else:
+        project_type = "设计"
+    name = f"蓝湖项目 {project_id}"
+    return {
+        "id": project_id,
+        "team_id": team_id,
+        "doc_id": doc_id,
+        "name": name,
+        "type": project_type,
+        "updated_at": now_text(),
+        "team_name": "",
+        "owner_name": "",
+        "url": normalized_url,
+        "source": "手动链接",
+    }
+
+
+def save_manual_project(project_url: str, account_id: str = "") -> tuple[bool, str, Optional[dict]]:
+    """保存用户手动粘贴的蓝湖项目链接。"""
+    project = parse_lanhu_project_url(project_url)
+    if not project:
+        return False, "请输入包含 tid/pid 的蓝湖项目链接。", None
+    project["account_id"] = account_id
+    data = read_projects_data()
+    projects = data["projects"]
+    key = project.get("url") or f"{project.get('team_id')}:{project.get('id')}"
+    existing = next(
+        (
+            item for item in projects
+            if (item.get("url") or f"{item.get('team_id')}:{item.get('id')}") == key
+        ),
+        None,
+    )
+    if existing:
+        existing.update(project)
+    else:
+        projects.append(project)
+    write_projects_data(data)
+    return True, "项目链接已保存到本地列表。", project
+
+
+def cached_projects_for_account(account_id: str = "") -> list[dict]:
+    """读取当前账号可见的本地项目缓存。"""
+    projects = read_projects_data()["projects"]
+    if not account_id:
+        return projects
+    return [
+        project for project in projects
+        if not project.get("account_id") or project.get("account_id") == account_id
+    ]
+
+
 def fetch_lanhu_user_profile(cookie: str) -> tuple[bool, str, dict]:
     """尝试用 Cookie 补全蓝湖账号邮箱、头像、用户名等资料。"""
     if not cookie:
@@ -1044,19 +1416,41 @@ def collect_dict_items(value: object) -> list[dict]:
     if isinstance(value, dict):
         has_project_marker = any(
             key in value
-            for key in ("project_id", "projectId", "pid", "id")
+            for key in ("project_id", "projectId", "projectID", "pid", "id", "project")
         ) and any(
             key in value
-            for key in ("name", "project_name", "projectName", "title")
+            for key in ("name", "project_name", "projectName", "projName", "title", "displayName")
         )
         if has_project_marker:
             items.append(value)
+        for key in PROJECT_CONTAINER_KEYS:
+            if key in value:
+                items.extend(collect_dict_items(value.get(key)))
         for nested_value in value.values():
-            items.extend(collect_dict_items(nested_value))
+            if isinstance(nested_value, (dict, list)):
+                items.extend(collect_dict_items(nested_value))
     elif isinstance(value, list):
         for nested_value in value:
             items.extend(collect_dict_items(nested_value))
     return items
+
+
+def collect_project_urls(value: object, found_urls: list[str], depth: int = 0) -> None:
+    """从登录缓存或接口响应中递归提取蓝湖项目链接。"""
+    if depth > 8:
+        return
+    parsed = parse_json_object(value)
+    if isinstance(parsed, str):
+        for matched in PROJECT_URL_PATTERN.findall(parsed):
+            found_urls.append(matched)
+        return
+    if isinstance(parsed, dict):
+        for item_value in parsed.values():
+            collect_project_urls(item_value, found_urls, depth + 1)
+        return
+    if isinstance(parsed, list):
+        for item_value in parsed[:100]:
+            collect_project_urls(item_value, found_urls, depth + 1)
 
 
 def normalize_project_item(item: dict) -> dict:
@@ -1068,6 +1462,7 @@ def normalize_project_item(item: dict) -> dict:
         or item.get("projectId")
         or item.get("pid")
         or item.get("projectID")
+        or item.get("project")
         or item.get("id")
         or ""
     )
@@ -1085,6 +1480,8 @@ def normalize_project_item(item: dict) -> dict:
         or item.get("name")
         or item.get("displayName")
         or item.get("title")
+        or item.get("folder_name")
+        or item.get("save_path")
         or "未命名项目"
     )
     project_type = item.get("type") or item.get("project_type") or item.get("projectType") or item.get("category") or ""
@@ -1120,8 +1517,48 @@ def normalize_project_item(item: dict) -> dict:
         "team_name": team_name,
         "owner_name": owner_name,
         "url": url,
+        "source": str(item.get("source") or "蓝湖接口"),
         "raw": item,
     }
+
+
+def projects_from_payload(payload: object, account_id: str = "") -> list[dict]:
+    """从登录缓存或接口响应里提取项目对象和项目链接。"""
+    projects = [
+        normalize_project_item(item)
+        for item in collect_dict_items(payload)
+    ]
+    found_urls: list[str] = []
+    collect_project_urls(payload, found_urls)
+    for project_url in found_urls:
+        parsed_project = parse_lanhu_project_url(project_url)
+        if parsed_project:
+            parsed_project["source"] = "登录缓存"
+            projects.append(parsed_project)
+    normalized_projects = merge_project_lists(projects)
+    for project in normalized_projects:
+        if account_id and not project.get("account_id"):
+            project["account_id"] = account_id
+    return normalized_projects
+
+
+def merge_project_lists(projects: list[dict]) -> list[dict]:
+    """按项目链接或 pid/tid 合并项目列表。"""
+    unique_projects: dict[str, dict] = {}
+    for project in projects:
+        if not project:
+            continue
+        key = (
+            str(project.get("url") or "")
+            or f"{project.get('team_id') or ''}:{project.get('id') or project.get('name') or ''}"
+        )
+        if not key or key == ":":
+            continue
+        if key in unique_projects:
+            unique_projects[key] = merge_identity_info(project, unique_projects[key])
+        else:
+            unique_projects[key] = dict(project)
+    return list(unique_projects.values())
 
 
 def fetch_lanhu_projects(cookie: str) -> tuple[bool, str, list[dict]]:
@@ -1143,19 +1580,29 @@ def fetch_lanhu_projects(cookie: str) -> tuple[bool, str, list[dict]]:
         except json.JSONDecodeError:
             errors.append(f"{endpoint}: 返回不是 JSON")
             continue
-        projects = [
-            normalize_project_item(item)
-            for item in collect_dict_items(payload)
-        ]
-        unique_projects: dict[str, dict] = {}
-        for project in projects:
-            key = project.get("id") or project.get("url") or project.get("name")
-            if key:
-                unique_projects.setdefault(str(key), project)
-        if unique_projects:
-            return True, f"已从 {endpoint} 读取项目", list(unique_projects.values())
+        projects = projects_from_payload(payload)
+        if projects:
+            return True, f"已从 {endpoint} 读取项目", projects
         errors.append(f"{endpoint}: 未发现项目字段")
     return False, "；".join(errors[-3:]) if errors else "未读取到项目", []
+
+
+def load_projects_for_account(account: dict) -> tuple[bool, str, list[dict]]:
+    """合并 API、登录缓存和本地保存的项目来源。"""
+    account_id = str(account.get("id") or "")
+    cached_projects = cached_projects_for_account(account_id)
+    raw_projects = projects_from_payload(account.get("raw", {}), account_id)
+    api_ok, api_message, api_projects = fetch_lanhu_projects(str(account.get("cookie") or ""))
+    all_projects = merge_project_lists(cached_projects + raw_projects + api_projects)
+    if all_projects:
+        data = read_projects_data()
+        persisted = merge_project_lists(data["projects"] + all_projects)
+        data["projects"] = persisted
+        write_projects_data(data)
+        if api_ok:
+            return True, f"{api_message}，共合并 {len(all_projects)} 个项目。", all_projects
+        return True, f"已从本地缓存/登录记录合并 {len(all_projects)} 个项目；API 提示: {api_message}", all_projects
+    return api_ok, api_message, api_projects
 
 
 # ============================================
@@ -1907,6 +2354,15 @@ def apply_modern_style(root: object) -> object:
     return style
 
 
+def center_window(root: object, width: int, height: int) -> None:
+    """按屏幕尺寸居中打开主窗口。"""
+    screen_width = root.winfo_screenwidth()
+    screen_height = root.winfo_screenheight()
+    left = max((screen_width - width) // 2, 0)
+    top = max((screen_height - height) // 2, 0)
+    root.geometry(f"{width}x{height}+{left}+{top}")
+
+
 def create_gui() -> None:
     """创建 Lanhu MCP 桌面控制台。"""
     bootstrap_tcl_tk_runtime()
@@ -1931,8 +2387,8 @@ def create_gui() -> None:
             root.iconbitmap(str(icon_path))
         except Exception:
             pass
-    root.geometry("1180x760")
-    root.minsize(1040, 680)
+    center_window(root, 1360, 860)
+    root.minsize(1060, 700)
     root.configure(bg=COLORS['bg'])
 
     # 主题样式统一由 ttk 接管，普通 tk 控件只保留必要颜色。
@@ -1946,12 +2402,19 @@ def create_gui() -> None:
     project_status_var = tk.StringVar(value="登录后可读取当前账号项目")
     project_count_var = tk.StringVar(value="0 个项目")
     login_status_var = tk.StringVar(value="未登录")
-    header_title_var = tk.StringVar(value="服务")
-    header_desc_var = tk.StringVar(value="启动前会校验蓝湖登录态，启动后显示全部 MCP 方法。")
+    header_title_var = tk.StringVar(value="总览")
+    header_desc_var = tk.StringVar(value="集中查看蓝湖账号、MCP 服务、项目和 AI 工具配置状态。")
     service_status_var = tk.StringVar(value="● 未运行")
     service_hint_var = tk.StringVar(value="请先登录蓝湖账号，然后启动 MCP 服务。")
     account_count_var = tk.StringVar(value="0 个账号")
     ide_count_var = tk.StringVar(value="0 / 0")
+    overview_account_var = tk.StringVar(value="未登录")
+    overview_service_var = tk.StringVar(value="未运行")
+    overview_project_var = tk.StringVar(value="0 个项目")
+    overview_tools_var = tk.StringVar(value=f"{len(MCP_TOOL_NAMES)} 个方法")
+    overview_ide_var = tk.StringVar(value="0 / 0")
+    runtime_var = tk.StringVar(value=app_runtime_label())
+    package_status_var = tk.StringVar(value=compare_packaged_outputs() or "当前运行路径已记录在日志中")
     account_options: list[dict] = []
     full_cookie = load_cookie()
     cookie_var.set(full_cookie)
@@ -1965,6 +2428,20 @@ def create_gui() -> None:
 
     content = tk.Frame(main, bg=COLORS['bg'])
     content.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    bg_deco = tk.Canvas(content, bg=COLORS['bg'], height=1, highlightthickness=0, bd=0)
+    bg_deco.place(relx=0, rely=0, relwidth=1, height=140)
+
+    def draw_background_decor(event: object = None) -> None:
+        """绘制轻量装饰线条，增强现代工作台氛围。"""
+        bg_deco.delete("all")
+        width = max(bg_deco.winfo_width(), 1)
+        for index in range(0, width, 34):
+            color = "#E7ECF3" if (index // 34) % 2 == 0 else "#F0F4F8"
+            bg_deco.create_line(index, 0, index + 92, 140, fill=color, width=1)
+        bg_deco.create_rectangle(0, 0, width, 140, outline="", fill="", stipple="gray75")
+
+    bg_deco.bind("<Configure>", draw_background_decor)
 
     brand = tk.Frame(sidebar, bg=COLORS['sidebar'])
     brand.pack(fill=tk.X, padx=18, pady=(22, 20))
@@ -2009,6 +2486,28 @@ def create_gui() -> None:
         wraplength=184,
         justify=tk.LEFT,
     ).pack(anchor='w')
+    tk.Label(
+        sidebar_footer,
+        textvariable=package_status_var,
+        fg="#8EA0B8",
+        bg=COLORS['sidebar'],
+        font=('Segoe UI', 8),
+        wraplength=184,
+        justify=tk.LEFT,
+    ).pack(anchor='w', pady=(8, 0))
+
+    sidebar_pulse = tk.Canvas(sidebar_footer, width=184, height=18, bg=COLORS['sidebar'], highlightthickness=0, bd=0)
+    sidebar_pulse.pack(anchor='w', pady=(10, 0))
+    pulse_step = {"value": 0}
+
+    def animate_sidebar_pulse() -> None:
+        """绘制侧栏状态呼吸条。"""
+        pulse_step["value"] = (pulse_step["value"] + 1) % 36
+        sidebar_pulse.delete("all")
+        sidebar_pulse.create_line(0, 9, 184, 9, fill="#31405E", width=2)
+        start = pulse_step["value"] * 5
+        sidebar_pulse.create_line(start % 184, 9, min((start % 184) + 34, 184), 9, fill="#38BDF8", width=2)
+        root.after(90, animate_sidebar_pulse)
 
     header = tk.Frame(content, bg=COLORS['bg'])
     header.pack(fill=tk.X, padx=24, pady=(22, 14))
@@ -2030,6 +2529,7 @@ def create_gui() -> None:
     ).pack(anchor='w', pady=(4, 0))
     header_stats = tk.Frame(header, bg=COLORS['bg'])
     header_stats.pack(side=tk.RIGHT)
+    header_stat_cells: list[tk.Frame] = []
     for stat_label, stat_var in (
         ("账号", account_count_var),
         ("项目", project_count_var),
@@ -2037,20 +2537,57 @@ def create_gui() -> None:
     ):
         stat_cell = tk.Frame(header_stats, bg="#FFFFFF", highlightbackground=COLORS['border_light'], highlightthickness=1)
         stat_cell.pack(side=tk.LEFT, padx=(8, 0))
+        header_stat_cells.append(stat_cell)
         tk.Label(stat_cell, text=stat_label, bg="#FFFFFF", fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(padx=12, pady=(7, 0))
         tk.Label(stat_cell, textvariable=stat_var, bg="#FFFFFF", fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(padx=12, pady=(1, 7))
+
+    def layout_header(event: object = None) -> None:
+        """根据窗口宽度调整顶部统计区位置。"""
+        root_width = root.winfo_width()
+        header_stats.pack_forget()
+        if root_width < 1180:
+            header_stats.pack(anchor='w', pady=(12, 0))
+            return
+        header_stats.pack(side=tk.RIGHT)
+
+    root.bind("<Configure>", layout_header)
 
     page_shell = tk.Frame(content, bg=COLORS['bg'])
     page_shell.pack(fill=tk.BOTH, expand=True, padx=24, pady=(0, 18))
     pages: dict[str, tk.Frame] = {}
+    page_canvases: dict[str, tk.Canvas] = {}
     nav_buttons: dict[str, tk.Frame] = {}
     icon_images: dict[str, object] = {}
     avatar_images: dict[str, object] = {}
 
     def create_page(page_key: str) -> tk.Frame:
-        """创建一个右侧页面容器。"""
-        page = tk.Frame(page_shell, bg=COLORS['bg'])
-        pages[page_key] = page
+        """创建一个可滚动右侧页面容器。"""
+        viewport = tk.Frame(page_shell, bg=COLORS['bg'])
+        canvas = tk.Canvas(viewport, bg=COLORS['bg'], highlightthickness=0, bd=0)
+        scrollbar = tk.Scrollbar(viewport, orient=tk.VERTICAL, command=canvas.yview)
+        page = tk.Frame(canvas, bg=COLORS['bg'])
+        window_id = canvas.create_window((0, 0), window=page, anchor='nw')
+
+        def _sync_scroll_region(event: object = None) -> None:
+            """同步滚动区域，确保窗口缩放后仍可访问全部内容。"""
+            canvas.configure(scrollregion=canvas.bbox("all"))
+
+        def _sync_page_width(event: object) -> None:
+            """让页面宽度跟随可视区域变化。"""
+            canvas.itemconfigure(window_id, width=event.width)
+
+        def _on_mousewheel(event: object) -> None:
+            """支持鼠标滚轮滚动页面。"""
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        page.bind("<Configure>", _sync_scroll_region)
+        canvas.bind("<Configure>", _sync_page_width)
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        pages[page_key] = viewport
+        page_canvases[page_key] = canvas
         return page
 
     def create_lucide_icon(
@@ -2085,7 +2622,12 @@ def create_gui() -> None:
             """绘制图标矩形轮廓。"""
             canvas.create_rectangle(*box, outline=color, width=stroke)
 
-        if icon_name in ("service", "server-cog", "settings"):
+        if icon_name in ("overview", "layout-dashboard"):
+            rect((3, 3, size // 2 - 1, size // 2 - 1))
+            rect((size // 2 + 2, 3, size - 3, size // 2 + 4))
+            rect((3, size // 2 + 2, size // 2 + 3, size - 3))
+            rect((size // 2 + 4, size // 2 + 6, size - 3, size - 3))
+        elif icon_name in ("service", "server-cog", "settings"):
             oval((4, 4, size - 4, size - 4))
             oval((size // 2 - 3, size // 2 - 3, size // 2 + 3, size // 2 + 3))
             line([size // 2, 1, size // 2, 5])
@@ -2111,6 +2653,14 @@ def create_gui() -> None:
             line([8, 8, size - 7, 8])
             line([8, 12, size - 7, 12])
             line([8, 16, size - 9, 16])
+        elif icon_name in ("activity", "pulse"):
+            line([2, size // 2, 6, size // 2, 9, 5, size - 9, size - 5, size - 6, size // 2, size - 2, size // 2])
+        elif icon_name in ("database", "layers"):
+            oval((4, 3, size - 4, 8))
+            line([4, 6, 4, size - 5])
+            line([size - 4, 6, size - 4, size - 5])
+            oval((4, size - 8, size - 4, size - 3))
+            line([4, size // 2, size - 4, size // 2])
         elif icon_name in ("login", "key-round"):
             oval((3, 6, 10, 13))
             line([10, 10, size - 3, 10])
@@ -2193,6 +2743,92 @@ def create_gui() -> None:
         setattr(card, "body", body)
         return card
 
+    def make_metric_tile(parent: tk.Misc, label: str, value_var: object, accent: str) -> tk.Frame:
+        """创建紧凑指标块。"""
+        tile = tk.Frame(parent, bg='#F8FAFC', highlightbackground=COLORS['border_light'], highlightthickness=1)
+        tk.Frame(tile, bg=accent, width=3).pack(side=tk.LEFT, fill=tk.Y)
+        content_frame = tk.Frame(tile, bg='#F8FAFC')
+        content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=8)
+        tk.Label(content_frame, text=label, bg='#F8FAFC', fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(anchor='w')
+        tk.Label(content_frame, textvariable=value_var, bg='#F8FAFC', fg=COLORS['text_primary'], font=('Segoe UI', 12, 'bold')).pack(anchor='w', pady=(2, 0))
+        return tile
+
+    def make_overview_tile(
+        parent: tk.Misc,
+        title: str,
+        value_var: object,
+        detail: str,
+        icon_name: str,
+        accent: str,
+    ) -> tk.Frame:
+        """创建总览页的大号指标块。"""
+        tile = tk.Frame(parent, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+        top = tk.Frame(tile, bg=COLORS['card'])
+        top.pack(fill=tk.X, padx=16, pady=(15, 8))
+        icon_shell = tk.Frame(top, bg=COLORS['surface'], width=34, height=34)
+        icon_shell.pack(side=tk.LEFT)
+        icon_shell.pack_propagate(False)
+        create_lucide_icon(icon_shell, icon_name, accent, 20, COLORS['surface']).pack(expand=True)
+        tk.Label(top, text=title, bg=COLORS['card'], fg=COLORS['text_secondary'], font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, padx=(10, 0))
+        tk.Label(
+            tile,
+            textvariable=value_var,
+            bg=COLORS['card'],
+            fg=COLORS['text_primary'],
+            font=('Segoe UI', 18, 'bold'),
+        ).pack(anchor='w', padx=16)
+        tk.Label(
+            tile,
+            text=detail,
+            bg=COLORS['card'],
+            fg=COLORS['text_muted'],
+            font=('Segoe UI', 8),
+            wraplength=220,
+            justify=tk.LEFT,
+        ).pack(anchor='w', padx=16, pady=(5, 15))
+        return tile
+
+    def make_empty_state(parent: tk.Misc, icon_name: str, title: str, detail: str) -> tk.Frame:
+        """创建空状态块。"""
+        state = tk.Frame(parent, bg='#F8FAFC', highlightbackground=COLORS['border_light'], highlightthickness=1)
+        state.pack(fill=tk.X)
+        state_inner = tk.Frame(state, bg='#F8FAFC')
+        state_inner.pack(fill=tk.X, padx=18, pady=18)
+        create_lucide_icon(state_inner, icon_name, COLORS['primary'], 28, '#F8FAFC').pack(side=tk.LEFT, padx=(0, 12))
+        text_frame = tk.Frame(state_inner, bg='#F8FAFC')
+        text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(text_frame, text=title, bg='#F8FAFC', fg=COLORS['text_primary'], font=('Segoe UI', 11, 'bold')).pack(anchor='w')
+        tk.Label(text_frame, text=detail, bg='#F8FAFC', fg=COLORS['text_muted'], font=('Segoe UI', 9), wraplength=760, justify=tk.LEFT).pack(anchor='w', pady=(4, 0))
+        return state
+
+    def pack_responsive_pair(
+        host: tk.Misc,
+        left: tk.Widget,
+        right: tk.Widget,
+        breakpoint: int = 980,
+    ) -> None:
+        """根据窗口宽度在双栏和单栏之间切换。"""
+        layout_state = {"mode": ""}
+
+        def _apply_layout(event: object = None) -> None:
+            """响应窗口尺寸变化重排两个卡片。"""
+            host_width = host.winfo_width() or root.winfo_width()
+            target_mode = "single" if host_width < breakpoint else "double"
+            if layout_state["mode"] == target_mode:
+                return
+            layout_state["mode"] = target_mode
+            left.pack_forget()
+            right.pack_forget()
+            if target_mode == "single":
+                left.pack(fill=tk.X, expand=False, pady=(0, 12))
+                right.pack(fill=tk.X, expand=False)
+                return
+            left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
+            right.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        host.bind("<Configure>", _apply_layout)
+        root.after(50, _apply_layout)
+
     def card_body(card: tk.Frame) -> ttk.Frame:
         """返回卡片内容区。"""
         return getattr(card, "body")
@@ -2215,6 +2851,7 @@ def create_gui() -> None:
     def show_page(page_key: str) -> None:
         """切换主内容页面。"""
         page_meta = {
+            "overview": ("总览", "集中查看蓝湖账号、MCP 服务、项目和 AI 工具配置状态。"),
             "service": ("服务", "登录蓝湖后启动 MCP 服务，启动成功后显示全部可用方法。"),
             "projects": ("项目", "读取当前蓝湖账号可访问的项目，便于复制项目链接给 AI 使用。"),
             "tools": ("AI 工具", "自动识别 Codex、Claude、Mimo、Cursor、Trae 等工具并写入 MCP 配置。"),
@@ -2224,11 +2861,13 @@ def create_gui() -> None:
         for page in pages.values():
             page.pack_forget()
         pages[page_key].pack(fill=tk.BOTH, expand=True)
+        page_canvases[page_key].yview_moveto(0)
         header_title_var.set(page_meta[page_key][0])
         header_desc_var.set(page_meta[page_key][1])
         set_nav_active(page_key)
 
     nav_items = [
+        ("overview", "layout-dashboard", "总览"),
         ("service", "service", "服务"),
         ("projects", "projects", "项目"),
         ("tools", "tools", "AI 工具"),
@@ -2270,11 +2909,153 @@ def create_gui() -> None:
         nav_label.bind("<Button-1>", lambda event, page_key=key: show_page(page_key))
         nav_buttons[key] = nav_button
 
+    overview_page = create_page("overview")
     service_page = create_page("service")
     projects_page = create_page("projects")
     tools_page = create_page("tools")
     account_page = create_page("account")
     logs_page = create_page("logs")
+
+    # 总览页：作为默认入口，把常用状态和动作集中在第一屏。
+    overview_hero = tk.Frame(overview_page, bg="#111820", highlightbackground="#24313B", highlightthickness=1)
+    overview_hero.pack(fill=tk.X)
+    overview_hero_inner = tk.Frame(overview_hero, bg="#111820")
+    overview_hero_inner.pack(fill=tk.X, padx=22, pady=20)
+    overview_hero_text = tk.Frame(overview_hero_inner, bg="#111820")
+    overview_hero_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    tk.Label(
+        overview_hero_text,
+        text="Lanhu MCP 工作台",
+        bg="#111820",
+        fg="#FFFFFF",
+        font=('Segoe UI', 20, 'bold'),
+    ).pack(anchor='w')
+    tk.Label(
+        overview_hero_text,
+        text="登录蓝湖账号后启动服务，把项目、设计稿、切图和团队消息交给 AI IDE 直接调用。",
+        bg="#111820",
+        fg="#B9C5D2",
+        font=('Segoe UI', 10),
+        wraplength=760,
+        justify=tk.LEFT,
+    ).pack(anchor='w', pady=(6, 0))
+    overview_runtime = tk.Frame(overview_hero_text, bg="#17212B")
+    overview_runtime.pack(fill=tk.X, pady=(14, 0))
+    tk.Label(
+        overview_runtime,
+        textvariable=runtime_var,
+        bg="#17212B",
+        fg="#A7F3D0",
+        font=('Consolas', 8),
+        wraplength=760,
+        justify=tk.LEFT,
+    ).pack(anchor='w', padx=12, pady=8)
+    overview_actions = tk.Frame(overview_hero_inner, bg="#111820")
+    overview_actions.pack(side=tk.RIGHT, padx=(18, 0))
+    overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=14)
+    overview_login_btn.pack(fill=tk.X, pady=(0, 8))
+    overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=14)
+    overview_start_btn.pack(fill=tk.X, pady=(0, 8))
+    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='TButton', width=14)
+    overview_config_btn.pack(fill=tk.X)
+
+    overview_metrics = tk.Frame(overview_page, bg=COLORS['bg'])
+    overview_metrics.pack(fill=tk.X, pady=(14, 0))
+    metric_specs = (
+        ("账号", overview_account_var, "多账号可切换，服务启动前会强制检查登录态。", "user", COLORS['primary']),
+        ("服务", overview_service_var, "HTTP MCP 服务启动后可被 Codex、Claude、Mimo 等工具调用。", "activity", COLORS['success']),
+        ("项目", overview_project_var, "自动接口、登录缓存和手动链接三路合并项目。", "folder-kanban", COLORS['accent_warm']),
+        ("方法", overview_tools_var, "动态扫描当前服务注册的全部 MCP 方法。", "list-checks", COLORS['accent']),
+    )
+    for index, (title, value_var, detail, icon_name, accent) in enumerate(metric_specs):
+        tile = make_overview_tile(overview_metrics, title, value_var, detail, icon_name, accent)
+        tile.grid(row=0, column=index, sticky='nsew', padx=(0 if index == 0 else 12, 0))
+        overview_metrics.columnconfigure(index, weight=1)
+
+    overview_main = tk.Frame(overview_page, bg=COLORS['bg'])
+    overview_main.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
+    overview_left = make_card(overview_main, "下一步操作", "wand-sparkles")
+    overview_right = make_card(overview_main, "诊断与能力", "database")
+    pack_responsive_pair(overview_main, overview_left, overview_right)
+    overview_left_body = card_body(overview_left)
+    overview_right_body = card_body(overview_right)
+    quick_rows = [
+        ("完成蓝湖登录", "添加或切换蓝湖账号，登录成功后才能启动服务。", "account"),
+        ("刷新项目列表", "项目页会尝试接口、登录缓存和本地手动链接三种来源。", "projects"),
+        ("写入 AI 工具配置", "检测 Codex、Claude、Mimo、Cursor、Trae、Windsurf 等常见开发工具。", "tools"),
+        ("查看服务日志", "启动失败、登录诊断和配置结果都会写到日志页。", "logs"),
+    ]
+    for row_index, (title, detail, target_page) in enumerate(quick_rows):
+        row = tk.Frame(overview_left_body, bg=COLORS['surface'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+        row.pack(fill=tk.X, pady=(0 if row_index == 0 else 8, 0))
+        row_inner = tk.Frame(row, bg=COLORS['surface'])
+        row_inner.pack(fill=tk.X, padx=12, pady=10)
+        tk.Label(row_inner, text=title, bg=COLORS['surface'], fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(anchor='w')
+        tk.Label(row_inner, text=detail, bg=COLORS['surface'], fg=COLORS['text_muted'], font=('Segoe UI', 8), wraplength=520, justify=tk.LEFT).pack(anchor='w', pady=(3, 0))
+        row.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
+        row_inner.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
+
+    tk.Label(
+        overview_right_body,
+        textvariable=package_status_var,
+        bg=COLORS['card'],
+        fg=COLORS['warning'] if "注意" in package_status_var.get() else COLORS['text_secondary'],
+        font=('Segoe UI', 9, 'bold'),
+        wraplength=520,
+        justify=tk.LEFT,
+    ).pack(anchor='w')
+    tk.Label(
+        overview_right_body,
+        textvariable=overview_ide_var,
+        bg=COLORS['card'],
+        fg=COLORS['text_primary'],
+        font=('Segoe UI', 16, 'bold'),
+    ).pack(anchor='w', pady=(12, 2))
+    tk.Label(
+        overview_right_body,
+        text="已识别 AI 开发工具数量。点击 AI 工具页可查看每个工具的安装路径、配置路径和写入结果。",
+        bg=COLORS['card'],
+        fg=COLORS['text_muted'],
+        font=('Segoe UI', 8),
+        wraplength=520,
+        justify=tk.LEFT,
+    ).pack(anchor='w')
+    method_groups_frame = tk.Frame(overview_right_body, bg=COLORS['card'])
+    method_groups_frame.pack(fill=tk.X, pady=(14, 0))
+    for group_index, (group_name, group_tools) in enumerate(group_mcp_tools(MCP_TOOL_NAMES).items()):
+        group_chip = tk.Frame(method_groups_frame, bg=COLORS['primary_light'])
+        group_chip.pack(side=tk.LEFT, padx=(0 if group_index == 0 else 8, 0), pady=(0, 8))
+        tk.Label(
+            group_chip,
+            text=f"{group_name} {len(group_tools)}",
+            bg=COLORS['primary_light'],
+            fg=COLORS['primary'],
+            font=('Segoe UI', 8, 'bold'),
+            padx=9,
+            pady=4,
+        ).pack()
+
+    overview_metric_layout = {"mode": ""}
+
+    def layout_overview_metrics(event: object = None) -> None:
+        """根据窗口宽度重排总览指标卡。"""
+        mode = "two" if root.winfo_width() < 1180 else "four"
+        if overview_metric_layout["mode"] == mode:
+            return
+        overview_metric_layout["mode"] = mode
+        tiles = list(overview_metrics.winfo_children())
+        for tile in tiles:
+            tile.grid_forget()
+        columns = 2 if mode == "two" else 4
+        for index, tile in enumerate(tiles):
+            row = index // columns
+            col = index % columns
+            tile.grid(row=row, column=col, sticky='nsew', padx=(0 if col == 0 else 12, 0), pady=(0 if row == 0 else 12, 0))
+        for col in range(4):
+            overview_metrics.columnconfigure(col, weight=1 if col < columns else 0)
+
+    root.bind("<Configure>", layout_overview_metrics, add="+")
+    root.after(80, layout_overview_metrics)
 
     # 日志页需要先创建，后续所有回调都会写日志。
     log_card = make_card(logs_page, "运行日志", "scroll-text", padding=12)
@@ -2356,9 +3137,8 @@ def create_gui() -> None:
     service_top = tk.Frame(service_page, bg=COLORS['bg'])
     service_top.pack(fill=tk.X)
     status_card = make_card(service_top, "服务状态", "server-cog")
-    status_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 12))
     method_card = make_card(service_top, f"支持的方法 ({len(MCP_TOOL_NAMES)})", "list-checks")
-    method_card.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    pack_responsive_pair(service_top, status_card, method_card)
     status_body = card_body(status_card)
     method_body = card_body(method_card)
 
@@ -2403,10 +3183,8 @@ def create_gui() -> None:
         ("方法", tk.StringVar(value=f"{len(MCP_TOOL_NAMES)} 个方法")),
     ]
     for label_text, value_var in capability_data:
-        cell = tk.Frame(capability_frame, bg='#F8FAFC', highlightbackground=COLORS['border_light'], highlightthickness=1)
-        cell.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
-        tk.Label(cell, text=label_text, bg='#F8FAFC', fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(anchor='w', padx=10, pady=(8, 0))
-        tk.Label(cell, textvariable=value_var, bg='#F8FAFC', fg=COLORS['text_primary'], font=('Segoe UI', 11, 'bold')).pack(anchor='w', padx=10, pady=(2, 8))
+        tile = make_metric_tile(capability_frame, label_text, value_var, COLORS['primary'])
+        tile.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
 
     tools_grid = ttk.Frame(method_body, style='Card.TFrame')
     tools_grid.pack(fill=tk.BOTH, expand=True)
@@ -2416,13 +3194,12 @@ def create_gui() -> None:
         for widget in tools_grid.winfo_children():
             widget.destroy()
         if not enabled:
-            ttk.Label(
+            make_empty_state(
                 tools_grid,
-                text=f"服务启动成功后显示当前支持的全部 {len(MCP_TOOL_NAMES)} 个 MCP 方法。",
-                style='Hint.TLabel',
-                background=COLORS['card'],
-                wraplength=420,
-            ).grid(row=0, column=0, sticky='w')
+                "list-checks",
+                "等待服务启动",
+                f"服务启动成功后会展示当前支持的全部 {len(MCP_TOOL_NAMES)} 个 MCP 方法，并按使用场景分组。",
+            )
             return
         row_index = 0
         for group_name, group_tools in group_mcp_tools(MCP_TOOL_NAMES).items():
@@ -2523,7 +3300,6 @@ def create_gui() -> None:
     project_summary = tk.Frame(projects_page, bg=COLORS['bg'])
     project_summary.pack(fill=tk.X)
     project_status_card = make_card(project_summary, "项目概览", "folder-kanban")
-    project_status_card.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
     project_status_body = card_body(project_status_card)
     ttk.Label(
         project_status_body,
@@ -2546,17 +3322,43 @@ def create_gui() -> None:
         wraplength=420,
     ).pack(anchor='w', pady=(6, 0))
     project_action_card = make_card(project_summary, "项目操作", "refresh-cw")
-    project_action_card.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    pack_responsive_pair(project_summary, project_status_card, project_action_card)
     project_action_body = card_body(project_action_card)
     refresh_projects_btn = ttk.Button(project_action_body, text="刷新项目", style='Primary.TButton')
-    refresh_projects_btn.pack(side=tk.LEFT)
+    refresh_projects_btn.pack(side=tk.LEFT, pady=(0, 10))
     open_lanhu_home_btn = ttk.Button(
         project_action_body,
         text="打开蓝湖",
         style='TButton',
         command=lambda: webbrowser.open(DEFAULT_LANHU_LOGIN_URL),
     )
-    open_lanhu_home_btn.pack(side=tk.LEFT, padx=(10, 0))
+    open_lanhu_home_btn.pack(side=tk.LEFT, padx=(10, 0), pady=(0, 10))
+    manual_project_row = ttk.Frame(project_action_body, style='Card.TFrame')
+    manual_project_row.pack(fill=tk.X, pady=(6, 0))
+    manual_project_url_var = tk.StringVar()
+    ttk.Entry(
+        manual_project_row,
+        textvariable=manual_project_url_var,
+    ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+    save_project_btn = ttk.Button(manual_project_row, text="保存项目链接", style='Small.TButton', width=14)
+    save_project_btn.pack(side=tk.LEFT, padx=(8, 0))
+    ttk.Label(
+        project_action_body,
+        text="如果自动读取失败，可在蓝湖打开任意项目后复制地址粘贴到这里；保存后同样会出现在当前账号项目列表。",
+        style='Hint.TLabel',
+        background=COLORS['card'],
+        wraplength=520,
+    ).pack(anchor='w', pady=(8, 0))
+
+    project_diagnostic_var = tk.StringVar(value=f"自动读取会尝试 {len(PROJECT_ENDPOINTS)} 个蓝湖项目接口，并合并登录缓存和本地项目。")
+    ttk.Label(
+        project_action_body,
+        textvariable=project_diagnostic_var,
+        style='Hint.TLabel',
+        background=COLORS['card'],
+        wraplength=520,
+        justify=tk.LEFT,
+    ).pack(anchor='w', pady=(6, 0))
 
     projects_card = make_card(projects_page, "当前账号项目", "folder-kanban")
     projects_card.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
@@ -2569,15 +3371,15 @@ def create_gui() -> None:
         for widget in projects_list.winfo_children():
             widget.destroy()
         project_count_var.set(f"{len(projects)} 个项目")
+        overview_project_var.set(f"{len(projects)} 个项目")
         if not projects:
             empty_text = message or "尚未读取到项目。请先登录账号，然后点击刷新项目。"
-            ttk.Label(
+            make_empty_state(
                 projects_list,
-                text=empty_text,
-                style='Hint.TLabel',
-                background=COLORS['card'],
-                wraplength=720,
-            ).pack(anchor='w')
+                "folder-kanban",
+                "还没有读取到项目",
+                f"{empty_text} 也可以手动粘贴蓝湖项目链接保存到本地项目列表。",
+            )
             return
         for index, project in enumerate(projects):
             row = tk.Frame(
@@ -2618,6 +3420,8 @@ def create_gui() -> None:
                 meta_parts.append(f"负责人 {project.get('owner_name')}")
             if project.get("updated_at"):
                 meta_parts.append(f"更新 {project.get('updated_at')}")
+            if project.get("source"):
+                meta_parts.append(f"来源 {project.get('source')}")
             tk.Label(
                 info,
                 text="  |  ".join(meta_parts),
@@ -2656,18 +3460,38 @@ def create_gui() -> None:
         log("正在读取当前账号项目列表", 'info')
 
         def _load() -> None:
-            ok, message, projects = fetch_lanhu_projects(active.get("cookie", ""))
+            ok, message, projects = load_projects_for_account(active)
             root.after(0, lambda: _finish(ok, message, projects))
 
         def _finish(ok: bool, message: str, projects: list[dict]) -> None:
             refresh_projects_btn.config(state=tk.NORMAL)
             project_status_var.set(message)
+            project_diagnostic_var.set(
+                f"接口候选 {len(PROJECT_ENDPOINTS)} 个；当前结果 {len(projects)} 个。{message}"
+            )
             render_project_rows(projects, message)
             log(message, 'success' if ok else 'warn')
 
         threading.Thread(target=_load, daemon=True).start()
 
     refresh_projects_btn.config(command=refresh_projects)
+
+    def save_manual_project_from_input() -> None:
+        """保存用户粘贴的蓝湖项目链接。"""
+        active = get_active_account()
+        account_id = str(active.get("id") if active else "")
+        ok, message, project = save_manual_project(manual_project_url_var.get(), account_id)
+        log(message, 'success' if ok else 'warn')
+        if not ok:
+            messagebox.showwarning("项目链接", message)
+            return
+        manual_project_url_var.set("")
+        merged_projects = merge_project_lists(cached_projects_for_account(account_id) + ([project] if project else []))
+        render_project_rows(merged_projects, message)
+        project_status_var.set(message)
+        project_diagnostic_var.set(f"已保存手动项目链接；当前本地缓存 {len(merged_projects)} 个项目。")
+
+    save_project_btn.config(command=save_manual_project_from_input)
     render_project_rows([])
 
     # 账号页
@@ -2698,6 +3522,34 @@ def create_gui() -> None:
     account_combo = ttk.Combobox(account_top, textvariable=account_var, width=30, state='readonly')
     account_combo.pack(side=tk.RIGHT)
 
+    account_detail_grid = tk.Frame(account_body, bg=COLORS['card'])
+    account_detail_grid.pack(fill=tk.X, pady=(14, 0))
+    account_detail_vars = {
+        "email": tk.StringVar(value="未读取到"),
+        "mobile": tk.StringVar(value="未读取到"),
+        "username": tk.StringVar(value="未读取到"),
+        "avatar": tk.StringVar(value="未读取到"),
+    }
+    for detail_index, (detail_label, detail_key) in enumerate((
+        ("邮箱", "email"),
+        ("手机", "mobile"),
+        ("用户名", "username"),
+        ("头像", "avatar"),
+    )):
+        detail_cell = tk.Frame(account_detail_grid, bg=COLORS['surface'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+        detail_cell.grid(row=0, column=detail_index, sticky='ew', padx=(0 if detail_index == 0 else 8, 0))
+        account_detail_grid.columnconfigure(detail_index, weight=1)
+        tk.Label(detail_cell, text=detail_label, bg=COLORS['surface'], fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(anchor='w', padx=10, pady=(8, 0))
+        tk.Label(
+            detail_cell,
+            textvariable=account_detail_vars[detail_key],
+            bg=COLORS['surface'],
+            fg=COLORS['text_primary'],
+            font=('Segoe UI', 9, 'bold'),
+            wraplength=180,
+            justify=tk.LEFT,
+        ).pack(anchor='w', padx=10, pady=(2, 8))
+
     login_url_row = ttk.Frame(account_body, style='Card.TFrame')
     login_url_row.pack(fill=tk.X, pady=(14, 0))
     ttk.Label(
@@ -2720,6 +3572,8 @@ def create_gui() -> None:
     account_button_row.pack(fill=tk.X, pady=(14, 0))
     login_btn = ttk.Button(account_button_row, text="添加账号 / 一键登录", style='Primary.TButton')
     login_btn.pack(side=tk.LEFT)
+    refresh_profile_btn = ttk.Button(account_button_row, text="刷新资料", style='TButton')
+    refresh_profile_btn.pack(side=tk.LEFT, padx=(10, 0))
     save_cookie_btn = ttk.Button(account_button_row, text="保存 Cookie", style='Success.TButton')
     save_cookie_btn.pack(side=tk.LEFT, padx=(10, 0))
     logout_btn = ttk.Button(account_button_row, text="退出当前账号", style='Danger.TButton')
@@ -2919,7 +3773,12 @@ def create_gui() -> None:
             account_meta_var.set(
                 f"{account_detail_line(active)}\n{account_profile_line(active)}\n{account_cookie_line(active)}"
             )
+            account_detail_vars["email"].set(str(active.get("email") or "未读取到"))
+            account_detail_vars["mobile"].set(str(active.get("mobile") or "未读取到"))
+            account_detail_vars["username"].set(str(active.get("username") or active.get("nickname") or "未读取到"))
+            account_detail_vars["avatar"].set("已缓存" if avatar_cache_path(active).exists() else ("已读取 URL" if active.get("avatar") else "未读取到"))
             login_status_var.set(f"当前账号\n{active.get('name', '蓝湖用户')}")
+            overview_account_var.set(str(active.get('name') or account_primary_contact(active)))
             service_hint_var.set("账号已就绪，可以启动 MCP 服务。")
             project_status_var.set("账号已就绪，可刷新当前用户项目。")
         else:
@@ -2928,7 +3787,12 @@ def create_gui() -> None:
             cookie_var.set("")
             account_title_var.set("未登录蓝湖")
             account_meta_var.set("登录后才能启动 MCP 服务；支持多个蓝湖账号切换。")
+            account_detail_vars["email"].set("未读取到")
+            account_detail_vars["mobile"].set("未读取到")
+            account_detail_vars["username"].set("未读取到")
+            account_detail_vars["avatar"].set("未读取到")
             login_status_var.set("未登录\n服务启动会被拦截")
+            overview_account_var.set("未登录")
             service_hint_var.set("请先完成蓝湖登录，服务启动需要有效 Cookie。")
             project_status_var.set("登录后可读取当前账号项目。")
             render_project_rows([])
@@ -2943,7 +3807,7 @@ def create_gui() -> None:
                 if account.get("avatar") and not avatar_cache_path(account).exists():
                     changed = bool(download_avatar(account)) or changed
             if changed:
-                root.after(0, lambda: render_account_rows(get_accounts(), get_active_account().get("id", "") if get_active_account() else ""))
+                root.after(0, refresh_accounts)
 
         threading.Thread(target=_download_avatars, daemon=True).start()
 
@@ -2972,6 +3836,22 @@ def create_gui() -> None:
             log(message, 'info')
 
         threading.Thread(target=_load_profile, daemon=True).start()
+
+    def refresh_current_profile() -> None:
+        """主动刷新当前账号资料和项目。"""
+        active = get_active_account()
+        if not active or not active.get("cookie"):
+            messagebox.showwarning("需要登录", "请先登录蓝湖账号。")
+            return
+        refresh_profile_btn.config(state=tk.DISABLED)
+        log("正在刷新当前账号资料...", 'info')
+
+        def _restore_button() -> None:
+            refresh_profile_btn.config(state=tk.NORMAL)
+            refresh_projects()
+
+        refresh_account_profile(str(active.get("cookie") or ""), active)
+        root.after(1600, _restore_button)
 
     def on_account_change(*args: object) -> None:
         """处理账号下拉切换。"""
@@ -3133,6 +4013,7 @@ def create_gui() -> None:
         log(f"已退出账号: {target_name}", 'warn')
 
     login_btn.config(command=do_login)
+    refresh_profile_btn.config(command=refresh_current_profile)
     save_cookie_btn.config(command=do_save_cookie)
     logout_btn.config(command=do_logout_account)
 
@@ -3140,7 +4021,6 @@ def create_gui() -> None:
     tools_summary = tk.Frame(tools_page, bg=COLORS['bg'])
     tools_summary.pack(fill=tk.X)
     tools_status_card = make_card(tools_summary, "识别概览", "bot")
-    tools_status_card.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 12))
     tools_status_body = card_body(tools_status_card)
     ttk.Label(
         tools_status_body,
@@ -3155,7 +4035,7 @@ def create_gui() -> None:
         background=COLORS['card'],
     ).pack(anchor='w', pady=(4, 0))
     tools_action_card = make_card(tools_summary, "批量操作", "wand-sparkles")
-    tools_action_card.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    pack_responsive_pair(tools_summary, tools_status_card, tools_action_card)
     tools_action_body = card_body(tools_action_card)
     config_all_btn = ttk.Button(tools_action_body, text="一键配置全部", style='Primary.TButton')
     config_all_btn.pack(side=tk.LEFT)
@@ -3176,25 +4056,51 @@ def create_gui() -> None:
         details = IDEManager.get_detection_details()
         installed_count = sum(1 for value in detected.values() if value)
         ide_count_var.set(f"{installed_count} / {len(detected)}")
-        max_cols = 2
+        overview_ide_var.set(f"{installed_count} / {len(detected)} 个工具")
+        max_cols = 1 if root.winfo_width() < 1160 else 2
         for index, (name, installed) in enumerate(detected.items()):
             row = index // max_cols
             col = index % max_cols
-            cell = ttk.Frame(ide_grid, style='Card.TFrame', padding=(0, 6))
+            cell_bg = '#F8FAFC' if installed else '#FFFFFF'
+            cell = tk.Frame(
+                ide_grid,
+                bg=cell_bg,
+                highlightbackground=COLORS['primary_light'] if installed else COLORS['border_light'],
+                highlightthickness=1,
+            )
             cell.grid(row=row, column=col, sticky='ew', padx=(0 if col == 0 else 16, 0), pady=3)
             ide_grid.columnconfigure(col, weight=1)
             detail = details.get(name, {})
-            title = ttk.Frame(cell, style='Card.TFrame')
-            title.pack(fill=tk.X)
+            cell_inner = tk.Frame(cell, bg=cell_bg)
+            cell_inner.pack(fill=tk.X, padx=12, pady=10)
+            create_lucide_icon(
+                cell_inner,
+                str(detail.get('icon') or 'plug-zap'),
+                COLORS['success'] if installed else COLORS['text_muted'],
+                20,
+                cell_bg,
+            ).pack(side=tk.LEFT, padx=(0, 10))
+            title = tk.Frame(cell_inner, bg=cell_bg)
+            title.pack(side=tk.LEFT, fill=tk.X, expand=True)
             status_text = "●" if installed else "○"
             status_color = COLORS['success'] if installed else COLORS['text_muted']
-            ttk.Label(
+            tk.Label(
                 title,
                 text=f"{status_text} {name}",
                 foreground=status_color,
-                background=COLORS['card'],
+                background=cell_bg,
                 font=('Segoe UI', 9, 'bold' if installed else 'normal'),
-            ).pack(side=tk.LEFT)
+            ).pack(anchor='w')
+            detail_text = detail.get('exe_path') or detail.get('config_path') or "未发现安装路径或配置目录"
+            tk.Label(
+                title,
+                text=str(detail_text),
+                fg=COLORS['text_muted'],
+                bg=cell_bg,
+                font=('Segoe UI', 8),
+                wraplength=420,
+                justify=tk.LEFT,
+            ).pack(anchor='w', pady=(4, 0))
             if installed:
                 def make_cfg(ide: str = name) -> None:
                     """配置单个 AI 工具。"""
@@ -3210,15 +4116,7 @@ def create_gui() -> None:
                         log(f"[WARN] {msg}", 'warn')
                         messagebox.showwarning("配置提示", msg)
 
-                ttk.Button(title, text="配置", style='Small.TButton', width=10, command=make_cfg).pack(side=tk.RIGHT)
-            detail_text = detail.get('exe_path') or detail.get('config_path') or "未发现安装路径或配置目录"
-            ttk.Label(
-                cell,
-                text=str(detail_text),
-                style='Hint.TLabel',
-                background=COLORS['card'],
-                wraplength=420,
-            ).pack(anchor='w', pady=(4, 0))
+                ttk.Button(cell_inner, text="配置", style='Small.TButton', width=10, command=make_cfg).pack(side=tk.RIGHT, padx=(10, 0))
         log(f"检测到 {installed_count}/{len(detected)} 个已安装的 AI 工具", 'info')
 
     def _config_all() -> None:
@@ -3241,6 +4139,18 @@ def create_gui() -> None:
 
     config_all_btn.config(command=_config_all)
     refresh_ide_btn.config(command=refresh_ides)
+    overview_config_btn.config(command=lambda: (show_page("tools"), _config_all()))
+    ide_layout_state = {"wide": True}
+
+    def refresh_ides_on_resize(event: object = None) -> None:
+        """窗口跨过布局断点时重排 AI 工具卡片。"""
+        is_wide = root.winfo_width() >= 1160
+        if ide_layout_state["wide"] == is_wide:
+            return
+        ide_layout_state["wide"] = is_wide
+        refresh_ides()
+
+    root.bind("<Configure>", refresh_ides_on_resize, add="+")
 
     def do_start() -> None:
         """启动 MCP 服务。"""
@@ -3257,6 +4167,7 @@ def create_gui() -> None:
         start_btn.config(state=tk.DISABLED)
         stop_btn.config(state=tk.DISABLED)
         service_status_var.set("● 启动中...")
+        overview_service_var.set("启动中")
         status_lbl.config(style='StatusWarn.TLabel')
         service_hint_var.set("正在启动服务，请稍候。")
         root.update()
@@ -3271,6 +4182,7 @@ def create_gui() -> None:
         """处理服务启动结果。"""
         if ok:
             service_status_var.set(f"● 运行中 (:{port_var.get()})")
+            overview_service_var.set(f"运行中 :{port_var.get()}")
             status_lbl.config(style='StatusRunning.TLabel')
             start_btn.config(state=tk.DISABLED)
             stop_btn.config(state=tk.NORMAL)
@@ -3280,6 +4192,7 @@ def create_gui() -> None:
             log(f"[OK] {msg} -> http://localhost:{port_var.get()}/", 'success')
             return
         service_status_var.set("● 启动失败")
+        overview_service_var.set("启动失败")
         status_lbl.config(style='StatusError.TLabel')
         start_btn.config(state=tk.NORMAL)
         stop_btn.config(state=tk.DISABLED)
@@ -3292,6 +4205,7 @@ def create_gui() -> None:
         """停止 MCP 服务。"""
         ok, msg = ServiceManager.stop()
         service_status_var.set("● 未运行")
+        overview_service_var.set("未运行")
         status_lbl.config(style='StatusError.TLabel')
         start_btn.config(state=tk.NORMAL)
         stop_btn.config(state=tk.DISABLED)
@@ -3301,6 +4215,8 @@ def create_gui() -> None:
 
     start_btn.config(command=do_start)
     stop_btn.config(command=do_stop)
+    overview_login_btn.config(command=lambda: (show_page("account"), do_login()))
+    overview_start_btn.config(command=do_start)
 
     def on_port_change(*args: object) -> None:
         """端口变化时同步 MCP 配置代码。"""
@@ -3317,6 +4233,7 @@ def create_gui() -> None:
     update_mcp_code()
     refresh_accounts()
     refresh_ides()
+    animate_sidebar_pulse()
 
     try:
         _, _, server_source = build_server_start_command()
@@ -3332,7 +4249,9 @@ def create_gui() -> None:
     log("点击「启动服务」开始使用", 'info')
 
     root.protocol("WM_DELETE_WINDOW", on_close)
-    show_page("service")
+    show_page("overview")
+    if os.environ.get("LANHU_GUI_SMOKE_CLOSE") == "1":
+        root.after(500, on_close)
     root.mainloop()
 
 

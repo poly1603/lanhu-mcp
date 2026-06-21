@@ -91,3 +91,60 @@
 - 打包后 `dist\LanhuMCP.exe --server` 能启动 HTTP 服务并在日志中确认加载扩展工具。
 - 打包后 `dist\LanhuMCP.exe --login-helper` smoke 通过，能写出结果 JSON。
 - 最新输出文件：`dist\LanhuMCP.exe`，时间 `2026-06-19 00:06:50`，大小 `85,025,646` 字节。
+
+## 2026-06-19 方法、账号资料、项目页和打包收尾
+- GUI 支持方法数已从旧的 13 个改为动态扫描 28 个 MCP 工具，来源包括 lanhu_mcp_server.py 和 lanhu_mcp/server.py；运行时内置服务也会导入扩展模块，确保高还原设计工具实际注册。
+- 账号页补充蓝湖邮箱、手机号、用户名、昵称、头像、公司、团队、角色、Cookie 指纹和来源展示；登录成功或手动 Cookie 保存后会异步尝试读取蓝湖用户资料接口补全。
+- 多用户账号支持切换、单独退出、Cookie 指纹合并重复账号；服务运行中会阻止切换或退出账号。
+- 新增项目菜单，支持当前账号项目刷新、项目归一化展示、团队/负责人/更新时间、打开和复制 tid/pid 项目链接。
+- AI 工具识别保留 Codex、Claude Code、MimoCode、Cursor、Trae、Windsurf、Cline/Roo、Continue、Gemini CLI 等，并新增 Qoder、Kiro、Zed；配置写入继续支持 JSON/YAML/TOML 和 Claude Code HTTP MCP。
+- 头像缓存支持 Pillow 渲染 PNG/JPG/JPEG/WebP/GIF，requirements.txt 加入 Pillow，onefile spec 加入 PIL 隐式依赖。
+- 侧栏和页面布局继续优化：增加项目菜单、菜单分组、选中条、更多内置 lucide 风格线性图标、项目页说明和更丰富的页面信息。
+## 2026-06-19 验证
+- 使用 PYTHONPYCACHEPREFIX 重定向后执行 py_compile 通过，避免既有 __pycache__ 锁文件影响。
+- 源码级 create_gui 构造烟测通过。
+- FastMCP list_tools 在导入 lanhu_mcp.server 后返回 28 个工具。
+- 用户资料解析、资料合并、项目归一化 smoke 通过。
+- PyInstaller onefile 重新打包成功，输出 dist\\LanhuMCP.exe，大小 85,038,010 字节，时间 2026-06-19 00:33:01。
+- 打包后 --server 使用隔离 APPDATA 和 8898 端口 smoke 通过，日志确认已加载高还原设计扩展工具并监听 0.0.0.0:8898/mcp。
+- 打包后 --login-helper 在 LANHU_LOGIN_HELPER_SMOKE=1 下 Start-Process -Wait smoke 通过，结果 JSON 写出 success。
+- 测试结束后已停止残留 LanhuMCP.exe 进程，8897/8898 测试端口未占用。
+
+## 2026-06-21 App 窗口、响应式布局、项目页和账号资料优化
+- 主窗口默认尺寸调整为 1360x860，并通过屏幕尺寸计算居中打开；最小尺寸保持 1060x700。
+- 右侧所有页面改为 Canvas 可滚动容器，避免小窗口下内容不可见；服务页、项目页、AI 工具页双栏区域会按窗口宽度自动切换为单栏。
+- 增加现代化视觉：顶部轻量装饰线条、侧栏呼吸状态条、卡片化空态、指标块、AI 工具图标卡片和更清晰的项目/服务信息层级。
+- 项目页改为三路合并：蓝湖 API 读取、登录结果 localStorage/sessionStorage/appState 递归提取项目链接、本地手动保存项目链接；新增项目链接输入和保存按钮。
+- 账号资料解析扩大字段别名和递归深度，覆盖 emailAddress、displayName、loginName、company_name、team_name、department、jobTitle 等常见字段。
+- 登录 helper 现在会把 sessionStorage 和常见前端全局状态 __INITIAL_STATE__/__NUXT__/__NEXT_DATA__/__LANHU_STATE__ 一起回传给 GUI，用于补全账号和项目线索。
+- 已重新打包 dist\\LanhuMCP.exe，大小 85,058,614 字节，时间 2026-06-21 15:25:23。
+## 2026-06-21 验证
+- py_compile 通过。
+- 源码级 create_gui 构造 smoke 通过。
+- 几何 smoke 确认默认窗口为 1360x860 并带居中坐标。
+- 项目 URL 解析、登录缓存项目提取、账号资料扩展解析 smoke 通过；测试写入 data\\projects.json 后已清理。
+- 打包后 --login-helper 在 LANHU_LOGIN_HELPER_SMOKE=1 下 Start-Process -Wait smoke 通过。
+- 打包后 --server 使用隔离 APPDATA 和 49177 端口 smoke 通过，日志确认已加载高还原设计扩展工具并监听 0.0.0.0:49177/mcp。
+- 测试结束后无 LanhuMCP.exe 残留进程，49177 测试端口已释放。
+
+## 2026-06-21 登录、总览 UI、账号资料与项目页集中修复
+- 收紧 `lanhu_login_helper.py` 登录成功判定：只接受严格白名单 Cookie 名称，忽略匿名 Cookie 与 `undefined/null/false`，并移除 `/web/#/` 首页即成功的旧条件。
+- 登录 helper 增加 4 秒最小等待和更严格 storage 身份字段校验，避免“添加账号/一键登录”弹窗一闪而过。
+- `lanhu_mcp_gui.py` 新增 Cookie/JWT 用户资料解析，可从 `user_token`、用户资料 Cookie 和登录返回 storage 中提取邮箱、用户名、头像、姓名等信息。
+- 多账号写入逻辑合并 Cookie/JWT 资料与接口资料，避免接口失败时账号页只显示“蓝湖用户”和空联系方式。
+- 主界面新增默认“总览”页，展示账号、服务、项目、方法、AI 工具、当前运行路径和 dist/dist2 同步诊断。
+- 侧栏新增“总览”菜单，默认进入总览；首页提供添加账号、启动服务、配置 AI 工具等高频入口。
+- 账号页新增邮箱、手机、用户名、头像四格详情区，已登录账号列表仍支持切换和单独退出。
+- 项目页补充更多候选项目接口，并显示接口候选数量、合并结果和手动项目链接兜底说明。
+- 打包后同步 `dist\LanhuMCP.exe` 到 `dist2\LanhuMCP.exe`，避免用户误开旧目录继续看到旧问题。
+
+## 2026-06-21 验证
+- `py_compile` 通过：`lanhu_mcp_gui.py`、`lanhu_login_helper.py`、`hook_tcl_find_executable.py`、`LanhuMCP-onefile.spec`。
+- 登录判定 smoke 通过：匿名 Cookie 和蓝湖首页不会触发成功，带有效 token 的项目路由可判定成功。
+- Cookie/JWT 用户资料解析 smoke 通过：可提取 email、preferred_username、picture、name。
+- 源码级 GUI smoke 通过：`LANHU_GUI_SMOKE_CLOSE=1` 自动启动并关闭。
+- PyInstaller onefile 重新打包成功，输出 `dist\LanhuMCP.exe`，大小 `85,079,144` 字节，时间 `2026-06-21 16:16:11`。
+- `dist\LanhuMCP.exe --login-helper` smoke 通过，可写出登录结果 JSON。
+- `dist\LanhuMCP.exe --server` 在 `49217` 端口 smoke 通过，日志确认加载高还原设计扩展工具并监听 `/mcp`。
+- `dist2\LanhuMCP.exe` 已同步为同一大小和时间，并通过 GUI 自动关闭 smoke。
+- 测试结束后无 `LanhuMCP.exe` 残留进程，`49217` 端口已释放；有两个历史 `python` 进程系统拒绝结束，但不是 LanhuMCP 进程。

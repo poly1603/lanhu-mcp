@@ -20,6 +20,19 @@ EDGE_ERROR_KEYWORDS = (
 )
 ANONYMOUS_COOKIE_NAMES = {"serverid", "_bl_uid", "supportwebp"}
 INVALID_AUTH_VALUES = {"", "undefined", "null", "none", "false", "nan"}
+STRICT_AUTH_COOKIE_NAMES = {
+    "sid",
+    "session",
+    "sessionid",
+    "uid",
+    "userid",
+    "user_id",
+    "memberid",
+    "member_id",
+    "user_token",
+    "access_token",
+    "authorization",
+}
 
 
 LOADING_HTML = """
@@ -172,20 +185,45 @@ def has_valid_auth_cookie(cookie: str) -> bool:
             continue
         if lowered_value in INVALID_AUTH_VALUES:
             continue
-        is_auth_name = (
-            "token" in lowered_name
-            or "auth" in lowered_name
-            or lowered_name in {"sid", "session", "sessionid", "uid", "userid", "user_id"}
-        )
-        if is_auth_name:
+        if lowered_name in STRICT_AUTH_COOKIE_NAMES and len(value.strip()) >= 6:
             return True
+    return False
+
+
+def storage_value_has_identity(value: object) -> bool:
+    """检查 storage 值里是否包含可证明登录的用户身份字段。"""
+    if value in (None, ""):
+        return False
+    parsed = value
+    if isinstance(value, str):
+        stripped_value = value.strip()
+        if stripped_value.lower() in INVALID_AUTH_VALUES:
+            return False
+        try:
+            parsed = json.loads(stripped_value)
+        except json.JSONDecodeError:
+            return len(stripped_value) >= 8
+    if isinstance(parsed, dict):
+        identity_keys = (
+            "id",
+            "uid",
+            "userId",
+            "user_id",
+            "memberId",
+            "member_id",
+            "name",
+            "email",
+            "mobile",
+            "phone",
+        )
+        return any(parsed.get(key) not in (None, "") for key in identity_keys)
     return False
 
 
 def has_valid_storage_auth(browser_state: dict[str, object]) -> bool:
     """判断 localStorage 是否包含真实用户信息或登录令牌。"""
     user_payload = browser_state.get("user", {})
-    if isinstance(user_payload, dict) and any(user_payload.get(key) for key in ("id", "uid", "userId", "name", "email")):
+    if storage_value_has_identity(user_payload):
         return True
     for storage_name in ("storage", "sessionStorage"):
         storage = browser_state.get(storage_name, {})
@@ -207,7 +245,9 @@ def has_valid_storage_auth(browser_state: dict[str, object]) -> bool:
                 "accountinfo",
                 "member",
             }
-            if "token" in lowered_key or "auth" in lowered_key or is_user_key:
+            if ("token" in lowered_key or "auth" in lowered_key) and len(str(value).strip()) >= 8:
+                return True
+            if is_user_key and storage_value_has_identity(value):
                 return True
     return False
 
@@ -220,6 +260,7 @@ def collect_browser_state(window: object) -> dict[str, object]:
         user: {},
         storage: {},
         sessionStorage: {},
+        appState: {},
         documentCookie: "",
         title: document.title || "",
         bodyText: document.body ? (document.body.innerText || "") : ""
@@ -237,6 +278,23 @@ def collect_browser_state(window: object) -> dict[str, object]:
         for (var sessionIndex = 0; sessionIndex < sessionStorage.length; sessionIndex += 1) {
           var sessionKey = sessionStorage.key(sessionIndex);
           result.sessionStorage[sessionKey] = sessionStorage.getItem(sessionKey);
+        }
+      } catch (error) {}
+      try {
+        var stateKeys = [
+          "__INITIAL_STATE__",
+          "__NUXT__",
+          "__NEXT_DATA__",
+          "__APOLLO_STATE__",
+          "__LANHU_STATE__",
+          "initialState"
+        ];
+        for (var stateIndex = 0; stateIndex < stateKeys.length; stateIndex += 1) {
+          var stateKey = stateKeys[stateIndex];
+          var stateValue = window[stateKey];
+          if (stateValue) {
+            result.appState[stateKey] = stateValue;
+          }
         }
       } catch (error) {}
       var userKeys = [
@@ -324,14 +382,17 @@ def is_lanhu_logged_in(
     current_url: str,
     cookie: str,
     browser_state: dict[str, object],
+    elapsed_seconds: int = 0,
 ) -> bool:
     """判断当前窗口是否已经进入蓝湖登录态。"""
+    if elapsed_seconds < 4:
+        return False
     if not is_lanhu_url(current_url):
         return False
     has_auth_cookie = has_valid_auth_cookie(cookie)
     has_storage_auth = has_valid_storage_auth(browser_state)
     is_authed_route = "/item/" in current_url or "/team/" in current_url or "/project/" in current_url
-    return bool(has_auth_cookie and (has_storage_auth or is_authed_route or "/web/#/" in current_url))
+    return bool(has_auth_cookie and (has_storage_auth or is_authed_route))
 
 
 def detect_edge_error(browser_state: dict[str, object]) -> str:
@@ -494,12 +555,14 @@ def main() -> int:
                 if index in (10, 25) and not is_lanhu_url(current_url):
                     window.load_url(login_url)
                     remember("检测到页面未进入蓝湖，已重新导航")
-                if is_lanhu_logged_in(current_url, cookie, browser_state):
+                if is_lanhu_logged_in(current_url, cookie, browser_state, index):
                     result = {
                         "status": "success",
                         "cookies": cookie,
                         "user": browser_state.get("user", {}),
                         "storage": browser_state.get("storage", {}),
+                        "sessionStorage": browser_state.get("sessionStorage", {}),
+                        "appState": browser_state.get("appState", {}),
                         "url": current_url,
                         "login_url": login_url,
                         "error": "",
