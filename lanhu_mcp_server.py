@@ -19,10 +19,11 @@ from typing import Annotated, Optional, Union, List, Any
 try:
     from dotenv import load_dotenv
     # 从项目根目录加载 .env 文件（如果存在）
-    # override=False 确保不会覆盖已存在的环境变量（如 Docker Compose 设置的）
+    # override=True 确保 .env 文件中的值覆盖已存在的环境变量
+    # 这样更新 .env 即可刷新 Cookie，无需重启系统环境变量
     env_path = Path(__file__).parent / '.env'
     if env_path.exists():
-        load_dotenv(env_path, override=False)
+        load_dotenv(env_path, override=True)
     else:
         # 如果 .env 文件不存在，尝试从当前目录加载（用于本地开发）
         load_dotenv(override=False)
@@ -69,8 +70,23 @@ mcp = FastMCP("Lanhu Axure Extractor")
 # 全局配置
 DEFAULT_COOKIE = "your_lanhu_cookie_here"  # 请替换为你的蓝湖Cookie，从浏览器开发者工具中获取
 
-# 从环境变量读取Cookie，如果没有则使用默认值
-COOKIE = os.getenv("LANHU_COOKIE", DEFAULT_COOKIE)
+# Cookie 优先级：cookie.json 文件 > 环境变量 > DEFAULT_COOKIE
+# cookie.json 可由 GUI 或脚本自动更新，避免环境变量需要重启的问题
+_COOKIE_JSON_PATH = Path(__file__).parent / "cookie.json"
+def _load_cookie() -> str:
+    """按优先级加载 Cookie：cookie.json > 环境变量 > 默认值"""
+    if _COOKIE_JSON_PATH.exists():
+        try:
+            import json as _json
+            with open(_COOKIE_JSON_PATH, "r", encoding="utf-8") as _f:
+                _data = _json.load(_f)
+                if isinstance(_data, dict) and _data.get("lanhu_cookie"):
+                    return _data["lanhu_cookie"]
+        except Exception:
+            pass
+    return os.getenv("LANHU_COOKIE", DEFAULT_COOKIE)
+
+COOKIE = _load_cookie()
 
 BASE_URL = "https://lanhuapp.com"
 DDS_BASE_URL = "https://dds.lanhuapp.com"
@@ -2475,6 +2491,15 @@ class LanhuExtractor:
             "request-from": "web",
             "real-path": "/item/project/product"
         }
+        # 蓝湖 API 使用 HTTP Basic Auth：Authorization: Basic base64(user_token + ":")
+        # user_token 从 Cookie 中的 user_token 字段提取
+        for pair in COOKIE.split("; "):
+            parts = pair.split("=", 1)
+            if len(parts) == 2 and parts[0] == "user_token":
+                import base64 as _b64
+                basic_auth = _b64.b64encode(f"{parts[1]}:".encode()).decode()
+                headers["Authorization"] = f"Basic {basic_auth}"
+                break
         self.client = httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=headers, follow_redirects=True)
         self._max_retries = int(os.getenv("HTTP_MAX_RETRIES", "3"))
         self._retry_base_delay = float(os.getenv("HTTP_RETRY_BASE_DELAY", "1.0"))
@@ -3616,8 +3641,14 @@ class LanhuExtractor:
             "Accept": "application/json, text/plain, */*",
             "Referer": "https://dds.lanhuapp.com/",
             "Cookie": DDS_COOKIE,
-            "Authorization": "Basic dW5kZWZpbmVkOg==",
         }
+        # 从 DDS_COOKIE 中提取 user_token 构造 Basic Auth
+        import base64 as _b64
+        for pair in DDS_COOKIE.split("; "):
+            parts = pair.split("=", 1)
+            if len(parts) == 2 and parts[0] == "user_token":
+                dds_headers["Authorization"] = f"Basic {_b64.b64encode(f'{parts[1]}:'.encode()).decode()}"
+                break
         async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=dds_headers, follow_redirects=True) as dds_client:
             rev_url = f"{DDS_BASE_URL}/api/dds/image/store_schema_revise"
             rev_resp = await dds_client.get(rev_url, params={"version_id": version_id})
@@ -7540,10 +7571,19 @@ async def lanhu_health_check(
     lanhu_cookie = os.getenv('LANHU_COOKIE', '')
     dds_cookie = os.getenv('DDS_COOKIE', '')
     
+    # 检查 Basic Auth 是否可构造
+    basic_auth_status = 'missing'
+    for pair in lanhu_cookie.split('; '):
+        parts = pair.split('=', 1)
+        if len(parts) == 2 and parts[0] == 'user_token':
+            basic_auth_status = 'configured'
+            break
+
     cookie_status = {
         'lanhu_cookie': 'configured' if lanhu_cookie else 'missing',
         'dds_cookie': 'configured' if dds_cookie else 'missing',
         'lanhu_cookie_length': len(lanhu_cookie) if lanhu_cookie else 0,
+        'basic_auth': basic_auth_status,
     }
     
     # 检查缓存目录

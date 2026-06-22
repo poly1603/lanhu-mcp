@@ -2391,6 +2391,497 @@ def center_window(root: object, width: int, height: int) -> None:
     root.geometry(f"{width}x{height}+{left}+{top}")
 
 
+def _fetch_designs_api(cookie: str, project_id: str, team_id: str = "") -> dict:
+    """调用蓝湖 API 获取设计图列表和分区信息。"""
+    headers = lanhu_api_headers(cookie)
+    # 获取设计图列表
+    api_url = f"https://lanhuapp.com/api/project/images?project_id={project_id}"
+    if team_id:
+        api_url += f"&team_id={team_id}"
+    api_url += "&dds_status=1&position=1&show_cb_src=1&comment=1"
+
+    request = urllib.request.Request(api_url, headers=headers)
+    with urllib.request.urlopen(request, timeout=20) as response:
+        body = response.read().decode('utf-8', errors='replace')
+    data = json.loads(body)
+
+    if data.get('code') != '00000':
+        return {'status': 'error', 'message': data.get('msg', 'Unknown error')}
+
+    project_data = data.get('data', {})
+    images = project_data.get('images', [])
+
+    # 获取分区信息
+    sectors = []
+    image_sector_map = {}
+    try:
+        sector_url = f"https://lanhuapp.com/api/project/project_sectors?project_id={project_id}"
+        sector_req = urllib.request.Request(sector_url, headers=headers)
+        with urllib.request.urlopen(sector_req, timeout=15) as sector_resp:
+            sector_body = sector_resp.read().decode('utf-8', errors='replace')
+        sector_data = json.loads(sector_body)
+        if sector_data.get('code') == '00000':
+            raw_sectors = sector_data.get('data', {}).get('sectors', [])
+            for sec in raw_sectors:
+                sec_id = sec.get('id', '')
+                sec_name = sec.get('name', '未分组')
+                sectors.append({'id': sec_id, 'name': sec_name})
+                for img_id in sec.get('images', []):
+                    if img_id not in image_sector_map:
+                        image_sector_map[img_id] = []
+                    image_sector_map[img_id].append({'id': sec_id, 'name': sec_name})
+    except Exception:
+        pass
+
+    # 组装设计图列表
+    design_list = []
+    for idx, img in enumerate(images, 1):
+        img_id = img.get('id', '')
+        design_sectors = image_sector_map.get(img_id, [])
+        design_list.append({
+            'index': idx,
+            'id': img_id,
+            'name': img.get('name', f'设计图{idx}'),
+            'width': img.get('width', 0),
+            'height': img.get('height', 0),
+            'url': img.get('url', ''),
+            'update_time': img.get('update_time', ''),
+            'sectors': [s.get('name') for s in design_sectors if s.get('name')],
+            'sector_ids': [s.get('id') for s in design_sectors if s.get('id')],
+        })
+
+    return {
+        'status': 'success',
+        'project_name': project_data.get('name', ''),
+        'total_designs': len(design_list),
+        'sectors': sectors,
+        'designs': design_list,
+    }
+
+
+def _download_image_bytes(url: str, cookie: str = "") -> bytes:
+    """下载图片字节。"""
+    headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
+    if cookie:
+        headers["Cookie"] = cookie
+    request = urllib.request.Request(url, headers=headers)
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read()
+
+
+def open_design_browser(parent_root, project_id: str, team_id: str, project_name: str,
+                        get_active_account_fn, log_fn) -> None:
+    """打开设计稿浏览窗口。
+
+    左侧渲染分组，右侧渲染设计稿缩略图，支持多选，右上角生成提示词。
+    """
+    import tkinter as tk
+    from tkinter import ttk, messagebox
+    from PIL import Image, ImageTk
+    import io
+
+    active = get_active_account_fn()
+    if not active or not active.get('cookie'):
+        messagebox.showwarning("提示", "请先登录蓝湖账号。")
+        return
+    cookie = active['cookie']
+
+    # 创建窗口
+    win = tk.Toplevel(parent_root)
+    win.title(f"设计稿浏览 - {project_name}")
+    win.geometry("1200x750")
+    win.minsize(900, 600)
+    win.configure(bg=COLORS['bg'])
+    win.transient(parent_root)
+    win.grab_set()
+
+    # 顶部工具栏
+    toolbar = tk.Frame(win, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+    toolbar.pack(fill=tk.X, padx=12, pady=(12, 0))
+    toolbar_inner = tk.Frame(toolbar, bg=COLORS['card'])
+    toolbar_inner.pack(fill=tk.X, padx=16, pady=10)
+
+    tk.Label(
+        toolbar_inner,
+        text=f"🎨 {project_name}",
+        bg=COLORS['card'],
+        fg=COLORS['text_primary'],
+        font=('Segoe UI', 14, 'bold'),
+    ).pack(side=tk.LEFT)
+
+    status_var = tk.StringVar(value="正在加载设计稿...")
+    tk.Label(
+        toolbar_inner,
+        textvariable=status_var,
+        bg=COLORS['card'],
+        fg=COLORS['text_muted'],
+        font=('Segoe UI', 9),
+    ).pack(side=tk.LEFT, padx=(16, 0))
+
+    # 右上角操作区
+    action_frame = tk.Frame(toolbar_inner, bg=COLORS['card'])
+    action_frame.pack(side=tk.RIGHT)
+
+    selected_designs: list[dict] = []
+    selected_set: set[str] = set()  # 用 design id 跟踪选中状态
+    all_designs_data: list[dict] = []  # 全部设计稿数据
+    sector_buttons: dict[str, tk.Frame] = {}
+    design_widgets: list[dict] = []  # [{widget, design, checkbox_var}]
+    thumbnail_cache: dict[str, ImageTk.PhotoImage] = {}  # url -> PhotoImage
+
+    # 提示词文本区（底部可折叠）
+    prompt_frame = tk.Frame(win, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+    prompt_text = tk.Text(prompt_frame, height=8, bg=COLORS['card'], fg=COLORS['text_primary'],
+                          font=('Consolas', 10), wrap=tk.WORD, relief=tk.FLAT, padx=12, pady=10)
+    prompt_scroll = tk.Scrollbar(prompt_frame, orient=tk.VERTICAL, command=prompt_text.yview)
+    prompt_text.configure(yscrollcommand=prompt_scroll.set)
+    prompt_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    prompt_text.pack(fill=tk.BOTH, expand=True)
+    prompt_frame.pack_forget()  # 默认隐藏
+
+    def generate_prompt():
+        """生成提示词。"""
+        if not selected_designs:
+            messagebox.showwarning("提示", "请先选择设计稿。", parent=win)
+            return
+
+        prompt_lines = []
+        prompt_lines.append(f"# 设计稿还原任务")
+        prompt_lines.append(f"")
+        prompt_lines.append(f"项目: {project_name}")
+        prompt_lines.append(f"选中设计稿数量: {len(selected_designs)}")
+        prompt_lines.append(f"")
+        prompt_lines.append(f"## 选中的设计稿")
+        prompt_lines.append(f"")
+
+        for i, design in enumerate(selected_designs, 1):
+            prompt_lines.append(f"### 设计稿 {i}: {design.get('name', '未命名')}")
+            dims = f"{design.get('width', '?')}x{design.get('height', '?')}"
+            prompt_lines.append(f"- 尺寸: {dims}")
+            if design.get('sectors'):
+                prompt_lines.append(f"- 分组: {', '.join(design['sectors'])}")
+            if design.get('url'):
+                prompt_lines.append(f"- 图片URL: {design['url']}")
+            if design.get('update_time'):
+                prompt_lines.append(f"- 更新时间: {design['update_time']}")
+            prompt_lines.append("")
+
+        prompt_lines.append(f"## 任务要求")
+        prompt_lines.append(f"")
+        prompt_lines.append(f"1. 请根据以上设计稿，生成对应的前端页面代码")
+        prompt_lines.append(f"2. 使用 HTML + CSS 实现，保持与设计稿一致的视觉效果")
+        prompt_lines.append(f"3. 注意响应式布局和跨浏览器兼容性")
+        prompt_lines.append(f"4. 图片资源请使用设计稿中的 URL")
+        prompt_lines.append(f"5. 保持设计稿中的字体、颜色、间距等细节")
+        prompt_lines.append(f"")
+        prompt_lines.append(f"## 设计稿图片")
+        prompt_lines.append(f"")
+        for i, design in enumerate(selected_designs, 1):
+            if design.get('url'):
+                prompt_lines.append(f"设计稿 {i}: {design.get('name', '')}")
+                prompt_lines.append(f"![{design.get('name', '')}]({design['url']})")
+                prompt_lines.append("")
+
+        prompt_text.delete('1.0', tk.END)
+        prompt_text.insert('1.0', '\n'.join(prompt_lines))
+        prompt_frame.pack(fill=tk.X, padx=12, pady=(8, 12), side=tk.BOTTOM)
+        win.update_idletasks()
+        log_fn(f"已生成 {len(selected_designs)} 个设计稿的提示词", 'success')
+
+    def copy_prompt():
+        """复制提示词到剪贴板。"""
+        content = prompt_text.get('1.0', tk.END).strip()
+        if not content:
+            messagebox.showwarning("提示", "还没有生成提示词。", parent=win)
+            return
+        parent_root.clipboard_clear()
+        parent_root.clipboard_append(content)
+        log_fn("提示词已复制到剪贴板", 'success')
+
+    gen_btn = ttk.Button(action_frame, text="生成提示词", style='Accent.TButton', command=generate_prompt)
+    gen_btn.pack(side=tk.LEFT)
+    ttk.Button(action_frame, text="复制提示词", style='Small.TButton', command=copy_prompt).pack(side=tk.LEFT, padx=(8, 0))
+
+    # 主内容区：左侧分组 + 右侧设计稿
+    main_paned = tk.Frame(win, bg=COLORS['bg'])
+    main_paned.pack(fill=tk.BOTH, expand=True, padx=12, pady=12)
+
+    # 左侧分组栏
+    sidebar_frame = tk.Frame(main_paned, bg=COLORS['card'], highlightbackground=COLORS['border_light'],
+                             highlightthickness=1, width=200)
+    sidebar_frame.pack(side=tk.LEFT, fill=tk.Y)
+    sidebar_frame.pack_propagate(False)
+
+    sidebar_header = tk.Frame(sidebar_frame, bg=COLORS['card'])
+    sidebar_header.pack(fill=tk.X, padx=12, pady=(12, 8))
+    tk.Label(sidebar_header, text="分组", bg=COLORS['card'], fg=COLORS['text_primary'],
+             font=('Segoe UI', 10, 'bold')).pack(side=tk.LEFT)
+
+    sidebar_list = tk.Frame(sidebar_frame, bg=COLORS['card'])
+    sidebar_list.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 12))
+
+    # 右侧设计稿区
+    right_frame = tk.Frame(main_paned, bg=COLORS['bg'])
+    right_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(12, 0))
+
+    # 设计稿网格容器（带滚动）
+    canvas_frame = tk.Frame(right_frame, bg=COLORS['bg'])
+    canvas_frame.pack(fill=tk.BOTH, expand=True)
+
+    design_canvas = tk.Canvas(canvas_frame, bg=COLORS['bg'], highlightthickness=0, bd=0)
+    design_scroll = tk.Scrollbar(canvas_frame, orient=tk.VERTICAL, command=design_canvas.yview)
+    design_grid = tk.Frame(design_canvas, bg=COLORS['bg'])
+    design_window_id = design_canvas.create_window((0, 0), window=design_grid, anchor='nw')
+
+    def _sync_scroll(event=None):
+        design_canvas.configure(scrollregion=design_canvas.bbox('all'))
+
+    def _sync_width(event):
+        design_canvas.itemconfigure(design_window_id, width=event.width)
+
+    def _on_wheel(event):
+        design_canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
+
+    design_grid.bind('<Configure>', _sync_scroll)
+    design_canvas.bind('<Configure>', _sync_width)
+    design_canvas.bind('<MouseWheel>', _on_wheel)
+    design_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    design_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    design_canvas.configure(yscrollcommand=design_scroll.set)
+
+    current_sector_filter: dict = {'value': None}  # None = 全部
+
+    def render_sidebar(sectors: list[dict]):
+        """渲染左侧分组列表。"""
+        for widget in sidebar_list.winfo_children():
+            widget.destroy()
+        sector_buttons.clear()
+
+        def select_sector(sector_id, label_text):
+            """选中分组。"""
+            current_sector_filter['value'] = sector_id
+            for sid, btn in sector_buttons.items():
+                btn.configure(bg=COLORS['card'])
+                for child in btn.winfo_children():
+                    child.configure(bg=COLORS['card'])
+            btn = sector_buttons.get(sector_id)
+            if btn:
+                btn.configure(bg=COLORS['primary_light'])
+                for child in btn.winfo_children():
+                    child.configure(bg=COLORS['primary_light'])
+            render_designs(all_designs_data, sector_id, label_text)
+
+        # "全部" 按钮
+        all_btn = tk.Frame(sidebar_list, bg=COLORS['primary_light'], cursor='hand2')
+        all_btn.pack(fill=tk.X, pady=2)
+        tk.Label(all_btn, text=f"全部设计稿", bg=COLORS['primary_light'], fg=COLORS['primary'],
+                 font=('Segoe UI', 9, 'bold'), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+        sector_buttons['__all__'] = all_btn
+        all_btn.bind('<Button-1>', lambda e: select_sector(None, '全部设计稿'))
+        for child in all_btn.winfo_children():
+            child.bind('<Button-1>', lambda e: select_sector(None, '全部设计稿'))
+
+        for sector in sectors:
+            sid = sector.get('id', '')
+            sname = sector.get('name', '未分组')
+            count = sum(1 for d in all_designs_data if sid in d.get('sector_ids', []))
+            btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
+            btn.pack(fill=tk.X, pady=2)
+            label = tk.Label(btn, text=f"{sname} ({count})", bg=COLORS['card'], fg=COLORS['text_secondary'],
+                             font=('Segoe UI', 9), anchor='w')
+            label.pack(fill=tk.X, padx=12, pady=8)
+            sector_buttons[sid] = btn
+            btn.bind('<Button-1>', lambda e, sid=sid, sname=sname: select_sector(sid, sname))
+            label.bind('<Button-1>', lambda e, sid=sid, sname=sname: select_sector(sid, sname))
+
+        # 未分组
+        ungrouped = sum(1 for d in all_designs_data if not d.get('sectors'))
+        if ungrouped > 0:
+            ungrouped_btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
+            ungrouped_btn.pack(fill=tk.X, pady=2)
+            tk.Label(ungrouped_btn, text=f"未分组 ({ungrouped})", bg=COLORS['card'], fg=COLORS['text_muted'],
+                     font=('Segoe UI', 9), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+            sector_buttons['__ungrouped__'] = ungrouped_btn
+            ungrouped_btn.bind('<Button-1>', lambda e: select_sector('__ungrouped__', '未分组'))
+            for child in ungrouped_btn.winfo_children():
+                child.bind('<Button-1>', lambda e: select_sector('__ungrouped__', '未分组'))
+
+    def _get_design_sectors_raw(design: dict) -> list[dict]:
+        """获取设计稿的分区原始数据。"""
+        sector_names = design.get('sectors', [])
+        return [{'id': name, 'name': name} for name in sector_names]
+
+    def render_designs(designs: list[dict], sector_filter: str = None, sector_label: str = '全部设计稿'):
+        """渲染右侧设计稿网格。"""
+        for widget in design_grid.winfo_children():
+            widget.destroy()
+        design_widgets.clear()
+
+        # 按分组筛选
+        if sector_filter is None:
+            filtered = designs
+        elif sector_filter == '__ungrouped__':
+            filtered = [d for d in designs if not d.get('sectors')]
+        else:
+            filtered = [d for d in designs if sector_filter in d.get('sectors', []) or sector_filter in d.get('sector_ids', [])]
+
+        status_var.set(f"{sector_label}: {len(filtered)} 个设计稿，已选 {len(selected_designs)} 个")
+
+        if not filtered:
+            tk.Label(design_grid, text="该分组下暂无设计稿", bg=COLORS['bg'], fg=COLORS['text_muted'],
+                     font=('Segoe UI', 11)).pack(pady=60)
+            return
+
+        # 网格布局：每行 3 个
+        cols = 3
+        for idx, design in enumerate(filtered):
+            row = idx // cols
+            col = idx % cols
+            cell = tk.Frame(design_grid, bg=COLORS['card'], highlightbackground=COLORS['border_light'],
+                            highlightthickness=1, padx=8, pady=8)
+            cell.grid(row=row, column=col, padx=6, pady=6, sticky='nsew')
+            design_grid.grid_columnconfigure(col, weight=1, minsize=280)
+
+            # 复选框 + 名称
+            top_bar = tk.Frame(cell, bg=COLORS['card'])
+            top_bar.pack(fill=tk.X)
+            check_var = tk.BooleanVar(value=design.get('id', '') in selected_set)
+            checkbox = tk.Checkbutton(top_bar, variable=check_var, bg=COLORS['card'],
+                                      activebackground=COLORS['card'])
+            checkbox.pack(side=tk.LEFT)
+
+            def toggle_design(d=design, cv=check_var):
+                """切换选中状态。"""
+                if cv.get():
+                    if d.get('id', '') not in selected_set:
+                        selected_designs.append(d)
+                        selected_set.add(d.get('id', ''))
+                else:
+                    if d.get('id', '') in selected_set:
+                        selected_set.discard(d.get('id', ''))
+                        selected_designs[:] = [x for x in selected_designs if x.get('id') != d.get('id')]
+                status_var.set(f"{sector_label}: {len(filtered)} 个设计稿，已选 {len(selected_designs)} 个")
+
+            checkbox.config(command=toggle_design)
+
+            tk.Label(top_bar, text=design.get('name', '未命名')[:20], bg=COLORS['card'],
+                     fg=COLORS['text_primary'], font=('Segoe UI', 9, 'bold'), anchor='w').pack(side=tk.LEFT, padx=(4, 0))
+
+            # 缩略图区域
+            thumb_frame = tk.Frame(cell, bg=COLORS['surface'], width=240, height=160)
+            thumb_frame.pack(fill=tk.X, pady=(8, 0))
+            thumb_frame.pack_propagate(False)
+
+            thumb_label = tk.Label(thumb_frame, text="加载中...", bg=COLORS['surface'],
+                                   fg=COLORS['text_muted'], font=('Segoe UI', 8))
+            thumb_label.pack(expand=True)
+
+            # 尺寸信息
+            dims_text = f"{design.get('width', '?')}x{design.get('height', '?')}"
+            if design.get('sectors'):
+                dims_text += f"  |  {', '.join(design['sectors'][:2])}"
+            tk.Label(cell, text=dims_text, bg=COLORS['card'], fg=COLORS['text_muted'],
+                     font=('Segoe UI', 7), anchor='w').pack(fill=tk.X, pady=(4, 0))
+
+            # 异步加载缩略图
+            def load_thumbnail(url=design.get('url', ''), label=thumb_label, design_id=design.get('id', '')):
+                """后台加载缩略图。"""
+                if not url:
+                    label.configure(text='无图片')
+                    return
+
+                def _download():
+                    try:
+                        img_data = _download_image_bytes(url, cookie)
+                        img = Image.open(io.BytesIO(img_data))
+                        img.thumbnail((240, 160))
+                        photo = ImageTk.PhotoImage(img)
+                        thumbnail_cache[url] = photo
+                        win.after(0, lambda: _update_thumb(label, photo))
+                    except Exception as e:
+                        win.after(0, lambda: label.configure(text='加载失败'))
+
+                threading.Thread(target=_download, daemon=True).start()
+
+            def _update_thumb(label, photo):
+                """更新缩略图标签。"""
+                try:
+                    label.configure(image=photo, text='')
+                    label.image = photo
+                except tk.TclError:
+                    pass
+
+            load_thumbnail()
+
+            # 点击缩略图也可切换选中
+            def on_thumb_click(e, d=design, cv=check_var):
+                cv.set(not cv.get())
+                toggle_design(d, cv)
+
+            thumb_label.bind('<Button-1>', on_thumb_click)
+
+            design_widgets.append({'widget': cell, 'design': design, 'checkbox_var': check_var})
+
+    def select_all_visible():
+        """全选当前可见设计稿。"""
+        for dw in design_widgets:
+            dw['checkbox_var'].set(True)
+            did = dw['design'].get('id', '')
+            if did not in selected_set:
+                selected_designs.append(dw['design'])
+                selected_set.add(did)
+        status_var.set(f"已选 {len(selected_designs)} 个设计稿")
+
+    def deselect_all_visible():
+        """取消全选当前可见设计稿。"""
+        for dw in design_widgets:
+            dw['checkbox_var'].set(False)
+            did = dw['design'].get('id', '')
+            if did in selected_set:
+                selected_set.discard(did)
+                selected_designs[:] = [x for x in selected_designs if x.get('id') != did]
+        status_var.set(f"已选 {len(selected_designs)} 个设计稿")
+
+    # 工具栏下方的操作行
+    select_bar = tk.Frame(win, bg=COLORS['bg'])
+    select_bar.pack(fill=tk.X, padx=12, pady=(8, 0))
+    ttk.Button(select_bar, text="全选", style='Small.TButton', command=select_all_visible).pack(side=tk.LEFT)
+    ttk.Button(select_bar, text="取消全选", style='Small.TButton', command=deselect_all_visible).pack(side=tk.LEFT, padx=(8, 0))
+
+    def _load_designs():
+        """后台加载设计稿数据。"""
+        try:
+            result = _fetch_designs_api(cookie, project_id, team_id)
+            win.after(0, lambda: _on_loaded(result))
+        except Exception as e:
+            win.after(0, lambda: _on_error(str(e)))
+
+    def _on_loaded(result: dict):
+        """设计稿加载完成。"""
+        if result.get('status') != 'success':
+            status_var.set(f"加载失败: {result.get('message', '未知错误')}")
+            messagebox.showerror("错误", f"加载设计稿失败:\n{result.get('message', '')}", parent=win)
+            return
+
+        nonlocal all_designs_data
+        all_designs_data = result.get('designs', [])
+        sectors = result.get('sectors', [])
+        total = result.get('total_designs', 0)
+        status_var.set(f"共 {total} 个设计稿，已选 {len(selected_designs)} 个")
+
+        render_sidebar(sectors)
+        render_designs(all_designs_data, None, '全部设计稿')
+        log_fn(f"已加载项目 [{project_name}] 的 {total} 个设计稿", 'success')
+
+    def _on_error(msg: str):
+        """加载失败。"""
+        status_var.set(f"加载失败: {msg}")
+        messagebox.showerror("错误", f"加载设计稿失败:\n{msg}", parent=win)
+
+    # 启动加载
+    threading.Thread(target=_load_designs, daemon=True).start()
+
+
 def create_gui() -> None:
     """创建 Lanhu MCP 桌面控制台。"""
     bootstrap_tcl_tk_runtime()
@@ -3472,7 +3963,17 @@ def create_gui() -> None:
 
             actions = tk.Frame(row_inner, bg=row.cget('bg'))
             actions.pack(side=tk.RIGHT)
-            ttk.Button(actions, text="打开", style='Small.TButton', width=8, command=open_project).pack(side=tk.LEFT)
+
+            def open_design_browser_for_project(
+                project_id: str = str(project.get("id", "")),
+                team_id: str = str(project.get("team_id", "")),
+                project_name: str = str(project.get("name", "")),
+            ) -> None:
+                """打开设计稿浏览窗口。"""
+                open_design_browser(root, project_id, team_id, project_name, get_active_account, log)
+
+            ttk.Button(actions, text="设计稿", style='Small.TButton', width=8, command=open_design_browser_for_project).pack(side=tk.LEFT)
+            ttk.Button(actions, text="打开", style='Small.TButton', width=8, command=open_project).pack(side=tk.LEFT, padx=(8, 0))
             ttk.Button(actions, text="复制", style='Small.TButton', width=8, command=copy_project).pack(side=tk.LEFT, padx=(8, 0))
 
     def refresh_projects() -> None:
