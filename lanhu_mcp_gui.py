@@ -170,35 +170,213 @@ def bootstrap_tcl_tk_runtime() -> None:
         os.environ['TK_LIBRARY'] = str(tk_dir)
 
 # ============================================
-# 现代配色方案
+# 现代配色方案 + 设计Token
 # ============================================
+
+# 颜色系统
 COLORS = {
+    # 背景色
     'bg': '#F6F7F9',           # 主背景 - 冷灰工作台
     'sidebar': '#101418',      # 侧边栏背景 - 深色导航
     'sidebar_hover': '#1B232A', # 侧边栏悬停背景
     'sidebar_active': '#202B33',# 侧边栏选中背景
     'sidebar_text': '#E6EDF3', # 侧边栏文字
     'card': '#FFFFFF',         # 卡片背景 - 白色
+    'card_hover': '#FAFBFC',   # 卡片悬停背景
+    'surface': '#F8FAFC',      # 表面背景
+    'surface_hover': '#F1F5F9',# 表面悬停背景
+    'input_bg': '#FFFFFF',     # 输入框背景
+    'input_bg_disabled': '#F1F5F9', # 输入框禁用背景
+    
+    # 主色调
     'primary': '#2563EB',      # 主色调 - 工具蓝
-    'primary_hover': '#1D4ED8',
+    'primary_hover': '#1D4ED8',# 主色悬停
+    'primary_active': '#1E40AF',# 主色点击
     'primary_light': '#E8F0FF',# 主色浅色背景
+    'primary_light_hover': '#DBEAFE', # 主色浅色悬停
+    
+    # 语义色
     'success': '#0F9F6E',      # 成功绿
+    'success_hover': '#059669',# 成功悬停
     'danger': '#C2413B',       # 错误红
+    'danger_hover': '#B91C1C', # 错误悬停
     'warning': '#B7791F',      # 警告橙
+    'warning_hover': '#A16207',# 警告悬停
+    'accent': '#0F766E',       # 强调青绿
+    'accent_light': '#DDF7F0', # 强调浅色
+    'accent_warm': '#F97345',  # 温暖橙
+    'accent_warm_light': '#FFF0E9', # 温暖浅色
+    
+    # 文字色
     'text_primary': '#141922', # 主文字
     'text_secondary': '#4A5565',# 次要文字
     'text_muted': '#7C8794',   # 弱化文字
-    'border': '#D9E0E8',       # 边框
-    'border_light': '#ECF0F4',
+    'text_disabled': '#A0AEC0',# 禁用文字
+    'text_on_primary': '#FFFFFF', # 主色背景上的文字
+    'text_on_dark': '#E6EDF3', # 深色背景上的文字
+    
+    # 边框色
+    'border': '#D9E0E8',       # 默认边框
+    'border_light': '#ECF0F4', # 浅边框
+    'border_hover': '#CBD5E1', # 悬停边框
+    'border_focus': '#2563EB', # 焦点边框
+    'border_error': '#C2413B', # 错误边框
+    
+    # 日志背景
     'log_bg': '#111318',       # 日志背景（深色终端风）
-    'log_text': '#E5E7EB',
-    'accent': '#0F766E',       # 强调青绿
-    'accent_light': '#DDF7F0',
-    'accent_warm': '#F97345',
-    'accent_warm_light': '#FFF0E9',
-    'surface': '#F8FAFC',
-    'shadow': 'rgba(0, 0, 0, 0.05)',  # 卡片阴影色
+    'log_text': '#E5E7EB',     # 日志文字
+    
+    # 阴影色（用于模拟box-shadow效果）
+    'shadow_sm': '#F0F0F0',    # 小阴影
+    'shadow_md': '#E5E5E5',    # 中阴影
+    'shadow_lg': '#D4D4D4',    # 大阴影
+    'shadow_color': 'rgba(0, 0, 0, 0.08)',  # 卡片阴影色
+    'shadow_color_hover': 'rgba(0, 0, 0, 0.12)', # 卡片悬停阴影
+    
+    # 焦点环
+    'focus_ring': 'rgba(37, 99, 235, 0.3)', # 焦点环颜色
 }
+
+# 间距系统 (4px基准)
+SPACING = {
+    '0': 0,
+    '1': 4,
+    '2': 8,
+    '3': 12,
+    '4': 16,
+    '5': 20,
+    '6': 24,
+    '8': 32,
+    '10': 40,
+    '12': 48,
+}
+
+# 圆角系统
+RADIUS = {
+    'none': 0,
+    'sm': 4,
+    'md': 6,
+    'lg': 8,
+    'xl': 12,
+    '2xl': 16,
+    'full': 9999,
+}
+
+# 阴影系统（通过多层Frame模拟）
+SHADOW = {
+    'none': {'offset': 0, 'blur': 0, 'color': 'transparent'},
+    'sm': {'offset': 1, 'blur': 2, 'color': COLORS['shadow_sm']},
+    'md': {'offset': 2, 'blur': 6, 'color': COLORS['shadow_md']},
+    'lg': {'offset': 4, 'blur': 12, 'color': COLORS['shadow_lg']},
+}
+
+# 字体系统
+FONT = {
+    'family': 'Segoe UI',
+    'mono': 'Consolas',
+    'sizes': {
+        'xs': 8,
+        'sm': 9,
+        'base': 10,
+        'md': 11,
+        'lg': 12,
+        'xl': 14,
+        '2xl': 16,
+        '3xl': 18,
+        '4xl': 20,
+        '5xl': 24,
+    },
+    'weights': {
+        'normal': 'normal',
+        'medium': 'bold',
+        'semibold': 'bold',
+        'bold': 'bold',
+    },
+}
+
+# 动画时长（毫秒）
+ANIMATION = {
+    'fast': 100,
+    'normal': 200,
+    'slow': 300,
+}
+
+
+# ============================================
+# UI 交互增强函数
+# ============================================
+
+def add_button_hover_effect(button, bg_normal=None, bg_hover=None, bg_active=None):
+    """为按钮添加hover和点击效果。"""
+    import tkinter as tk
+    
+    # 获取按钮当前样式
+    current_style = str(button.cget('style'))
+    
+    # 根据样式确定颜色
+    if bg_normal is None:
+        if 'Primary' in current_style:
+            bg_normal = COLORS['primary']
+            bg_hover = COLORS['primary_hover']
+            bg_active = COLORS['primary_active']
+        elif 'Success' in current_style:
+            bg_normal = COLORS['success']
+            bg_hover = COLORS['success_hover']
+            bg_active = '#047857'
+        elif 'Danger' in current_style:
+            bg_normal = COLORS['danger']
+            bg_hover = COLORS['danger_hover']
+            bg_active = '#991B1B'
+        elif 'Ghost' in current_style:
+            bg_normal = 'transparent'
+            bg_hover = COLORS['surface_hover']
+            bg_active = COLORS['border_light']
+        elif 'Small' in current_style:
+            bg_normal = COLORS['surface']
+            bg_hover = COLORS['surface_hover']
+            bg_active = COLORS['border_light']
+        else:
+            bg_normal = COLORS['card']
+            bg_hover = COLORS['primary_light']
+            bg_active = COLORS['primary_light_hover']
+    
+    def on_enter(event):
+        if str(button.cget('state')) != 'disabled':
+            button.config(background=bg_hover)
+    
+    def on_leave(event):
+        if str(button.cget('state')) != 'disabled':
+            button.config(background=bg_normal)
+    
+    def on_press(event):
+        if str(button.cget('state')) != 'disabled':
+            button.config(background=bg_active)
+    
+    def on_release(event):
+        if str(button.cget('state')) != 'disabled':
+            button.config(background=bg_hover)
+    
+    button.bind("<Enter>", on_enter)
+    button.bind("<Leave>", on_leave)
+    button.bind("<ButtonPress>", on_press)
+    button.bind("<ButtonRelease>", on_release)
+
+
+def add_entry_focus_effect(entry, focus_border_color=None):
+    """为输入框添加focus效果。"""
+    import tkinter as tk
+    
+    if focus_border_color is None:
+        focus_border_color = COLORS['border_focus']
+    
+    def on_focus_in(event):
+        entry.config(highlightbackground=focus_border_color, highlightthickness=2)
+    
+    def on_focus_out(event):
+        entry.config(highlightbackground=COLORS['border'], highlightthickness=1)
+    
+    entry.bind("<FocusIn>", on_focus_in)
+    entry.bind("<FocusOut>", on_focus_out)
 
 
 # ============================================
@@ -2293,7 +2471,7 @@ class ServiceManager:
 # ============================================
 
 def apply_modern_style(root: object) -> object:
-    """应用现代主题样式"""
+    """应用现代主题样式 - 优化版"""
     # ttk 必须在函数内部导入，避免依赖 create_gui 的局部变量。
     from tkinter import ttk
 
@@ -2305,78 +2483,264 @@ def apply_modern_style(root: object) -> object:
         style.theme_use('clam')
 
     # ===== 全局配置 =====
-    style.configure('.', background=COLORS['bg'], foreground=COLORS['text_primary'])
-    style.map('.', background=[('active', COLORS['primary_hover'])])
+    style.configure('.', 
+                    background=COLORS['bg'], 
+                    foreground=COLORS['text_primary'],
+                    font=(FONT['family'], FONT['sizes']['sm']))
+    style.map('.', 
+              background=[('active', COLORS['bg'])],
+              foreground=[('disabled', COLORS['text_disabled'])])
 
     # ===== Frame =====
     style.configure('TFrame', background=COLORS['bg'])
     style.configure('Card.TFrame', background=COLORS['card'])
+    style.configure('Surface.TFrame', background=COLORS['surface'])
+    style.configure('Sidebar.TFrame', background=COLORS['sidebar'])
 
     # ===== Label =====
-    style.configure('TLabel', background=COLORS['bg'], foreground=COLORS['text_primary'],
-                    font=('Segoe UI', 9))
-    style.configure('Title.TLabel', background=COLORS['bg'], foreground=COLORS['text_primary'],
-                    font=('Segoe UI', 24, 'bold'))
-    style.configure('Subtitle.TLabel', background=COLORS['bg'], foreground=COLORS['text_secondary'],
-                    font=('Segoe UI', 10))
-    style.configure('Status.TLabel', background=COLORS['card'], foreground=COLORS['text_primary'],
-                    font=('Segoe UI', 11, 'bold'))
-    style.configure('StatusRunning.TLabel', background=COLORS['card'], foreground=COLORS['success'],
-                    font=('Segoe UI', 11, 'bold'))
-    style.configure('StatusError.TLabel', background=COLORS['card'], foreground=COLORS['danger'],
-                    font=('Segoe UI', 11, 'bold'))
-    style.configure('StatusWarn.TLabel', background=COLORS['card'], foreground=COLORS['warning'],
-                    font=('Segoe UI', 11, 'bold'))
-    style.configure('Hint.TLabel', background=COLORS['card'], foreground=COLORS['text_muted'],
-                    font=('Segoe UI', 8))
+    style.configure('TLabel', 
+                    background=COLORS['bg'], 
+                    foreground=COLORS['text_primary'],
+                    font=(FONT['family'], FONT['sizes']['sm']))
+    
+    style.configure('Title.TLabel', 
+                    background=COLORS['bg'], 
+                    foreground=COLORS['text_primary'],
+                    font=(FONT['family'], FONT['sizes']['5xl'], 'bold'))
+    
+    style.configure('Subtitle.TLabel', 
+                    background=COLORS['bg'], 
+                    foreground=COLORS['text_secondary'],
+                    font=(FONT['family'], FONT['sizes']['base']))
+    
+    style.configure('Status.TLabel', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['text_primary'],
+                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+    
+    style.configure('StatusRunning.TLabel', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['success'],
+                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+    
+    style.configure('StatusError.TLabel', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['danger'],
+                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+    
+    style.configure('StatusWarn.TLabel', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['warning'],
+                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+    
+    style.configure('Hint.TLabel', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['text_muted'],
+                    font=(FONT['family'], FONT['sizes']['xs']))
+    
+    style.configure('Disabled.TLabel',
+                    background=COLORS['card'],
+                    foreground=COLORS['text_disabled'],
+                    font=(FONT['family'], FONT['sizes']['sm']))
 
     # ===== LabelFrame（卡片容器）=====
-    style.configure('Card.TLabelframe', background=COLORS['card'], foreground=COLORS['text_primary'])
-    style.configure('Card.TLabelframe.Label', background=COLORS['card'],
-                    foreground=COLORS['primary'], font=('Segoe UI', 10, 'bold'),
-                    padding=(10, 5, 0, 5))
-    style.configure('TLabelframe', background=COLORS['card'], foreground=COLORS['text_primary'])
-    style.configure('TLabelframe.Label', background=COLORS['card'],
-                    foreground=COLORS['primary'], font=('Segoe UI', 10, 'bold'))
+    style.configure('Card.TLabelframe', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['text_primary'])
+    style.configure('Card.TLabelframe.Label', 
+                    background=COLORS['card'],
+                    foreground=COLORS['primary'], 
+                    font=(FONT['family'], FONT['sizes']['base'], 'bold'),
+                    padding=(SPACING['3'], SPACING['2'], 0, SPACING['2']))
+    style.configure('TLabelframe', 
+                    background=COLORS['card'], 
+                    foreground=COLORS['text_primary'])
+    style.configure('TLabelframe.Label', 
+                    background=COLORS['card'],
+                    foreground=COLORS['primary'], 
+                    font=(FONT['family'], FONT['sizes']['base'], 'bold'))
 
-    # ===== Button =====
-    style.configure('TButton', font=('Segoe UI', 9), padding=(12, 6),
-                    background='#FFFFFF', foreground=COLORS['text_primary'],
-                    borderwidth=1, relief='solid')
+    # ===== Button - 默认样式 =====
+    style.configure('TButton', 
+                    font=(FONT['family'], FONT['sizes']['sm']), 
+                    padding=(SPACING['3'], SPACING['2']),
+                    background=COLORS['card'], 
+                    foreground=COLORS['text_primary'],
+                    borderwidth=1, 
+                    relief='flat')
     style.map('TButton',
-              background=[('active', COLORS['primary_light'] if 'primary_light' in COLORS else '#E0E7FF'),
-                         ('pressed', COLORS['primary'])],
-              foreground=[('active', COLORS['primary']), ('pressed', '#FFFFFF')],
-              bordercolor=[('focus', COLORS['primary'])])
+              background=[('active', COLORS['primary_light']),
+                         ('pressed', COLORS['primary_light_hover']),
+                         ('disabled', COLORS['input_bg_disabled'])],
+              foreground=[('active', COLORS['primary']), 
+                         ('pressed', COLORS['primary_active']),
+                         ('disabled', COLORS['text_disabled'])],
+              relief=[('pressed', 'sunken')])
 
-    style.configure('Primary.TButton', font=('Segoe UI', 10, 'bold'), padding=(16, 8),
-                    background=COLORS['primary'], foreground='#FFFFFF',
-                    borderwidth=0, relief='flat')
+    # ===== Button - Primary 主按钮 =====
+    style.configure('Primary.TButton', 
+                    font=(FONT['family'], FONT['sizes']['base'], 'bold'), 
+                    padding=(SPACING['4'], SPACING['3']),
+                    background=COLORS['primary'], 
+                    foreground=COLORS['text_on_primary'],
+                    borderwidth=0, 
+                    relief='flat')
     style.map('Primary.TButton',
-              background=[('active', COLORS['primary_hover']), ('pressed', '#2D4BD4')],
-              foreground=[('active', '#FFFFFF'), ('pressed', '#FFFFFF')])
+              background=[('active', COLORS['primary_hover']), 
+                         ('pressed', COLORS['primary_active']),
+                         ('disabled', COLORS['text_disabled'])],
+              foreground=[('active', COLORS['text_on_primary']), 
+                         ('pressed', COLORS['text_on_primary']),
+                         ('disabled', COLORS['text_on_primary'])])
 
-    style.configure('Success.TButton', font=('Segoe UI', 9), padding=(12, 6),
-                    background=COLORS['success'], foreground='#FFFFFF',
-                    borderwidth=0, relief='flat')
+    # ===== Button - Success 成功按钮 =====
+    style.configure('Success.TButton', 
+                    font=(FONT['family'], FONT['sizes']['sm']), 
+                    padding=(SPACING['3'], SPACING['2']),
+                    background=COLORS['success'], 
+                    foreground=COLORS['text_on_primary'],
+                    borderwidth=0, 
+                    relief='flat')
     style.map('Success.TButton',
-              background=[('active', '#16A34A'), ('pressed', '#15803D')])
+              background=[('active', COLORS['success_hover']), 
+                         ('pressed', '#047857'),
+                         ('disabled', COLORS['text_disabled'])],
+              foreground=[('active', COLORS['text_on_primary']), 
+                         ('pressed', COLORS['text_on_primary']),
+                         ('disabled', COLORS['text_on_primary'])])
 
-    style.configure('Danger.TButton', font=('Segoe UI', 9), padding=(12, 6),
-                    background=COLORS['danger'], foreground='#FFFFFF',
-                    borderwidth=0, relief='flat')
+    # ===== Button - Danger 危险按钮 =====
+    style.configure('Danger.TButton', 
+                    font=(FONT['family'], FONT['sizes']['sm']), 
+                    padding=(SPACING['3'], SPACING['2']),
+                    background=COLORS['danger'], 
+                    foreground=COLORS['text_on_primary'],
+                    borderwidth=0, 
+                    relief='flat')
     style.map('Danger.TButton',
-              background=[('active', '#DC2626'), ('pressed', '#B91C1C')])
+              background=[('active', COLORS['danger_hover']), 
+                         ('pressed', '#991B1B'),
+                         ('disabled', COLORS['text_disabled'])],
+              foreground=[('active', COLORS['text_on_primary']), 
+                         ('pressed', COLORS['text_on_primary']),
+                         ('disabled', COLORS['text_on_primary'])])
 
-    style.configure('Small.TButton', font=('Segoe UI', 8), padding=(8, 4),
-                    background=COLORS['border_light'], foreground=COLORS['text_secondary'],
-                    borderwidth=0, relief='flat')
+    # ===== Button - Ghost 幽灵按钮 =====
+    style.configure('Ghost.TButton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
+                    padding=(SPACING['3'], SPACING['2']),
+                    background='transparent',
+                    foreground=COLORS['text_secondary'],
+                    borderwidth=0,
+                    relief='flat')
+    style.map('Ghost.TButton',
+              background=[('active', COLORS['surface_hover']),
+                         ('pressed', COLORS['border_light'])],
+              foreground=[('active', COLORS['text_primary']),
+                         ('pressed', COLORS['text_primary'])])
 
-    # ===== Entry =====
-    style.configure('TEntry', font=('Consolas', 9), padding=(8, 6),
-                    fieldbackground='#FFFFFF', insertcolor=COLORS['text_primary'])
+    # ===== Button - Small 小按钮 =====
+    style.configure('Small.TButton', 
+                    font=(FONT['family'], FONT['sizes']['xs']), 
+                    padding=(SPACING['2'], SPACING['1']),
+                    background=COLORS['surface'], 
+                    foreground=COLORS['text_secondary'],
+                    borderwidth=1, 
+                    relief='flat')
+    style.map('Small.TButton',
+              background=[('active', COLORS['surface_hover']),
+                         ('pressed', COLORS['border_light']),
+                         ('disabled', COLORS['input_bg_disabled'])],
+              foreground=[('active', COLORS['text_primary']),
+                         ('pressed', COLORS['text_primary']),
+                         ('disabled', COLORS['text_disabled'])])
 
-    # ===== ScrolledText =====
+    # ===== Entry 输入框 =====
+    style.configure('TEntry', 
+                    font=(FONT['mono'], FONT['sizes']['sm']), 
+                    padding=(SPACING['3'], SPACING['2']),
+                    fieldbackground=COLORS['input_bg'], 
+                    insertcolor=COLORS['text_primary'],
+                    borderwidth=1,
+                    relief='flat')
+    style.map('TEntry',
+              fieldbackground=[('focus', '#FFFFFF'), 
+                             ('disabled', COLORS['input_bg_disabled'])],
+              bordercolor=[('focus', COLORS['border_focus']),
+                          ('disabled', COLORS['border'])],
+              foreground=[('disabled', COLORS['text_disabled'])])
+
+    # ===== Combobox 下拉框 =====
+    style.configure('TCombobox',
+                    font=(FONT['family'], FONT['sizes']['sm']),
+                    padding=(SPACING['3'], SPACING['2']),
+                    fieldbackground=COLORS['input_bg'],
+                    background=COLORS['surface'],
+                    borderwidth=1,
+                    relief='flat')
+    style.map('TCombobox',
+              fieldbackground=[('focus', '#FFFFFF'),
+                             ('readonly', COLORS['input_bg_disabled'])],
+              bordercolor=[('focus', COLORS['border_focus'])],
+              foreground=[('readonly', COLORS['text_disabled'])])
+    
+    # ===== Notebook 选项卡 =====
+    style.configure('TNotebook', 
+                    background=COLORS['bg'],
+                    borderwidth=0)
+    style.configure('TNotebook.Tab',
+                    font=(FONT['family'], FONT['sizes']['sm']),
+                    padding=(SPACING['4'], SPACING['2']),
+                    background=COLORS['surface'],
+                    foreground=COLORS['text_secondary'],
+                    borderwidth=0)
+    style.map('TNotebook.Tab',
+              background=[('selected', COLORS['card']),
+                         ('active', COLORS['card_hover'])],
+              foreground=[('selected', COLORS['text_primary']),
+                         ('active', COLORS['text_primary'])])
+
+    # ===== Scrollbar 滚动条 =====
+    style.configure('Vertical.TScrollbar',
+                    background=COLORS['border_light'],
+                    troughcolor=COLORS['bg'],
+                    borderwidth=0,
+                    arrowcolor=COLORS['text_muted'],
+                    relief='flat')
+    style.map('Vertical.TScrollbar',
+              background=[('active', COLORS['border']),
+                         ('!active', COLORS['border_light'])])
+
+    # ===== Checkbutton 复选框 =====
+    style.configure('TCheckbutton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
+                    background=COLORS['bg'],
+                    foreground=COLORS['text_primary'])
+    style.map('TCheckbutton',
+              background=[('active', COLORS['bg'])],
+              foreground=[('active', COLORS['text_primary'])])
+
+    # ===== Radiobutton 单选框 =====
+    style.configure('TRadiobutton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
+                    background=COLORS['bg'],
+                    foreground=COLORS['text_primary'])
+    style.map('TRadiobutton',
+              background=[('active', COLORS['bg'])],
+              foreground=[('active', COLORS['text_primary'])])
+
+    # ===== Progressbar 进度条 =====
+    style.configure('Horizontal.TProgressbar',
+                    background=COLORS['primary'],
+                    troughcolor=COLORS['border_light'],
+                    borderwidth=0,
+                    thickness=6)
+
+    # ===== Separator 分隔线 =====
+    style.configure('TSeparator',
+                    background=COLORS['border_light'])
+
+    # ===== Log日志区域专用 =====
     style.configure('Log.TFrame', background=COLORS['log_bg'])
 
     return style
@@ -3238,38 +3602,114 @@ def create_gui() -> None:
         return create_lucide_icon(parent, icon_name, color, 18, COLORS['card'])
 
     def make_card(parent: tk.Misc, title: str, icon_name: str, padding: int = 16) -> tk.Frame:
-        """创建自绘卡片容器，统一边距、标题和浅边框。"""
+        """创建自绘卡片容器，统一边距、标题和浅边框 - 优化版。"""
+        # 主卡片容器
         card = tk.Frame(
             parent,
             bg=COLORS['card'],
             highlightbackground=COLORS['border_light'],
-            highlightcolor=COLORS['border_light'],
+            highlightcolor=COLORS['border'],
             highlightthickness=1,
             bd=0,
         )
+        
+        # 标题区域
         header_frame = tk.Frame(card, bg=COLORS['card'])
-        header_frame.pack(fill=tk.X, padx=padding, pady=(padding, 8))
-        make_icon_label(header_frame, icon_name, COLORS['primary']).pack(side=tk.LEFT)
+        header_frame.pack(fill=tk.X, padx=padding, pady=(padding, SPACING['2']))
+        
+        # 图标
+        icon_canvas = make_icon_label(header_frame, icon_name, COLORS['primary'])
+        icon_canvas.pack(side=tk.LEFT)
+        
+        # 标题文字
         tk.Label(
             header_frame,
             text=title,
             bg=COLORS['card'],
             fg=COLORS['text_primary'],
-            font=('Segoe UI', 10, 'bold'),
-        ).pack(side=tk.LEFT, padx=(8, 0))
+            font=(FONT['family'], FONT['sizes']['base'], 'bold'),
+        ).pack(side=tk.LEFT, padx=(SPACING['2'], 0))
+        
+        # 分隔线
+        separator = tk.Frame(card, bg=COLORS['border_light'], height=1)
+        separator.pack(fill=tk.X, padx=padding, pady=(0, SPACING['2']))
+        
+        # 内容区域
         body = ttk.Frame(card, style='Card.TFrame')
         body.pack(fill=tk.BOTH, expand=True, padx=padding, pady=(0, padding))
+        
+        # 添加hover效果
+        def on_enter(event):
+            card.config(highlightbackground=COLORS['border'])
+            card.config(highlightthickness=2)
+        
+        def on_leave(event):
+            card.config(highlightbackground=COLORS['border_light'])
+            card.config(highlightthickness=1)
+        
+        card.bind("<Enter>", on_enter)
+        card.bind("<Leave>", on_leave)
+        
         setattr(card, "body", body)
+        setattr(card, "header", header_frame)
+        setattr(card, "separator", separator)
         return card
 
     def make_metric_tile(parent: tk.Misc, label: str, value_var: object, accent: str) -> tk.Frame:
-        """创建紧凑指标块。"""
-        tile = tk.Frame(parent, bg='#F8FAFC', highlightbackground=COLORS['border_light'], highlightthickness=1)
-        tk.Frame(tile, bg=accent, width=3).pack(side=tk.LEFT, fill=tk.Y)
-        content_frame = tk.Frame(tile, bg='#F8FAFC')
-        content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=8)
-        tk.Label(content_frame, text=label, bg='#F8FAFC', fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(anchor='w')
-        tk.Label(content_frame, textvariable=value_var, bg='#F8FAFC', fg=COLORS['text_primary'], font=('Segoe UI', 12, 'bold')).pack(anchor='w', pady=(2, 0))
+        """创建紧凑指标块 - 优化版。"""
+        tile = tk.Frame(
+            parent, 
+            bg=COLORS['surface'], 
+            highlightbackground=COLORS['border_light'], 
+            highlightthickness=1
+        )
+        
+        # 左侧强调色条
+        accent_bar = tk.Frame(tile, bg=accent, width=4)
+        accent_bar.pack(side=tk.LEFT, fill=tk.Y)
+        
+        # 内容区域
+        content_frame = tk.Frame(tile, bg=COLORS['surface'])
+        content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=SPACING['3'], pady=SPACING['2'])
+        
+        # 标签
+        tk.Label(
+            content_frame, 
+            text=label, 
+            bg=COLORS['surface'], 
+            fg=COLORS['text_muted'], 
+            font=(FONT['family'], FONT['sizes']['xs'])
+        ).pack(anchor='w')
+        
+        # 数值
+        tk.Label(
+            content_frame, 
+            textvariable=value_var, 
+            bg=COLORS['surface'], 
+            fg=COLORS['text_primary'], 
+            font=(FONT['family'], FONT['sizes']['xl'], 'bold')
+        ).pack(anchor='w', pady=(SPACING['1'], 0))
+        
+        # 添加hover效果
+        def on_enter(event):
+            tile.config(highlightbackground=COLORS['border'])
+            tile.config(bg=COLORS['card'])
+            content_frame.config(bg=COLORS['card'])
+            for child in content_frame.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.config(bg=COLORS['card'])
+        
+        def on_leave(event):
+            tile.config(highlightbackground=COLORS['border_light'])
+            tile.config(bg=COLORS['surface'])
+            content_frame.config(bg=COLORS['surface'])
+            for child in content_frame.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.config(bg=COLORS['surface'])
+        
+        tile.bind("<Enter>", on_enter)
+        tile.bind("<Leave>", on_leave)
+        
         return tile
 
     def make_overview_tile(
@@ -3280,44 +3720,125 @@ def create_gui() -> None:
         icon_name: str,
         accent: str,
     ) -> tk.Frame:
-        """创建总览页的大号指标块。"""
-        tile = tk.Frame(parent, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
+        """创建总览页的大号指标块 - 优化版。"""
+        tile = tk.Frame(
+            parent, 
+            bg=COLORS['card'], 
+            highlightbackground=COLORS['border_light'], 
+            highlightthickness=1
+        )
+        
+        # 顶部区域：图标 + 标题
         top = tk.Frame(tile, bg=COLORS['card'])
-        top.pack(fill=tk.X, padx=16, pady=(15, 8))
-        icon_shell = tk.Frame(top, bg=COLORS['surface'], width=34, height=34)
+        top.pack(fill=tk.X, padx=SPACING['4'], pady=(SPACING['4'], SPACING['2']))
+        
+        # 图标容器
+        icon_shell = tk.Frame(top, bg=COLORS['surface'], width=40, height=40)
         icon_shell.pack(side=tk.LEFT)
         icon_shell.pack_propagate(False)
-        create_lucide_icon(icon_shell, icon_name, accent, 20, COLORS['surface']).pack(expand=True)
-        tk.Label(top, text=title, bg=COLORS['card'], fg=COLORS['text_secondary'], font=('Segoe UI', 9, 'bold')).pack(side=tk.LEFT, padx=(10, 0))
+        create_lucide_icon(icon_shell, icon_name, accent, 24, COLORS['surface']).pack(expand=True)
+        
+        # 标题
+        tk.Label(
+            top, 
+            text=title, 
+            bg=COLORS['card'], 
+            fg=COLORS['text_secondary'], 
+            font=(FONT['family'], FONT['sizes']['sm'], 'bold')
+        ).pack(side=tk.LEFT, padx=(SPACING['3'], 0))
+        
+        # 数值
         tk.Label(
             tile,
             textvariable=value_var,
             bg=COLORS['card'],
             fg=COLORS['text_primary'],
-            font=('Segoe UI', 18, 'bold'),
-        ).pack(anchor='w', padx=16)
+            font=(FONT['family'], FONT['sizes']['4xl'], 'bold'),
+        ).pack(anchor='w', padx=SPACING['4'])
+        
+        # 描述
         tk.Label(
             tile,
             text=detail,
             bg=COLORS['card'],
             fg=COLORS['text_muted'],
-            font=('Segoe UI', 8),
+            font=(FONT['family'], FONT['sizes']['xs']),
             wraplength=220,
             justify=tk.LEFT,
-        ).pack(anchor='w', padx=16, pady=(5, 15))
+        ).pack(anchor='w', padx=SPACING['4'], pady=(SPACING['2'], SPACING['4']))
+        
+        # 添加hover效果
+        def on_enter(event):
+            tile.config(highlightbackground=COLORS['border'])
+            tile.config(highlightthickness=2)
+            tile.config(bg=COLORS['card_hover'])
+            for child in tile.winfo_children():
+                if isinstance(child, tk.Frame):
+                    child.config(bg=COLORS['card_hover'])
+                elif isinstance(child, tk.Label):
+                    child.config(bg=COLORS['card_hover'])
+        
+        def on_leave(event):
+            tile.config(highlightbackground=COLORS['border_light'])
+            tile.config(highlightthickness=1)
+            tile.config(bg=COLORS['card'])
+            for child in tile.winfo_children():
+                if isinstance(child, tk.Frame):
+                    child.config(bg=COLORS['card'])
+                elif isinstance(child, tk.Label):
+                    child.config(bg=COLORS['card'])
+        
+        tile.bind("<Enter>", on_enter)
+        tile.bind("<Leave>", on_leave)
+        
         return tile
 
     def make_empty_state(parent: tk.Misc, icon_name: str, title: str, detail: str) -> tk.Frame:
-        """创建空状态块。"""
-        state = tk.Frame(parent, bg='#F8FAFC', highlightbackground=COLORS['border_light'], highlightthickness=1)
+        """创建空状态块 - 优化版。"""
+        state = tk.Frame(
+            parent, 
+            bg=COLORS['surface'], 
+            highlightbackground=COLORS['border_light'], 
+            highlightthickness=1
+        )
         state.pack(fill=tk.X)
-        state_inner = tk.Frame(state, bg='#F8FAFC')
-        state_inner.pack(fill=tk.X, padx=18, pady=18)
-        create_lucide_icon(state_inner, icon_name, COLORS['primary'], 28, '#F8FAFC').pack(side=tk.LEFT, padx=(0, 12))
-        text_frame = tk.Frame(state_inner, bg='#F8FAFC')
+        
+        state_inner = tk.Frame(state, bg=COLORS['surface'])
+        state_inner.pack(fill=tk.X, padx=SPACING['5'], pady=SPACING['5'])
+        
+        # 图标
+        create_lucide_icon(
+            state_inner, 
+            icon_name, 
+            COLORS['primary'], 
+            32, 
+            COLORS['surface']
+        ).pack(side=tk.LEFT, padx=(0, SPACING['3']))
+        
+        # 文本区域
+        text_frame = tk.Frame(state_inner, bg=COLORS['surface'])
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        tk.Label(text_frame, text=title, bg='#F8FAFC', fg=COLORS['text_primary'], font=('Segoe UI', 11, 'bold')).pack(anchor='w')
-        tk.Label(text_frame, text=detail, bg='#F8FAFC', fg=COLORS['text_muted'], font=('Segoe UI', 9), wraplength=760, justify=tk.LEFT).pack(anchor='w', pady=(4, 0))
+        
+        # 标题
+        tk.Label(
+            text_frame, 
+            text=title, 
+            bg=COLORS['surface'], 
+            fg=COLORS['text_primary'], 
+            font=(FONT['family'], FONT['sizes']['md'], 'bold')
+        ).pack(anchor='w')
+        
+        # 描述
+        tk.Label(
+            text_frame, 
+            text=detail, 
+            bg=COLORS['surface'], 
+            fg=COLORS['text_muted'], 
+            font=(FONT['family'], FONT['sizes']['sm']), 
+            wraplength=760, 
+            justify=tk.LEFT
+        ).pack(anchor='w', pady=(SPACING['1'], 0))
+        
         return state
 
     def pack_responsive_pair(
@@ -3353,19 +3874,40 @@ def create_gui() -> None:
         return getattr(card, "body")
 
     def set_nav_active(page_key: str) -> None:
-        """更新左侧导航选中态。"""
+        """更新左侧导航选中态 - 优化版。"""
         for key, button in nav_buttons.items():
             is_active = key == page_key
-            bg_color = COLORS['sidebar_active'] if is_active else COLORS['sidebar']
-            fg_color = '#FFFFFF' if is_active else COLORS['sidebar_text']
+            button.is_active = is_active
+            
+            # 设置背景色
+            if is_active:
+                bg_color = COLORS['sidebar_active']
+                fg_color = '#FFFFFF'
+                indicator_color = COLORS['primary']
+            else:
+                bg_color = COLORS['sidebar']
+                fg_color = COLORS['sidebar_text']
+                indicator_color = COLORS['sidebar']
+            
+            # 更新按钮背景
             button.config(bg=bg_color)
+            
+            # 更新左侧指示条
             indicator = getattr(button, "indicator", None)
             if indicator:
-                indicator.config(bg=COLORS['primary'] if is_active else bg_color)
+                indicator.config(bg=indicator_color)
+            
+            # 更新所有子控件
             for child in button.winfo_children():
                 child.config(bg=bg_color)
                 if isinstance(child, tk.Label):
                     child.config(fg=fg_color)
+                elif hasattr(child, 'config'):
+                    # Canvas图标需要特殊处理
+                    try:
+                        child.config(bg=bg_color)
+                    except:
+                        pass
 
     def show_page(page_key: str) -> None:
         """切换主内容页面。"""
@@ -3393,26 +3935,42 @@ def create_gui() -> None:
         ("account", "account", "账号"),
         ("logs", "logs", "日志"),
     ]
+    
+    # 菜单标题
     tk.Label(
         nav_host,
-        text="菜单",
+        text="导航",
         anchor='w',
         fg="#8EA0B8",
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 8, 'bold'),
-    ).pack(fill=tk.X, padx=12, pady=(0, 6))
+        font=(FONT['family'], FONT['sizes']['xs'], 'bold'),
+    ).pack(fill=tk.X, padx=SPACING['3'], pady=(0, SPACING['2']))
+    
     for key, icon_name, title in nav_items:
+        # 导航按钮容器
         nav_button = tk.Frame(
             nav_host,
             bg=COLORS['sidebar'],
             cursor='hand2',
         )
-        nav_button.pack(fill=tk.X, pady=3)
+        nav_button.pack(fill=tk.X, pady=SPACING['1'])
+        
+        # 左侧选中指示条
         nav_indicator = tk.Frame(nav_button, width=3, bg=COLORS['sidebar'])
-        nav_indicator.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 8))
+        nav_indicator.pack(side=tk.LEFT, fill=tk.Y, padx=(0, SPACING['2']))
         setattr(nav_button, "indicator", nav_indicator)
-        nav_icon = create_lucide_icon(nav_button, icon_name, COLORS['sidebar_text'], 17, COLORS['sidebar'])
-        nav_icon.pack(side=tk.LEFT, padx=(4, 8), pady=11)
+        
+        # 图标
+        nav_icon = create_lucide_icon(
+            nav_button, 
+            icon_name, 
+            COLORS['sidebar_text'], 
+            18, 
+            COLORS['sidebar']
+        )
+        nav_icon.pack(side=tk.LEFT, padx=(SPACING['2'], SPACING['2']), pady=SPACING['3'])
+        
+        # 文字标签
         nav_label = tk.Label(
             nav_button,
             text=title,
@@ -3420,12 +3978,35 @@ def create_gui() -> None:
             bg=COLORS['sidebar'],
             fg=COLORS['sidebar_text'],
             cursor='hand2',
-            font=('Segoe UI', 10, 'bold'),
+            font=(FONT['family'], FONT['sizes']['base'], 'bold'),
         )
-        nav_label.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=11)
+        nav_label.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=SPACING['3'])
+        
+        # hover效果
+        def on_enter_nav(event, button=nav_button, icon=nav_icon, label=nav_label):
+            if not getattr(button, 'is_active', False):
+                button.config(bg=COLORS['sidebar_hover'])
+                icon.config(bg=COLORS['sidebar_hover'])
+                label.config(bg=COLORS['sidebar_hover'])
+        
+        def on_leave_nav(event, button=nav_button, icon=nav_icon, label=nav_label):
+            if not getattr(button, 'is_active', False):
+                button.config(bg=COLORS['sidebar'])
+                icon.config(bg=COLORS['sidebar'])
+                label.config(bg=COLORS['sidebar'])
+        
+        nav_button.bind("<Enter>", on_enter_nav)
+        nav_button.bind("<Leave>", on_leave_nav)
+        nav_icon.bind("<Enter>", on_enter_nav)
+        nav_icon.bind("<Leave>", on_leave_nav)
+        nav_label.bind("<Enter>", on_enter_nav)
+        nav_label.bind("<Leave>", on_leave_nav)
+        
+        # 点击事件
         nav_button.bind("<Button-1>", lambda event, page_key=key: show_page(page_key))
         nav_icon.bind("<Button-1>", lambda event, page_key=key: show_page(page_key))
         nav_label.bind("<Button-1>", lambda event, page_key=key: show_page(page_key))
+        
         nav_buttons[key] = nav_button
 
     overview_page = create_page("overview")
@@ -3471,12 +4052,18 @@ def create_gui() -> None:
     ).pack(anchor='w', padx=12, pady=8)
     overview_actions = tk.Frame(overview_hero_inner, bg="#111820")
     overview_actions.pack(side=tk.RIGHT, padx=(18, 0))
+    
     overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=14)
     overview_login_btn.pack(fill=tk.X, pady=(0, 8))
+    add_button_hover_effect(overview_login_btn)
+    
     overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=14)
     overview_start_btn.pack(fill=tk.X, pady=(0, 8))
+    add_button_hover_effect(overview_start_btn)
+    
     overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='TButton', width=14)
     overview_config_btn.pack(fill=tk.X)
+    add_button_hover_effect(overview_config_btn)
 
     overview_metrics = tk.Frame(overview_page, bg=COLORS['bg'])
     overview_metrics.pack(fill=tk.X, pady=(14, 0))
@@ -3671,22 +4258,30 @@ def create_gui() -> None:
         style='TLabel',
         background=COLORS['card'],
     ).pack(side=tk.LEFT, padx=(24, 6))
-    port_entry = ttk.Entry(service_status_row, textvariable=port_var, width=8, font=('Consolas', 11, 'bold'))
+    port_entry = ttk.Entry(service_status_row, textvariable=port_var, width=8, font=(FONT['mono'], FONT['sizes']['md'], 'bold'))
     port_entry.pack(side=tk.LEFT)
+    add_entry_focus_effect(port_entry)
 
     service_actions = ttk.Frame(status_body, style='Card.TFrame')
     service_actions.pack(fill=tk.X, pady=(18, 0))
+    
     start_btn = ttk.Button(service_actions, text="启动服务", style='Primary.TButton', width=15)
     start_btn.pack(side=tk.LEFT)
+    add_button_hover_effect(start_btn)
+    
     stop_btn = ttk.Button(service_actions, text="停止", style='Danger.TButton', width=10, state=tk.DISABLED)
     stop_btn.pack(side=tk.LEFT, padx=(10, 0))
-    ttk.Button(
+    add_button_hover_effect(stop_btn)
+    
+    open_btn = ttk.Button(
         service_actions,
         text="打开",
         style='Small.TButton',
         width=13,
         command=lambda: webbrowser.open(f"http://localhost:{port_var.get()}/"),
-    ).pack(side=tk.LEFT, padx=(10, 0))
+    )
+    open_btn.pack(side=tk.LEFT, padx=(10, 0))
+    add_button_hover_effect(open_btn)
     ttk.Label(
         status_body,
         textvariable=service_hint_var,
@@ -3843,8 +4438,11 @@ def create_gui() -> None:
     project_action_card = make_card(project_summary, "项目操作", "refresh-cw")
     pack_responsive_pair(project_summary, project_status_card, project_action_card)
     project_action_body = card_body(project_action_card)
+    
     refresh_projects_btn = ttk.Button(project_action_body, text="刷新项目", style='Primary.TButton')
     refresh_projects_btn.pack(side=tk.LEFT, pady=(0, 10))
+    add_button_hover_effect(refresh_projects_btn)
+    
     open_lanhu_home_btn = ttk.Button(
         project_action_body,
         text="打开蓝湖",
@@ -3852,15 +4450,21 @@ def create_gui() -> None:
         command=lambda: webbrowser.open(DEFAULT_LANHU_LOGIN_URL),
     )
     open_lanhu_home_btn.pack(side=tk.LEFT, padx=(10, 0), pady=(0, 10))
+    add_button_hover_effect(open_lanhu_home_btn)
     manual_project_row = ttk.Frame(project_action_body, style='Card.TFrame')
     manual_project_row.pack(fill=tk.X, pady=(6, 0))
     manual_project_url_var = tk.StringVar()
-    ttk.Entry(
+    
+    project_url_entry = ttk.Entry(
         manual_project_row,
         textvariable=manual_project_url_var,
-    ).pack(side=tk.LEFT, fill=tk.X, expand=True)
+    )
+    project_url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    add_entry_focus_effect(project_url_entry)
+    
     save_project_btn = ttk.Button(manual_project_row, text="保存项目链接", style='Small.TButton', width=14)
     save_project_btn.pack(side=tk.LEFT, padx=(8, 0))
+    add_button_hover_effect(save_project_btn)
     ttk.Label(
         project_action_body,
         text="如果自动读取失败，可在蓝湖打开任意项目后复制地址粘贴到这里；保存后同样会出现在当前账号项目列表。",
@@ -4089,24 +4693,36 @@ def create_gui() -> None:
     ).pack(side=tk.LEFT)
     login_url_entry = ttk.Entry(login_url_row, textvariable=login_url_var, width=56)
     login_url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 8))
-    ttk.Button(
+    add_entry_focus_effect(login_url_entry)
+    
+    browser_btn = ttk.Button(
         login_url_row,
         text="浏览器打开",
         style='Small.TButton',
         width=14,
         command=lambda: webbrowser.open(login_url_var.get().strip() or DEFAULT_LANHU_LOGIN_URL),
-    ).pack(side=tk.LEFT)
+    )
+    browser_btn.pack(side=tk.LEFT)
+    add_button_hover_effect(browser_btn)
 
     account_button_row = ttk.Frame(account_body, style='Card.TFrame')
     account_button_row.pack(fill=tk.X, pady=(14, 0))
+    
     login_btn = ttk.Button(account_button_row, text="添加账号 / 一键登录", style='Primary.TButton')
     login_btn.pack(side=tk.LEFT)
+    add_button_hover_effect(login_btn)
+    
     refresh_profile_btn = ttk.Button(account_button_row, text="刷新资料", style='TButton')
     refresh_profile_btn.pack(side=tk.LEFT, padx=(10, 0))
+    add_button_hover_effect(refresh_profile_btn)
+    
     save_cookie_btn = ttk.Button(account_button_row, text="保存 Cookie", style='Success.TButton')
     save_cookie_btn.pack(side=tk.LEFT, padx=(10, 0))
+    add_button_hover_effect(save_cookie_btn)
+    
     logout_btn = ttk.Button(account_button_row, text="退出当前账号", style='Danger.TButton')
     logout_btn.pack(side=tk.LEFT, padx=(10, 0))
+    add_button_hover_effect(logout_btn)
 
     accounts_card = make_card(account_page, "已登录账号", "user")
     accounts_card.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
@@ -4566,10 +5182,14 @@ def create_gui() -> None:
     tools_action_card = make_card(tools_summary, "批量操作", "wand-sparkles")
     pack_responsive_pair(tools_summary, tools_status_card, tools_action_card)
     tools_action_body = card_body(tools_action_card)
+    
     config_all_btn = ttk.Button(tools_action_body, text="一键配置全部", style='Primary.TButton')
     config_all_btn.pack(side=tk.LEFT)
+    add_button_hover_effect(config_all_btn)
+    
     refresh_ide_btn = ttk.Button(tools_action_body, text="重新检测", style='TButton')
     refresh_ide_btn.pack(side=tk.LEFT, padx=(10, 0))
+    add_button_hover_effect(refresh_ide_btn)
 
     ide_card = make_card(tools_page, "AI 开发工具", "plug-zap")
     ide_card.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
