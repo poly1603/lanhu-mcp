@@ -2476,6 +2476,85 @@ class LanhuExtractor:
             "real-path": "/item/project/product"
         }
         self.client = httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=headers, follow_redirects=True)
+        self._max_retries = int(os.getenv("HTTP_MAX_RETRIES", "3"))
+        self._retry_base_delay = float(os.getenv("HTTP_RETRY_BASE_DELAY", "1.0"))
+
+    async def _request_with_retry(
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict = None,
+        json_body: dict = None,
+        expected_code: str = None,
+        **kwargs
+    ) -> httpx.Response:
+        """
+        带指数退避重试的 HTTP 请求
+
+        Args:
+            method: HTTP 方法 ("GET" / "POST")
+            url: 请求 URL
+            params: 查询参数
+            json_body: JSON 请求体
+            expected_code: 期望的蓝湖业务 code（如 "00000"），不匹配时也重试
+            **kwargs: 透传给 httpx 请求
+
+        Returns:
+            httpx.Response
+
+        Raises:
+            最后一次重试仍失败时抛出原始异常
+        """
+        import random
+        last_exc = None
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                if method.upper() == "GET":
+                    resp = await self.client.get(url, params=params, **kwargs)
+                elif method.upper() == "POST":
+                    resp = await self.client.post(url, params=params, json=json_body, **kwargs)
+                else:
+                    resp = await self.client.request(method, url, params=params, json=json_body, **kwargs)
+
+                # 检查 HTTP 状态码
+                if resp.status_code >= 500:
+                    raise httpx.HTTPStatusError(
+                        f"Server error {resp.status_code}",
+                        request=resp.request, response=resp
+                    )
+                if resp.status_code == 429:
+                    # Too Many Requests — 退避时间加长
+                    retry_after = float(resp.headers.get("Retry-After", self._retry_base_delay * 2 ** attempt))
+                    if attempt < self._max_retries:
+                        await asyncio.sleep(retry_after)
+                        continue
+
+                # 检查蓝湖业务 code
+                if expected_code:
+                    try:
+                        data = resp.json()
+                        if data.get("code") != expected_code:
+                            # 业务错误不重试，直接返回（调用方自行处理）
+                            return resp
+                    except Exception:
+                        pass
+
+                return resp
+
+            except (httpx.HTTPStatusError, httpx.ConnectError, httpx.ReadTimeout,
+                    httpx.WriteTimeout, httpx.PoolTimeout) as e:
+                last_exc = e
+                if attempt < self._max_retries:
+                    delay = self._retry_base_delay * (2 ** (attempt - 1)) + random.uniform(0, 0.5)
+                    if DEBUG:
+                        print(f"⚠️ 请求失败 (尝试 {attempt}/{self._max_retries}): {e}, {delay:.1f}s 后重试...")
+                    await asyncio.sleep(delay)
+                else:
+                    if DEBUG:
+                        print(f"❌ 请求失败，已重试 {self._max_retries} 次: {e}")
+
+        raise last_exc
 
     def parse_url(self, url: str) -> dict:
         """
@@ -2546,7 +2625,7 @@ class LanhuExtractor:
         api_url = f"{BASE_URL}/api/project/image"
         params = {'pid': project_id, 'image_id': doc_id}
 
-        response = await self.client.get(api_url, params=params)
+        response = await self._request_with_retry("GET", api_url, params=params)
         response.raise_for_status()
 
         data = response.json()
@@ -2569,7 +2648,7 @@ class LanhuExtractor:
         api_url = f"{BASE_URL}/api/project/product_documents"
         params = {'team_id': team_id, 'project_id': project_id}
 
-        response = await self.client.get(api_url, params=params)
+        response = await self._request_with_retry("GET", api_url, params=params)
         response.raise_for_status()
 
         data = response.json()
@@ -2713,7 +2792,8 @@ class LanhuExtractor:
             }
             if params.get('team_id'):
                 multi_info_params['team_id'] = params['team_id']
-            response = await self.client.get(
+            response = await self._request_with_retry(
+                "GET",
                 f"{BASE_URL}/api/project/multi_info",
                 params=multi_info_params
             )
@@ -3137,7 +3217,7 @@ class LanhuExtractor:
         }
         if team_id:
             params["team_id"] = team_id
-        response = await self.client.get(url, params=params)
+        response = await self._request_with_retry("GET", url, params=params)
         data = response.json()
 
         if data['code'] != '00000':
@@ -3515,7 +3595,7 @@ class LanhuExtractor:
         }
         if team_id:
             params["team_id"] = team_id
-        response = await self.client.get(url, params=params)
+        response = await self._request_with_retry("GET", url, params=params)
         response.raise_for_status()
         data = response.json()
         if data.get("code") != "00000":
@@ -4401,6 +4481,7 @@ async def lanhu_list_product_documents(
 @mcp.tool()
 async def lanhu_get_pages(
     url: Annotated[str, "Lanhu URL with docId parameter (indicates PRD/prototype document). Example: https://lanhuapp.com/web/#/item/project/product?tid=xxx&pid=xxx&docId=xxx. Required param: pid. tid and docId recommended. Supports detailDetach format: ?pid=xxx&image_id=xxx. If you have an invite link, use lanhu_resolve_invite_link first!"],
+    search: Annotated[Optional[str], "Page name search keyword (fuzzy match). When provided, only matching pages are returned. Example: '退款' matches '退款流程', '申请退款' etc. Case-insensitive."] = None,
     ctx: Context = None
 ) -> dict:
     """
@@ -4411,8 +4492,14 @@ async def lanhu_get_pages(
     
     Purpose: Get page list of PRD/requirement/prototype document. Must call this BEFORE lanhu_get_ai_analyze_page_result.
     
+    Args:
+        url: Lanhu document URL with docId
+        search: Optional page name filter (fuzzy, case-insensitive). When set, only matching pages
+                are returned with re-numbered index. Useful for large documents with many pages.
+    
     Returns:
-        Page list and document metadata
+        Page list and document metadata. When search is provided, includes 'search_keyword' and
+        'filtered' fields, and 'pages' contains only matching results.
     """
     extractor = LanhuExtractor()
     try:
@@ -4424,6 +4511,39 @@ async def lanhu_get_pages(
             store.record_collaborator(user_name, user_role)
         
         result = await extractor.get_pages_list(url)
+        
+        # 如果提供了搜索关键词，进行模糊过滤
+        if search:
+            search_lower = search.lower().strip()
+            original_count = result.get('total_pages', 0)
+            all_pages = result.get('pages', [])
+            
+            filtered_pages = []
+            for page in all_pages:
+                page_name = page.get('name', '').lower()
+                page_path = page.get('path', '').lower()
+                page_folder = page.get('folder', '').lower()
+                # 模糊匹配：页面名、路径、文件夹名
+                if search_lower in page_name or search_lower in page_path or search_lower in page_folder:
+                    filtered_pages.append(page)
+            
+            # 重新编号 index
+            for idx, page in enumerate(filtered_pages, 1):
+                page['index'] = idx
+            
+            result['pages'] = filtered_pages
+            result['total_pages'] = len(filtered_pages)
+            result['search_keyword'] = search
+            result['filtered'] = True
+            result['original_total_pages'] = original_count
+            
+            # 更新文件夹统计
+            from collections import defaultdict
+            folder_stats = defaultdict(int)
+            for page in filtered_pages:
+                folder = page.get('folder', '根目录')
+                folder_stats[folder] += 1
+            result['folder_statistics'] = dict(folder_stats)
         
         # 根据用户角色生成推荐的分析模式选项
         mode_options = _get_analysis_mode_options_by_role(user_role)
@@ -5374,8 +5494,12 @@ def _normalize_design_sectors(sectors: List[dict]) -> tuple[List[dict], dict[str
     return normalized_sectors, image_sector_map
 
 
-async def _get_designs_internal(extractor: LanhuExtractor, url: str) -> dict:
-    """内部函数：获取设计图列表"""
+async def _get_designs_internal(extractor: LanhuExtractor, url: str, sector_filter: str = None) -> dict:
+    """内部函数：获取设计图列表
+
+    Args:
+        sector_filter: 可选，按分区ID或分区名筛选设计图
+    """
     # 解析URL获取参数
     params = extractor.parse_url(url)
 
@@ -5425,6 +5549,31 @@ async def _get_designs_internal(extractor: LanhuExtractor, url: str) -> dict:
     project_data = data.get('data', {})
     images = project_data.get('images', [])
 
+    # 按分区筛选
+    original_total = len(images)
+    if sector_filter and image_sector_map:
+        # 匹配分区ID或分区名（大小写不敏感）
+        filtered_images = []
+        matched_sector_id = None
+        for sec in sector_list:
+            if str(sec.get('id', '')) == sector_filter or sec.get('name', '').lower() == sector_filter.lower():
+                matched_sector_id = sec.get('id')
+                break
+        if matched_sector_id:
+            for img in images:
+                img_sectors = image_sector_map.get(img.get('id'), [])
+                if any(s.get('id') == matched_sector_id for s in img_sectors):
+                    filtered_images.append(img)
+            images = filtered_images
+        else:
+            # 尝试模糊匹配分区名
+            for img in images:
+                img_sectors = image_sector_map.get(img.get('id'), [])
+                sector_names = [s.get('name', '').lower() for s in img_sectors]
+                if any(sector_filter.lower() in sn for sn in sector_names):
+                    filtered_images.append(img)
+            images = filtered_images
+
     design_list = []
     for idx, img in enumerate(images, 1):
         design_sectors = image_sector_map.get(img.get('id'), [])
@@ -5450,6 +5599,11 @@ async def _get_designs_internal(extractor: LanhuExtractor, url: str) -> dict:
         'designs': design_list
     }
 
+    if sector_filter:
+        result['sector_filter'] = sector_filter
+        result['original_total_designs'] = original_total
+        result['filtered'] = original_total != len(design_list)
+
     if sector_warning:
         result['sector_warning'] = f"Failed to load project sectors: {sector_warning}"
 
@@ -5459,6 +5613,7 @@ async def _get_designs_internal(extractor: LanhuExtractor, url: str) -> dict:
 @mcp.tool()
 async def lanhu_get_designs(
     url: Annotated[str, "Lanhu URL WITHOUT docId (indicates UI design project, not PRD). Example: https://lanhuapp.com/web/#/item/project/stage?tid=xxx&pid=xxx. Required param: pid. tid is optional. Supports detailDetach format: ?pid=xxx&image_id=xxx"],
+    sector_filter: Annotated[Optional[str], "按分区筛选设计图。可传分区ID或分区名（支持模糊匹配）。不传则返回全部设计图"] = None,
     ctx: Context = None
 ) -> dict:
     """
@@ -5482,7 +5637,7 @@ async def lanhu_get_designs(
             store = MessageStore(project_id)
             store.record_collaborator(user_name, user_role)
         
-        result = await _get_designs_internal(extractor, url)
+        result = await _get_designs_internal(extractor, url, sector_filter=sector_filter)
         
         # Add AI suggestion when there are many designs (>8)
         if result['status'] == 'success':
@@ -6333,6 +6488,317 @@ async def lanhu_get_design_slices(
         await extractor.close()
 
 
+@mcp.tool()
+async def lanhu_batch_download_slices(
+    url: Annotated[str, "蓝湖设计图URL。例: https://lanhuapp.com/web/#/item/project/board?pid=xxx&image_id=xxx。也可传文档URL，需包含image_id"],
+    output_dir: Annotated[str, "输出目录路径。例: ./design_slices 或 src/assets/images/slices"],
+    scale: Annotated[str, "下载倍率。可选值: 1x, 2x, 3x, ios_1x, ios_2x, ios_3x, android_mdpi, android_hdpi, android_xhdpi, android_xxhdpi, android_xxxhdpi。推荐 2x（原图质量，无OSS压缩）。"] = "2x",
+    naming_style: Annotated[str, "文件命名风格: snake_case(默认), camelCase, kebab-case"] = "snake_case",
+    concurrency: Annotated[int, "并发下载数（1-10，默认5）"] = 5,
+    ctx: Context = None
+) -> dict:
+    """
+    [Design Slices] Batch download all slices from a design image
+
+    USE THIS WHEN user says: 下载切图, 批量下载, 切图打包, 下载所有切图, 导出切图
+    DO NOT USE for: 仅查看切图信息 (use lanhu_get_design_slices instead)
+
+    Purpose: Download all design slices in batch with automatic naming, format selection,
+        and concurrent download. Supports multiple platforms (Web/iOS/Android) and naming styles.
+
+    Workflow:
+        1. Fetches slice info via lanhu_get_design_slices logic
+        2. Translates Chinese slice names to semantic English names
+        3. Applies naming style (snake_case / camelCase / kebab-case)
+        4. Downloads concurrently with rate limiting
+        5. Returns download summary with file list
+
+    Returns:
+        Download result with success/failure counts, file paths, and any errors
+    """
+    import asyncio
+    import re
+    from pathlib import Path
+
+    # 获取用户信息
+    user_name, user_role = get_user_info(ctx) if ctx else ('匿名', '未知')
+
+    # 验证参数
+    valid_scales = ['1x', '2x', '3x', 'ios_1x', 'ios_2x', 'ios_3x',
+                    'android_mdpi', 'android_hdpi', 'android_xhdpi',
+                    'android_xxhdpi', 'android_xxxhdpi']
+    if scale not in valid_scales:
+        return {
+            "status": "error",
+            "message": f"无效的倍率: {scale}",
+            "valid_scales": valid_scales
+        }
+
+    valid_styles = ['snake_case', 'camelCase', 'kebab-case']
+    if naming_style not in valid_styles:
+        return {
+            "status": "error",
+            "message": f"无效的命名风格: {naming_style}",
+            "valid_styles": valid_styles
+        }
+
+    concurrency = max(1, min(10, concurrency))
+
+    # 中文→英文翻译映射表（常见UI元素）
+    TRANSLATION_MAP = {
+        # 常见动词
+        '导出': 'export', '下载': 'download', '上传': 'upload', '搜索': 'search',
+        '删除': 'delete', '编辑': 'edit', '添加': 'add', '修改': 'modify',
+        '保存': 'save', '取消': 'cancel', '确认': 'confirm', '提交': 'submit',
+        '返回': 'back', '关闭': 'close', '打开': 'open', '刷新': 'refresh',
+        '登录': 'login', '注册': 'register', '退出': 'logout', '忘记': 'forgot',
+        '申请': 'apply', '审批': 'approve', '驳回': 'reject', '通过': 'pass',
+        '分享': 'share', '复制': 'copy', '粘贴': 'paste', '剪切': 'cut',
+        '播放': 'play', '暂停': 'pause', '停止': 'stop', '上一页': 'prev',
+        '下一页': 'next', '首页': 'home', '末页': 'last', '展开': 'expand',
+        '收起': 'collapse', '筛选': 'filter', '排序': 'sort', '清空': 'clear',
+        '重置': 'reset', '导入': 'import', '导出数据': 'export_data',
+        # 常见名词
+        '图标': 'icon', '按钮': 'btn', '背景': 'bg', '图片': 'img',
+        '头像': 'avatar', ' logo': 'logo', '标志': 'logo', ' banner': 'banner',
+        '封面': 'cover', '占位': 'placeholder', '空状态': 'empty',
+        '加载': 'loading', '成功': 'success', '失败': 'fail', '警告': 'warning',
+        '错误': 'error', '信息': 'info', '提示': 'tip', '标签': 'tag',
+        '徽章': 'badge', '进度': 'progress', '滑块': 'slider', '开关': 'switch',
+        '复选': 'checkbox', '单选': 'radio', '输入': 'input', '文本': 'text',
+        '密码': 'password', '验证码': 'captcha', '日历': 'calendar',
+        '时钟': 'clock', '位置': 'location', '地图': 'map', '相机': 'camera',
+        '相册': 'gallery', '视频': 'video', '音乐': 'music', '声音': 'sound',
+        '消息': 'message', '通知': 'notification', '邮件': 'email',
+        '电话': 'phone', '联系人': 'contact', '设置': 'setting',
+        '帮助': 'help', '关于': 'about', '反馈': 'feedback', '更多': 'more',
+        '菜单': 'menu', '列表': 'list', '网格': 'grid', '卡片': 'card',
+        '弹窗': 'modal', '对话框': 'dialog', '抽屉': 'drawer', '工具': 'tool',
+        '文件': 'file', '文件夹': 'folder', '文档': 'doc', '表格': 'table',
+        '图表': 'chart', '日历': 'calendar', '时间': 'time', '日期': 'date',
+        '金额': 'amount', '价格': 'price', '数量': 'count', '状态': 'status',
+        '类型': 'type', '分类': 'category', '等级': 'level', '星级': 'star',
+        '线': 'line', '箭头': 'arrow', '勾': 'check', '叉': 'close',
+        '加': 'plus', '减': 'minus', '点': 'dot', '圆': 'circle',
+        '方': 'square', '三角': 'triangle', '星': 'star', '心': 'heart',
+        '人': 'user', '用户': 'user', '团队': 'team', '公司': 'company',
+        '商品': 'product', '订单': 'order', '购物车': 'cart', '收藏': 'favorite',
+        '点赞': 'like', '评论': 'comment', '回复': 'reply', '发送': 'send',
+        '草稿': 'draft', '已发布': 'published', '已审核': 'reviewed',
+        '待处理': 'pending', '已完成': 'completed', '已取消': 'cancelled',
+        '已删除': 'deleted', '已支付': 'paid', '已退款': 'refunded',
+        '已发货': 'shipped', '已签收': 'received', '已评价': 'reviewed',
+        '正常': 'normal', '异常': 'abnormal', '启用': 'enabled', '禁用': 'disabled',
+        '线上': 'online', '线下': 'offline', '左侧': 'left', '右侧': 'right',
+        '顶部': 'top', '底部': 'bottom', '中间': 'center', '前面': 'front',
+        '后面': 'back', '上方': 'above', '下方': 'below', '内部': 'inner',
+        '外部': 'outer', '全屏': 'fullscreen', '缩略': 'thumbnail',
+        '原始': 'original', '高清': 'hd', '标清': 'sd', '模糊': 'blur',
+        '亮': 'light', '暗': 'dark', '彩色': 'color', '黑白': 'gray',
+        '透明': 'transparent', '半透明': 'translucent', '圆角': 'rounded',
+        '直角': 'sharp', '边框': 'border', '阴影': 'shadow', '渐变': 'gradient',
+        '纯色': 'solid', '图案': 'pattern', '纹理': 'texture',
+        '草地': 'grass', '天空': 'sky', '山': 'mountain', '水': 'water',
+        '树': 'tree', '花': 'flower', '太阳': 'sun', '月亮': 'moon',
+        '云': 'cloud', '雨': 'rain', '雪': 'snow', '风': 'wind',
+        '火': 'fire', '电': 'electric', '锁': 'lock', '钥匙': 'key',
+        '眼镜': 'glasses', '礼物': 'gift', '奖杯': 'trophy', '勋章': 'medal',
+        '皇冠': 'crown', '钻石': 'diamond', '宝石': 'gem', '金币': 'coin',
+        '钱包': 'wallet', '银行卡': 'bank_card', '信用卡': 'credit_card',
+        '扫描': 'scan', '指纹': 'fingerprint', '人脸': 'face',
+        '蓝牙': 'bluetooth', 'wifi': 'wifi', '流量': 'data', '信号': 'signal',
+        '电池': 'battery', '充电': 'charging', '飞行': 'flight',
+        '成功申请': 'apply_success', '申请被驳回': 'apply_rejected',
+        '申请成功': 'apply_success', '申请失败': 'apply_fail',
+        '大背景': 'bg_large', '小背景': 'bg_small', '背景图': 'bg_image',
+    }
+
+    def translate_name(name: str) -> str:
+        """将中文切片名翻译为语义化英文名"""
+        if not name:
+            return 'unnamed'
+
+        # 如果已经是英文，直接返回
+        if re.match(r'^[a-zA-Z][a-zA-Z0-9_]*$', name):
+            return name
+
+        result = name.lower().strip()
+
+        # 按长度降序替换中文词组（长的先替换，避免短词干扰）
+        for cn, en in sorted(TRANSLATION_MAP.items(), key=lambda x: len(x[0]), reverse=True):
+            result = result.replace(cn, en)
+
+        # 移除剩余中文字符
+        result = re.sub(r'[\u4e00-\u9fff]+', '', result)
+
+        # 清理特殊字符
+        result = re.sub(r'[^a-zA-Z0-9]', '_', result)
+        result = re.sub(r'_+', '_', result).strip('_')
+
+        if not result:
+            result = 'slice'
+
+        return result
+
+    def apply_naming_style(name: str, style: str) -> str:
+        """应用命名风格"""
+        # 先统一为下划线分隔的单词
+        words = re.split(r'[_\-\s]+', name)
+        words = [w for w in words if w]
+
+        if not words:
+            return 'unnamed'
+
+        if style == 'snake_case':
+            return '_'.join(w.lower() for w in words)
+        elif style == 'camelCase':
+            return words[0].lower() + ''.join(w.capitalize() for w in words[1:])
+        elif style == 'kebab-case':
+            return '-'.join(w.lower() for w in words)
+        return '_'.join(w.lower() for w in words)
+
+    def get_scale_suffix(scale_key: str) -> str:
+        """根据倍率key返回文件名后缀"""
+        suffix_map = {
+            '1x': '', '2x': '@2x', '3x': '@3x',
+            'ios_1x': '', 'ios_2x': '@2x', 'ios_3x': '@3x',
+            'android_mdpi': '', 'android_hdpi': '',
+            'android_xhdpi': '', 'android_xxhdpi': '', 'android_xxxhdpi': '',
+        }
+        return suffix_map.get(scale_key, '')
+
+    extractor = LanhuExtractor()
+    try:
+        # 解析URL获取image_id
+        params = extractor.parse_url(url)
+        image_id = params.get('image_id')
+        team_id = params.get('team_id')
+        project_id = params.get('project_id')
+
+        if not image_id:
+            return {"status": "error", "message": "URL中未找到image_id参数"}
+
+        if not project_id:
+            return {"status": "error", "message": "URL中未找到project_id参数"}
+
+        # 获取切图信息
+        slices_data = await extractor.get_design_slices_info(
+            image_id, team_id=team_id, project_id=project_id
+        )
+
+        slices = slices_data.get('slices', [])
+        if not slices:
+            return {
+                "status": "success",
+                "message": "该设计图没有切图",
+                "downloaded": 0,
+                "files": []
+            }
+
+        # 准备输出目录
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # 构建下载任务列表
+        download_tasks = []
+        used_names = set()  # 去重
+
+        for slice_info in slices:
+            scale_urls = slice_info.get('scale_urls', {})
+            download_url = scale_urls.get(scale) or slice_info.get('download_url')
+            if not download_url:
+                continue
+
+            # 翻译并命名
+            raw_name = slice_info.get('name', 'unnamed')
+            translated = translate_name(raw_name)
+            styled_name = apply_naming_style(translated, naming_style)
+
+            # 去重：同名加序号
+            base_name = styled_name
+            counter = 2
+            while styled_name in used_names:
+                styled_name = f"{base_name}_{counter}"
+                counter += 1
+            used_names.add(styled_name)
+
+            # 文件扩展名
+            fmt = slice_info.get('format', 'png')
+            suffix = get_scale_suffix(scale)
+            filename = f"{styled_name}{suffix}.{fmt}"
+            filepath = output_path / filename
+
+            download_tasks.append({
+                'name': raw_name,
+                'renamed': styled_name,
+                'filename': filename,
+                'filepath': str(filepath),
+                'url': download_url,
+                'size': slice_info.get('size', 'unknown'),
+                'format': fmt,
+            })
+
+        # 并发下载
+        semaphore = asyncio.Semaphore(concurrency)
+        results = []
+        errors = []
+
+        async def download_one(task: dict) -> dict:
+            async with semaphore:
+                try:
+                    response = await extractor.client.get(task['url'])
+                    response.raise_for_status()
+                    with open(task['filepath'], 'wb') as f:
+                        f.write(response.content)
+                    return {**task, 'status': 'success', 'bytes': len(response.content)}
+                except Exception as e:
+                    return {**task, 'status': 'error', 'error': str(e)}
+
+        download_results = await asyncio.gather(
+            *[download_one(t) for t in download_tasks]
+        )
+
+        success_files = []
+        error_files = []
+        for r in download_results:
+            if r['status'] == 'success':
+                success_files.append({
+                    'original_name': r['name'],
+                    'renamed': r['renamed'],
+                    'filename': r['filename'],
+                    'filepath': r['filepath'],
+                    'size': r['size'],
+                    'bytes': r['bytes'],
+                })
+            else:
+                error_files.append({
+                    'original_name': r['name'],
+                    'filename': r['filename'],
+                    'error': r.get('error', 'unknown'),
+                })
+
+        return {
+            'status': 'success' if not error_files else 'partial',
+            'message': f"下载完成: {len(success_files)}成功, {len(error_files)}失败",
+            'scale': scale,
+            'naming_style': naming_style,
+            'output_dir': str(output_path.resolve()),
+            'total_slices': len(slices),
+            'downloaded': len(success_files),
+            'failed': len(error_files),
+            'files': success_files,
+            'errors': error_files if error_files else None,
+        }
+
+    except Exception as e:
+        return {
+            'status': 'error',
+            'message': str(e)
+        }
+    finally:
+        await extractor.close()
+
+
 # ==================== 团队留言板功能 ====================
 
 @mcp.tool()
@@ -6486,6 +6952,8 @@ async def lanhu_say_list(
     url: Annotated[Optional[str], "蓝湖URL或'all'。不传或传'all'=查询所有项目；传具体URL=查询单个项目"] = None,
     filter_type: Annotated[Optional[str], "筛选留言类型: normal/task/question/urgent/knowledge。不传则返回所有类型"] = None,
     search_regex: Annotated[Optional[str], "正则表达式搜索（在summary和content中匹配）。例: '测试|退款|坑'。建议使用以避免返回过多消息"] = None,
+    date_from: Annotated[Optional[str], "起始日期(含)。格式: YYYY-MM-DD 或 ISO 8601。例: '2025-01-01'"] = None,
+    date_to: Annotated[Optional[str], "结束日期(含)。格式: YYYY-MM-DD 或 ISO 8601。例: '2025-12-31'"] = None,
     limit: Annotated[Any, "限制返回消息数量（防止上下文爆炸）。不传则不限制"] = None,
     ctx: Context = None
 ) -> dict:
@@ -6501,16 +6969,18 @@ async def lanhu_say_list(
     Important: To prevent AI context overflow, it is recommended:
     1. Use filter_type to filter by type
     2. Use search_regex for further filtering (regex, AI can generate itself)
-    3. Use limit to limit the number of returned messages
-    4. Unless user explicitly requests "view all", filters must be used
+    3. Use date_from/date_to for time range filtering
+    4. Use limit to limit the number of returned messages
+    5. Unless user explicitly requests "view all", filters must be used
     
     Example:
     - Query all knowledge: filter_type="knowledge"
     - Search containing "test" or "refund": search_regex="test|refund"
     - Query tasks and containing "database": filter_type="task", search_regex="database"
+    - Query messages from Jan 2025: date_from="2025-01-01", date_to="2025-01-31"
     - Limit to 10 latest: limit=10
     
-    Purpose: Get message board message summary list, supports type filtering, regex search and quantity limit
+    Purpose: Get message board message summary list, supports type filtering, regex search, date range and quantity limit
     
     Returns:
         Message list, including mentions_me count
@@ -6550,6 +7020,50 @@ async def lanhu_say_list(
         except (ValueError, TypeError):
             return {"status": "error", "message": f"limit 类型错误，期望整数，实际类型: {type(limit).__name__}"}
     
+    # 解析日期范围
+    from datetime import datetime, timezone
+    date_from_dt = None
+    date_to_dt = None
+    if date_from:
+        try:
+            date_from_dt = datetime.fromisoformat(date_from).replace(
+                hour=0, minute=0, second=0, tzinfo=timezone.utc
+            )
+        except ValueError:
+            return {"status": "error", "message": f"date_from 格式无效: {date_from}，请使用 YYYY-MM-DD"}
+    if date_to:
+        try:
+            date_to_dt = datetime.fromisoformat(date_to).replace(
+                hour=23, minute=59, second=59, tzinfo=timezone.utc
+            )
+        except ValueError:
+            return {"status": "error", "message": f"date_to 格式无效: {date_to}，请使用 YYYY-MM-DD"}
+    
+    def _is_in_date_range(msg: dict) -> bool:
+        """检查消息时间是否在日期范围内"""
+        if not date_from_dt and not date_to_dt:
+            return True
+        msg_time_str = msg.get('created_at') or msg.get('timestamp') or msg.get('time')
+        if not msg_time_str:
+            return True  # 无时间字段的消息不过滤
+        try:
+            # 尝试多种格式
+            for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    msg_dt = datetime.strptime(msg_time_str[:19], fmt).replace(tzinfo=timezone.utc)
+                    break
+                except ValueError:
+                    continue
+            else:
+                return True  # 无法解析时间，不过滤
+            if date_from_dt and msg_dt < date_from_dt:
+                return False
+            if date_to_dt and msg_dt > date_to_dt:
+                return False
+            return True
+        except Exception:
+            return True
+    
     # 全局查询模式
     if not url or url.lower() == 'all':
         store = MessageStore(project_id=None)
@@ -6571,6 +7085,10 @@ async def lanhu_say_list(
                     text = f"{msg.get('summary', '')} {msg.get('content', '')}"
                     if not regex_pattern.search(text):
                         continue
+                
+                # 日期范围筛选
+                if not _is_in_date_range(msg):
+                    continue
                 
                 filtered_messages.append(msg)
             
@@ -6603,7 +7121,7 @@ async def lanhu_say_list(
         
         # 检查是否需要警告（无筛选且消息过多）
         warning_message = None
-        if not filter_type and not search_regex and not limit and total_messages_before_filter > 100:
+        if not filter_type and not search_regex and not limit and not date_from and not date_to and total_messages_before_filter > 100:
             warning_message = f"⚠️ 发现{total_messages_before_filter}条留言，建议使用筛选条件避免上下文溢出。使用 filter_type 或 search_regex 或 limit 参数"
         
         result = {
@@ -6620,10 +7138,12 @@ async def lanhu_say_list(
         if warning_message:
             result["warning"] = warning_message
         
-        if filter_type or search_regex:
+        if filter_type or search_regex or date_from or date_to:
             result["filter_info"] = {
                 "filter_type": filter_type,
                 "search_regex": search_regex,
+                "date_from": date_from,
+                "date_to": date_to,
                 "total_before_filter": total_messages_before_filter,
                 "total_after_filter": total_messages
             }
@@ -6654,6 +7174,10 @@ async def lanhu_say_list(
             text = f"{msg.get('summary', '')} {msg.get('content', '')}"
             if not regex_pattern.search(text):
                 continue
+        
+        # 日期范围筛选
+        if not _is_in_date_range(msg):
+            continue
         
         filtered_messages.append(msg)
     
@@ -6714,7 +7238,7 @@ async def lanhu_say_list(
     
     # 检查是否需要警告
     warning_message = None
-    if not filter_type and not search_regex and not limit and total_messages_before_filter > 50:
+    if not filter_type and not search_regex and not limit and not date_from and not date_to and total_messages_before_filter > 50:
         warning_message = f"⚠️ 该项目有{total_messages_before_filter}条留言，建议使用筛选条件避免上下文溢出"
     
     result = {
@@ -6733,10 +7257,12 @@ async def lanhu_say_list(
     if warning_message:
         result["warning"] = warning_message
     
-    if filter_type or search_regex:
+    if filter_type or search_regex or date_from or date_to:
         result["filter_info"] = {
             "filter_type": filter_type,
             "search_regex": search_regex,
+            "date_from": date_from,
+            "date_to": date_to,
             "total_before_filter": total_messages_before_filter,
             "total_after_filter": len(filtered_messages)
         }
@@ -6936,15 +7462,22 @@ async def lanhu_say_delete(
     store = MessageStore(project_id)
     store.record_collaborator(user_name, user_role)
     
+    # 先检查消息是否存在，返回确认信息
+    msg = store.get_message_by_id(message_id)
+    if not msg:
+        return {"status": "error", "message": "消息不存在", "message_id": message_id}
+    
     success = store.delete_message(message_id)
     
     if not success:
-        return {"status": "error", "message": "消息不存在", "message_id": message_id}
+        return {"status": "error", "message": "删除失败", "message_id": message_id}
     
     return {
         "status": "success",
         "message": "消息删除成功",
         "deleted_id": message_id,
+        "deleted_summary": msg.get('summary', ''),
+        "deleted_type": msg.get('message_type', ''),
         "deleted_by_name": user_name,
         "deleted_by_role": user_role
     }
@@ -6983,6 +7516,81 @@ async def lanhu_get_members(
         "project_id": project_id,
         "total": len(collaborators),
         "collaborators": collaborators
+    }
+
+
+@mcp.tool()
+async def lanhu_health_check(
+        ctx: Context = None
+) -> dict:
+    """
+    Health check - verify MCP server status and configuration
+    
+    USE THIS WHEN user says: 健康检查, 状态检查, health check, 服务状态, 能用吗, 检查环境
+    
+    Purpose: Quick diagnostic of server config, cookie status, and cache stats.
+    Useful for troubleshooting or verifying setup after configuration changes.
+    
+    Returns:
+        Server status, cookie presence (not value), cache directory size, and tool count
+    """
+    import platform
+    
+    # 检查 Cookie 配置
+    lanhu_cookie = os.getenv('LANHU_COOKIE', '')
+    dds_cookie = os.getenv('DDS_COOKIE', '')
+    
+    cookie_status = {
+        'lanhu_cookie': 'configured' if lanhu_cookie else 'missing',
+        'dds_cookie': 'configured' if dds_cookie else 'missing',
+        'lanhu_cookie_length': len(lanhu_cookie) if lanhu_cookie else 0,
+    }
+    
+    # 检查缓存目录
+    cache_stats = {
+        'cache_dir': str(DATA_DIR),
+        'cache_exists': DATA_DIR.exists(),
+    }
+    
+    if DATA_DIR.exists():
+        try:
+            cache_files = list(DATA_DIR.rglob('*'))
+            cache_size_mb = sum(f.stat().st_size for f in cache_files if f.is_file()) / (1024 * 1024)
+            cache_stats['total_files'] = len(cache_files)
+            cache_stats['total_size_mb'] = round(cache_size_mb, 2)
+        except Exception:
+            cache_stats['total_files'] = 'unknown'
+            cache_stats['total_size_mb'] = 'unknown'
+    
+    # 检查 Playwright 可用性
+    playwright_status = 'unknown'
+    try:
+        from playwright.async_api import async_playwright
+        playwright_status = 'installed'
+    except ImportError:
+        playwright_status = 'not_installed'
+    
+    # 获取已注册工具数量
+    try:
+        tool_count = len(await mcp.get_tools())
+    except Exception:
+        tool_count = 'unknown'
+    
+    return {
+        'status': 'healthy',
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'server_info': {
+            'python_version': platform.python_version(),
+            'platform': platform.platform(),
+            'mcp_transport': os.getenv('MCP_TRANSPORT', 'http').lower(),
+            'server_port': os.getenv('SERVER_PORT', '8000'),
+        },
+        'cookie_status': cookie_status,
+        'cache_stats': cache_stats,
+        'dependencies': {
+            'playwright': playwright_status,
+        },
+        'registered_tools': tool_count,
     }
 
 

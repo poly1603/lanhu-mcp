@@ -1148,25 +1148,7 @@ TOOL_GROUPS = {
 }
 
 PROJECT_ENDPOINTS = [
-    "/api/project/list",
-    "/api/project/list?type=all",
-    "/api/project/list?project_type=all",
-    "/api/project/list?status=all",
-    "/api/project/list?tab=all",
-    "/api/projects",
-    "/api/projects/list",
-    "/api/project/projects",
-    "/api/project/my",
-    "/api/project/recent",
-    "/api/project/recent_projects",
-    "/api/project/starred",
-    "/api/team/projects",
-    "/api/teams/projects",
-    "/api/project/my_projects",
-    "/api/workspace/projects",
-    "/api/user/projects",
-    "/api/v1/project/list",
-    "/api/v1/projects",
+    "/api/project/team_projects",
 ]
 
 USER_PROFILE_ENDPOINTS = [
@@ -1268,13 +1250,30 @@ MCP_TOOL_NAMES = discover_mcp_tools()
 
 
 def lanhu_api_headers(cookie: str) -> dict[str, str]:
-    """生成访问蓝湖 Web API 的基础请求头。"""
-    return {
+    """生成访问蓝湖 Web API 的基础请求头。
+
+    蓝湖 Web API 使用 HTTP Basic Auth 认证：
+    Authorization: Basic base64(user_token + ":")
+    其中 user_token 从 Cookie 中的 user_token 字段提取。
+    """
+    headers = {
         "Cookie": cookie,
-        "User-Agent": "Mozilla/5.0 LanhuMCP Desktop",
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
         "Accept": "application/json, text/plain, */*",
         "Referer": DEFAULT_LANHU_LOGIN_URL,
+        "real-path": "/item/project/all",
     }
+    # 从 Cookie 中提取 user_token，构造 Basic Auth header
+    token = ""
+    for pair in cookie.split("; "):
+        parts = pair.split("=", 1)
+        if len(parts) == 2 and parts[0] == "user_token":
+            token = parts[1]
+            break
+    if token:
+        basic_auth = base64.b64encode(f"{token}:".encode()).decode()
+        headers["Authorization"] = f"Basic {basic_auth}"
+    return headers
 
 
 def read_projects_data() -> dict:
@@ -1562,7 +1561,12 @@ def merge_project_lists(projects: list[dict]) -> list[dict]:
 
 
 def fetch_lanhu_projects(cookie: str) -> tuple[bool, str, list[dict]]:
-    """尝试读取当前账号可访问项目列表。"""
+    """尝试读取当前账号可访问项目列表。
+
+    蓝湖 API 流程：
+    1. GET /api/project/team_projects — 返回所有团队及其项目
+    2. 数据结构: {"result": {"team_projects": [{"tid": "...", "team_name": "...", "projects": [...]}]}}
+    """
     if not cookie:
         return False, "缺少蓝湖 Cookie，请先登录账号。", []
     errors: list[str] = []
@@ -1580,7 +1584,31 @@ def fetch_lanhu_projects(cookie: str) -> tuple[bool, str, list[dict]]:
         except json.JSONDecodeError:
             errors.append(f"{endpoint}: 返回不是 JSON")
             continue
-        projects = projects_from_payload(payload)
+        # 蓝湖 team_projects API 返回 {"code": "00000", "result": {"team_projects": [...]}}
+        # 手动从 team_projects 结构中提取项目（避免通用提取误识别 team 对象为项目）
+        projects: list[dict] = []
+        if isinstance(payload, dict):
+            result = payload.get("result") or payload
+            team_projects = result.get("team_projects") or []
+            if isinstance(team_projects, list):
+                for team_entry in team_projects:
+                    if not isinstance(team_entry, dict):
+                        continue
+                    team_id = team_entry.get("tid") or team_entry.get("team_id") or ""
+                    team_name = team_entry.get("team_name") or team_entry.get("name") or ""
+                    for proj in (team_entry.get("projects") or []):
+                        if not isinstance(proj, dict):
+                            continue
+                        proj_copy = dict(proj)
+                        proj_copy.setdefault("team_id", team_id)
+                        proj_copy.setdefault("tid", team_id)
+                        normalized = normalize_project_item(proj_copy)
+                        if not normalized.get("team_name"):
+                            normalized["team_name"] = team_name
+                        projects.append(normalized)
+        # 回退到通用提取
+        if not projects:
+            projects = projects_from_payload(payload)
         if projects:
             return True, f"已从 {endpoint} 读取项目", projects
         errors.append(f"{endpoint}: 未发现项目字段")
@@ -3350,7 +3378,7 @@ def create_gui() -> None:
         wraplength=520,
     ).pack(anchor='w', pady=(8, 0))
 
-    project_diagnostic_var = tk.StringVar(value=f"自动读取会尝试 {len(PROJECT_ENDPOINTS)} 个蓝湖项目接口，并合并登录缓存和本地项目。")
+    project_diagnostic_var = tk.StringVar(value=f"自动读取会通过蓝湖 team_projects 接口获取项目列表，并合并登录缓存和本地项目。")
     ttk.Label(
         project_action_body,
         textvariable=project_diagnostic_var,
@@ -3467,7 +3495,7 @@ def create_gui() -> None:
             refresh_projects_btn.config(state=tk.NORMAL)
             project_status_var.set(message)
             project_diagnostic_var.set(
-                f"接口候选 {len(PROJECT_ENDPOINTS)} 个；当前结果 {len(projects)} 个。{message}"
+                f"接口候选 {len(PROJECT_ENDPOINTS)} 个（team_projects）；当前结果 {len(projects)} 个。{message}"
             )
             render_project_rows(projects, message)
             log(message, 'success' if ok else 'warn')
