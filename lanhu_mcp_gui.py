@@ -82,6 +82,7 @@ WEBVIEW_STORAGE_DIR = DATA_DIR / 'webview'
 AVATAR_CACHE_DIR = DATA_DIR / 'avatars'
 LOG_FILE = DATA_DIR / 'app.log'
 DEFAULT_LANHU_LOGIN_URL = 'https://lanhuapp.com/web/'
+AVATAR_MAX_BYTES = 1024 * 1024
 
 # ============================================
 # 文件日志（所有操作记录到文件）
@@ -102,6 +103,17 @@ def flog(msg: str, level: str = 'info') -> None:
     """写日志到文件 + 控制台"""
     getattr(_logger, level, _logger.info)(msg)
     print(f"[{level.upper()}] {msg}")
+
+
+def is_gui_smoke_mode() -> bool:
+    """判断当前是否处于 GUI 自动化烟测模式。"""
+    return os.environ.get("LANHU_GUI_SMOKE_CLOSE") == "1"
+
+
+def should_show_native_error_dialog() -> bool:
+    """判断 GUI 启动失败时是否允许弹出阻塞式系统错误框。"""
+    return not is_gui_smoke_mode()
+
 
 flog(f"=== LanhuMCP GUI 启动 ===")
 flog(f"APP_DIR: {APP_DIR}")
@@ -300,6 +312,67 @@ ANIMATION = {
     'normal': 200,
     'slow': 300,
 }
+
+
+ANIMATION_INTERVALS = {
+    'sidebar_pulse': 180,
+    'page_transition': 120,
+}
+
+
+def animation_interval_ms(animation_name: str) -> int:
+    """返回指定动画的刷新间隔，集中控制持续动画开销。"""
+    return int(ANIMATION_INTERVALS.get(animation_name, ANIMATION['normal']))
+
+
+def should_run_sidebar_pulse(window_state: str, has_focus: bool) -> bool:
+    """判断侧栏呼吸条是否需要继续刷新。"""
+    return bool(has_focus and window_state in ("normal", "zoomed"))
+
+
+def project_rows_signature(projects: list[dict]) -> tuple[tuple[str, ...], ...]:
+    """生成项目列表可见字段摘要，用于跳过无变化重渲染。"""
+    signature_rows: list[tuple[str, ...]] = []
+    for project in projects:
+        signature_rows.append((
+            str(project.get("id") or ""),
+            str(project.get("team_id") or ""),
+            str(project.get("name") or ""),
+            str(project.get("type") or ""),
+            str(project.get("updated_at") or ""),
+            str(project.get("team_name") or ""),
+            str(project.get("owner_name") or ""),
+            str(project.get("source") or ""),
+            str(project.get("url") or ""),
+        ))
+    return tuple(signature_rows)
+
+
+def account_rows_signature(accounts: list[dict], active_id: str) -> tuple[tuple[str, ...], ...]:
+    """生成账号列表可见字段摘要，用于避免重复销毁和创建账号行。"""
+    signature_rows: list[tuple[str, ...]] = []
+    for account in accounts:
+        cookie = str(account.get("cookie") or "")
+        fingerprint = str(account.get("cookie_fingerprint") or cookie_fingerprint(cookie) or "")
+        account_id = str(account.get("id") or "")
+        signature_rows.append((
+            account_id,
+            "1" if account_id == active_id else "0",
+            str(account.get("name") or ""),
+            str(account.get("email") or ""),
+            str(account.get("mobile") or ""),
+            str(account.get("username") or ""),
+            str(account.get("nickname") or ""),
+            str(account.get("avatar") or ""),
+            str(account.get("company") or ""),
+            str(account.get("team") or account.get("team_name") or ""),
+            str(account.get("role") or ""),
+            fingerprint,
+            str(len(cookie)),
+            str(account.get("updated_at") or ""),
+            str(account.get("source_url") or ""),
+        ))
+    return tuple(signature_rows)
 
 
 # ============================================
@@ -1242,11 +1315,17 @@ def download_avatar(account: dict) -> Optional[Path]:
         AVATAR_CACHE_DIR.mkdir(parents=True, exist_ok=True)
         request = urllib.request.Request(avatar, headers={"User-Agent": "Mozilla/5.0 LanhuMCP Desktop"})
         with urllib.request.urlopen(request, timeout=10) as response:
-            content = response.read(1024 * 1024)
-        if content:
+            content_length = int(response.headers.get("Content-Length") or "0")
+            if content_length > AVATAR_MAX_BYTES:
+                flog(f"头像文件超过缓存上限，已跳过: {content_length} bytes", "warning")
+                return None
+            content = response.read(AVATAR_MAX_BYTES + 1)
+        if content and len(content) <= AVATAR_MAX_BYTES:
             cache_path.write_bytes(content)
             return cache_path
-    except (OSError, urllib.error.URLError, TimeoutError):
+        if len(content) > AVATAR_MAX_BYTES:
+            flog(f"头像文件超过缓存上限，已跳过: {len(content)} bytes", "warning")
+    except (OSError, ValueError, urllib.error.URLError, TimeoutError):
         return None
     return None
 
@@ -1347,6 +1426,7 @@ PROJECT_URL_PATTERN = re.compile(
     r"https?://lanhuapp\.(?:com|cn)/web/#/item/project/"
     r"(?:stage|product|detailDetach)[^\s\"'<>，。；、]*"
 )
+_MCP_TOOLS_CACHE: Optional[list[tuple[str, str]]] = None
 
 
 def tool_source_candidates() -> list[Path]:
@@ -1391,15 +1471,19 @@ def scan_mcp_tools_from_file(source_path: Path) -> list[tuple[str, str]]:
     return tools
 
 
-def discover_mcp_tools() -> list[tuple[str, str]]:
+def discover_mcp_tools(refresh: bool = False) -> list[tuple[str, str]]:
     """发现当前服务支持的全部 MCP 工具。"""
+    global _MCP_TOOLS_CACHE
+    if _MCP_TOOLS_CACHE is not None and not refresh:
+        return list(_MCP_TOOLS_CACHE)
     discovered: dict[str, str] = {}
     for source_path in tool_source_candidates():
         for tool_name, description in scan_mcp_tools_from_file(source_path):
             discovered.setdefault(tool_name, description)
     if not discovered:
         discovered = TOOL_DESCRIPTIONS.copy()
-    return sorted(discovered.items(), key=lambda item: tool_sort_key(item[0]))
+    _MCP_TOOLS_CACHE = sorted(discovered.items(), key=lambda item: tool_sort_key(item[0]))
+    return list(_MCP_TOOLS_CACHE)
 
 
 def tool_sort_key(tool_name: str) -> tuple[int, str]:
@@ -1719,17 +1803,32 @@ def projects_from_payload(payload: object, account_id: str = "") -> list[dict]:
     return normalized_projects
 
 
+def project_identity_key(project: dict) -> str:
+    """生成项目稳定身份键，优先按团队和项目 ID 去重。"""
+    project_id = str(project.get("id") or project.get("project_id") or "").strip()
+    team_id = str(project.get("team_id") or project.get("tid") or "").strip()
+    if project_id:
+        return f"project:{team_id}:{project_id}"
+    project_url = str(project.get("url") or "").strip()
+    if project_url:
+        parsed_project = parse_lanhu_project_url(project_url)
+        if parsed_project and parsed_project.get("id"):
+            return f"project:{parsed_project.get('team_id') or ''}:{parsed_project.get('id')}"
+        return f"url:{project_url}"
+    project_name = str(project.get("name") or "").strip()
+    if project_name:
+        return f"name:{team_id}:{project_name}"
+    return ""
+
+
 def merge_project_lists(projects: list[dict]) -> list[dict]:
     """按项目链接或 pid/tid 合并项目列表。"""
     unique_projects: dict[str, dict] = {}
     for project in projects:
         if not project:
             continue
-        key = (
-            str(project.get("url") or "")
-            or f"{project.get('team_id') or ''}:{project.get('id') or project.get('name') or ''}"
-        )
-        if not key or key == ":":
+        key = project_identity_key(project)
+        if not key:
             continue
         if key in unique_projects:
             unique_projects[key] = merge_identity_info(project, unique_projects[key])
@@ -3253,14 +3352,17 @@ def create_gui() -> None:
         import tkinter as tk
         from tkinter import ttk, messagebox
     except ImportError:
-        ctypes.windll.user32.MessageBoxW(0, "需要安装 tkinter", "错误", 0)
+        flog("GUI 启动失败: 需要安装 tkinter", "error")
+        if should_show_native_error_dialog():
+            ctypes.windll.user32.MessageBoxW(0, "需要安装 tkinter", "错误", 0)
         return
 
     try:
         root = tk.Tk()
     except Exception as error:
         flog(f"Tkinter 窗口创建失败: {error}", 'error')
-        ctypes.windll.user32.MessageBoxW(0, f"GUI 启动失败:\n{error}", "错误", 0)
+        if should_show_native_error_dialog():
+            ctypes.windll.user32.MessageBoxW(0, f"GUI 启动失败:\n{error}", "错误", 0)
         return
 
     root.title("Lanhu MCP 控制台")
@@ -3300,6 +3402,12 @@ def create_gui() -> None:
     package_status_var = tk.StringVar(value=compare_packaged_outputs() or "当前运行路径已记录在日志中")
     account_options: list[dict] = []
     full_cookie = load_cookie()
+    is_refreshing_projects = False
+    is_refreshing_profile = False
+    window_focus_state = {"focused": True}
+    project_rows_state: dict[str, object] = {"signature": None}
+    account_rows_state: dict[str, object] = {"signature": None}
+    page_transition_state: dict[str, object] = {"after_id": None, "step": 0}
     cookie_var.set(full_cookie)
 
     main = tk.Frame(root, bg=COLORS['bg'])
@@ -3385,12 +3493,13 @@ def create_gui() -> None:
 
     def animate_sidebar_pulse() -> None:
         """绘制侧栏状态呼吸条。"""
-        pulse_step["value"] = (pulse_step["value"] + 1) % 36
-        sidebar_pulse.delete("all")
-        sidebar_pulse.create_line(0, 9, 184, 9, fill="#31405E", width=2)
-        start = pulse_step["value"] * 5
-        sidebar_pulse.create_line(start % 184, 9, min((start % 184) + 34, 184), 9, fill="#38BDF8", width=2)
-        root.after(90, animate_sidebar_pulse)
+        if should_run_sidebar_pulse(root.state(), bool(window_focus_state["focused"])):
+            pulse_step["value"] = (pulse_step["value"] + 1) % 36
+            sidebar_pulse.delete("all")
+            sidebar_pulse.create_line(0, 9, 184, 9, fill="#31405E", width=2)
+            start = pulse_step["value"] * 5
+            sidebar_pulse.create_line(start % 184, 9, min((start % 184) + 34, 184), 9, fill="#38BDF8", width=2)
+        root.after(animation_interval_ms("sidebar_pulse"), animate_sidebar_pulse)
 
     header = tk.Frame(content, bg=COLORS['bg'])
     header.pack(fill=tk.X, padx=24, pady=(22, 14))
@@ -3410,6 +3519,8 @@ def create_gui() -> None:
         fg=COLORS['text_secondary'],
         font=('Segoe UI', 10),
     ).pack(anchor='w', pady=(4, 0))
+    page_transition_bar = tk.Canvas(header_text, height=2, bg=COLORS['bg'], highlightthickness=0, bd=0)
+    page_transition_bar.pack(fill=tk.X, pady=(10, 0))
     header_stats = tk.Frame(header, bg=COLORS['bg'])
     header_stats.pack(side=tk.RIGHT)
     header_stat_cells: list[tk.Frame] = []
@@ -3442,6 +3553,17 @@ def create_gui() -> None:
     nav_buttons: dict[str, tk.Frame] = {}
     icon_images: dict[str, object] = {}
     avatar_images: dict[str, object] = {}
+
+    def mark_window_focused(event: object = None) -> None:
+        """记录窗口聚焦状态，供持续动画判断是否暂停。"""
+        window_focus_state["focused"] = True
+
+    def mark_window_blurred(event: object = None) -> None:
+        """记录窗口失焦状态，暂停非必要的持续动画。"""
+        window_focus_state["focused"] = False
+
+    root.bind("<FocusIn>", mark_window_focused, add="+")
+    root.bind("<FocusOut>", mark_window_blurred, add="+")
 
     def create_page(page_key: str) -> tk.Frame:
         """创建一个可滚动右侧页面容器。"""
@@ -3641,11 +3763,9 @@ def create_gui() -> None:
         # 添加hover效果
         def on_enter(event):
             card.config(highlightbackground=COLORS['border'])
-            card.config(highlightthickness=2)
         
         def on_leave(event):
             card.config(highlightbackground=COLORS['border_light'])
-            card.config(highlightthickness=1)
         
         card.bind("<Enter>", on_enter)
         card.bind("<Leave>", on_leave)
@@ -3770,7 +3890,6 @@ def create_gui() -> None:
         # 添加hover效果
         def on_enter(event):
             tile.config(highlightbackground=COLORS['border'])
-            tile.config(highlightthickness=2)
             tile.config(bg=COLORS['card_hover'])
             for child in tile.winfo_children():
                 if isinstance(child, tk.Frame):
@@ -3780,7 +3899,6 @@ def create_gui() -> None:
         
         def on_leave(event):
             tile.config(highlightbackground=COLORS['border_light'])
-            tile.config(highlightthickness=1)
             tile.config(bg=COLORS['card'])
             for child in tile.winfo_children():
                 if isinstance(child, tk.Frame):
@@ -3909,6 +4027,33 @@ def create_gui() -> None:
                     except:
                         pass
 
+    def start_page_transition() -> None:
+        """播放短促页面切换反馈，避免主内容硬切时缺少响应感。"""
+        after_id = page_transition_state.get("after_id")
+        if after_id:
+            try:
+                root.after_cancel(str(after_id))
+            except tk.TclError:
+                pass
+        page_transition_state["step"] = 0
+        page_transition_bar.delete("all")
+
+        def _tick() -> None:
+            """推进页面切换进度线。"""
+            step = int(page_transition_state["step"])
+            width = max(page_transition_bar.winfo_width(), 1)
+            if step >= 4:
+                page_transition_bar.delete("all")
+                page_transition_state["after_id"] = None
+                return
+            page_transition_bar.delete("all")
+            progress_width = int(width * ((step + 1) / 4))
+            page_transition_bar.create_rectangle(0, 0, progress_width, 2, outline="", fill=COLORS['primary'])
+            page_transition_state["step"] = step + 1
+            page_transition_state["after_id"] = root.after(animation_interval_ms("page_transition"), _tick)
+
+        _tick()
+
     def show_page(page_key: str) -> None:
         """切换主内容页面。"""
         page_meta = {
@@ -3926,6 +4071,7 @@ def create_gui() -> None:
         header_title_var.set(page_meta[page_key][0])
         header_desc_var.set(page_meta[page_key][1])
         set_nav_active(page_key)
+        start_page_transition()
 
     nav_items = [
         ("overview", "layout-dashboard", "总览"),
@@ -4491,10 +4637,14 @@ def create_gui() -> None:
 
     def render_project_rows(projects: list[dict], message: str = "") -> None:
         """渲染当前账号项目列表。"""
-        for widget in projects_list.winfo_children():
-            widget.destroy()
+        current_signature = (project_rows_signature(projects), message)
         project_count_var.set(f"{len(projects)} 个项目")
         overview_project_var.set(f"{len(projects)} 个项目")
+        if project_rows_state["signature"] == current_signature:
+            return
+        project_rows_state["signature"] = current_signature
+        for widget in projects_list.winfo_children():
+            widget.destroy()
         if not projects:
             empty_text = message or "尚未读取到项目。请先登录账号，然后点击刷新项目。"
             make_empty_state(
@@ -4582,13 +4732,18 @@ def create_gui() -> None:
 
     def refresh_projects() -> None:
         """后台刷新当前登录账号的项目列表。"""
+        nonlocal is_refreshing_projects
+        if is_refreshing_projects:
+            project_status_var.set("正在刷新项目，请稍候...")
+            return
         active = get_active_account()
         if not active or not active.get("cookie"):
             project_status_var.set("请先登录蓝湖账号。")
             render_project_rows([], "请先在账号页登录蓝湖账号，然后再刷新项目。")
             show_page("account")
             return
-        refresh_projects_btn.config(state=tk.DISABLED)
+        is_refreshing_projects = True
+        refresh_projects_btn.config(state=tk.DISABLED, text="刷新中...")
         project_status_var.set("正在读取蓝湖项目...")
         log("正在读取当前账号项目列表", 'info')
 
@@ -4597,7 +4752,9 @@ def create_gui() -> None:
             root.after(0, lambda: _finish(ok, message, projects))
 
         def _finish(ok: bool, message: str, projects: list[dict]) -> None:
-            refresh_projects_btn.config(state=tk.NORMAL)
+            nonlocal is_refreshing_projects
+            is_refreshing_projects = False
+            refresh_projects_btn.config(state=tk.NORMAL, text="刷新项目")
             project_status_var.set(message)
             project_diagnostic_var.set(
                 f"接口候选 {len(PROJECT_ENDPOINTS)} 个（team_projects）；当前结果 {len(projects)} 个。{message}"
@@ -4771,6 +4928,10 @@ def create_gui() -> None:
 
     def render_account_rows(accounts: list[dict], active_id: str) -> None:
         """渲染多账号列表，并给每个账号提供切换和退出操作。"""
+        current_signature = account_rows_signature(accounts, active_id)
+        if account_rows_state["signature"] == current_signature:
+            return
+        account_rows_state["signature"] = current_signature
         for widget in accounts_list.winfo_children():
             widget.destroy()
         if not accounts:
@@ -4984,14 +5145,21 @@ def create_gui() -> None:
 
     def refresh_current_profile() -> None:
         """主动刷新当前账号资料和项目。"""
+        nonlocal is_refreshing_profile
+        if is_refreshing_profile:
+            log("账号资料正在刷新，请稍候", 'info')
+            return
         active = get_active_account()
         if not active or not active.get("cookie"):
             messagebox.showwarning("需要登录", "请先登录蓝湖账号。")
             return
+        is_refreshing_profile = True
         refresh_profile_btn.config(state=tk.DISABLED)
         log("正在刷新当前账号资料...", 'info')
 
         def _restore_button() -> None:
+            nonlocal is_refreshing_profile
+            is_refreshing_profile = False
             refresh_profile_btn.config(state=tk.NORMAL)
             refresh_projects()
 

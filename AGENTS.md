@@ -148,3 +148,33 @@
 - `dist\LanhuMCP.exe --server` 在 `49217` 端口 smoke 通过，日志确认加载高还原设计扩展工具并监听 `/mcp`。
 - `dist2\LanhuMCP.exe` 已同步为同一大小和时间，并通过 GUI 自动关闭 smoke。
 - 测试结束后无 `LanhuMCP.exe` 残留进程，`49217` 端口已释放；有两个历史 `python` 进程系统拒绝结束，但不是 LanhuMCP 进程。
+
+## 2026-06-22 GUI 性能、内存和交互体验优化
+- `lanhu_mcp_gui.py` 为 MCP 工具 AST 扫描增加 `_MCP_TOOLS_CACHE` 缓存，`discover_mcp_tools(refresh=True)` 可强制刷新，默认复用扫描结果，减少界面刷新时的重复文件读取和 AST 分配。
+- 头像下载增加 `AVATAR_MAX_BYTES` 上限检查；服务端声明或实际响应超过 1MB 时跳过缓存，避免读取大文件占用内存或写入半截图片。
+- 项目合并新增 `project_identity_key()`，优先按 `team_id + project_id` 去重，修复同一项目因 `stage/product` 不同路由在项目页重复显示的问题。
+- 项目刷新和账号资料刷新增加运行中标记，连续点击时只提示等待，不再重复启动后台线程、重复请求和重复渲染。
+- GUI 烟测模式新增 `is_gui_smoke_mode()` 和 `should_show_native_error_dialog()`；`LANHU_GUI_SMOKE_CLOSE=1` 下 Tk/Tcl 初始化失败只写日志并返回，不再弹出阻塞式 Windows MessageBox。
+- 新增 `tests/test_gui_optimizations.py`，覆盖工具扫描缓存、强制刷新、项目稳定去重和超大头像跳过读取。
+
+## 2026-06-22 验证
+- `python -m py_compile lanhu_mcp_gui.py tests\test_gui_optimizations.py` 通过。
+- 核心函数 smoke 通过：工具扫描缓存只扫描一次、`refresh=True` 会重新扫描、同一 `tid/pid` 项目合并为一条、超大头像不会读取和写入。
+- `LANHU_GUI_SMOKE_CLOSE=1` 源码级 GUI smoke 已验证不会再被 Tk/Tcl 初始化失败的系统弹窗阻塞；当前自动化 Python 环境缺少可用 `init.tcl`，因此本次未完成真实 Tk 窗口构造。
+- `git diff --check -- lanhu_mcp_gui.py tests\test_gui_optimizations.py` 无空白错误，仅提示 Windows CRLF 转换。
+- 当前环境未安装 `pytest`，`python -m pytest tests\test_gui_optimizations.py -q` 未运行成功。
+
+## 2026-06-22 GUI 轻量动效和低内存交互增强
+- 新增 `animation_interval_ms()`、`should_run_sidebar_pulse()`，侧栏呼吸条刷新间隔从 90ms 降到 180ms，并在窗口失焦、最小化或隐藏时跳过绘制，降低持续 CPU/GDI 开销。
+- 顶部标题区新增轻量页面切换进度线，页面切换时只运行 4 帧短动画，增强响应感但不引入常驻高频动画。
+- 卡片和总览指标 hover 不再改变边框厚度，只切换边框颜色或浅背景，避免 hover 时布局抖动。
+- 新增 `project_rows_signature()` 和 `account_rows_signature()`，项目列表与账号列表在可见字段无变化时跳过销毁重建，减少 widget 创建和内存 churn。
+- 项目刷新按钮在后台刷新期间显示“刷新中...”，完成后恢复“刷新项目”；重复点击只更新状态提示，不再重复创建刷新线程。
+- `tests/test_gui_optimizations.py` 补充动效间隔、动画暂停、项目摘要和账号摘要测试期望。
+
+## 2026-06-22 验证补充
+- `python -m py_compile lanhu_mcp_gui.py tests\test_gui_optimizations.py` 通过。
+- 轻量交互 helper smoke 通过：侧栏动画间隔为 180ms，失焦/最小化时暂停；项目/账号摘要忽略 raw 噪声字段，但可见字段变化时会变化。
+- `LANHU_GUI_SMOKE_CLOSE=1` 源码级 GUI smoke 未阻塞；当前自动化 Python 环境仍缺少可用 `init.tcl`，因此只验证到 Tk/Tcl 初始化失败被记录并返回。
+- `git diff --check -- lanhu_mcp_gui.py tests\test_gui_optimizations.py` 无空白错误，仅提示 Windows CRLF 转换。
+- 当前环境未安装 `pytest`，新增 pytest 用例未在本环境完整执行。
