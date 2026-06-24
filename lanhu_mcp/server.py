@@ -1372,6 +1372,17 @@ async def lanhu_get_responsive_variants(
         await extractor.close()
 
 
+# ============================================
+# Codegen 引擎工具注册
+# ============================================
+try:
+    from lanhu_mcp.codegen.mcp_tools import register_codegen_tools
+    register_codegen_tools(mcp)
+except ImportError as _codegen_err:
+    import warnings
+    warnings.warn(f"Codegen tools not loaded: {_codegen_err}", ImportWarning)
+
+
 if __name__ == "__main__":
     import os
     MCP_TRANSPORT = os.getenv("MCP_TRANSPORT", "http").lower()
