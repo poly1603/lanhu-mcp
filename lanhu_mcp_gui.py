@@ -192,60 +192,60 @@ def bootstrap_tcl_tk_runtime() -> None:
 # 颜色系统 - TDesign 调色板
 COLORS = {
     # 背景色
-    'bg': '#F5F7FA',           # 主背景 - TDesign 浅灰
-    'sidebar': '#00112E',      # 侧边栏背景 - TDesign 深蓝黑
-    'sidebar_hover': '#0A1E3D', # 侧边栏悬停
-    'sidebar_active': '#0F2A4A', # 侧边栏选中
-    'sidebar_text': '#E8EDF4',  # 侧边栏文字
-    'card': '#FFFFFF',          # 卡片背景
-    'card_hover': '#F8F9FB',    # 卡片悬停
-    'surface': '#F5F7FA',       # 表面背景
-    'surface_hover': '#EDF0F5', # 表面悬停
-    'input_bg': '#FFFFFF',      # 输入框背景
-    'input_bg_disabled': '#F5F7FA', # 输入框禁用
+    'bg': '#F3F3F3',              # 主背景 - TDesign Gray-2
+    'sidebar': '#2C2C2C',         # 侧边栏背景 - TDesign 深灰
+    'sidebar_hover': '#393939',   # 侧边栏悬停
+    'sidebar_active': '#4A4A4A',  # 侧边栏选中
+    'sidebar_text': '#EEEEEE',    # 侧边栏文字
+    'card': '#FFFFFF',            # 卡片背景
+    'card_hover': '#FAFAFA',      # 卡片悬停
+    'surface': '#F3F3F3',         # 表面背景
+    'surface_hover': '#E7E7E7',   # 表面悬停
+    'input_bg': '#FFFFFF',        # 输入框背景
+    'input_bg_disabled': '#F3F3F3',  # 输入框禁用
 
-    # 主色调 - TDesign Blue
-    'primary': '#0052D9',       # TDesign 品牌蓝
-    'primary_hover': '#0045B5', # 主色悬停
-    'primary_active': '#003A99', # 主色点击
-    'primary_light': '#E8F0FF', # 主色浅色背景
-    'primary_light_hover': '#D0E0FF', # 主色浅色悬停
+    # 主色调 - TDesign Blue-8
+    'primary': '#0052D9',         # TDesign 品牌蓝
+    'primary_hover': '#266FE8',   # Blue-7 悬停
+    'primary_active': '#003A99',  # Blue-10 点击
+    'primary_light': '#ECF2FE',   # Blue-1 浅色背景
+    'primary_light_hover': '#D4E3FC',  # Blue-2 浅色悬停
 
-    # 语义色
-    'success': '#00A870',       # 成功绿 - TDesign
-    'success_hover': '#009966', # 成功悬停
-    'danger': '#E34D59',        # 错误红 - TDesign
-    'danger_hover': '#CD2E3A',  # 错误悬停
-    'warning': '#ED7B2F',       # 警告橙 - TDesign
-    'warning_hover': '#D96A20', # 警告悬停
-    'accent': '#00809A',        # 强调青
-    'accent_light': '#E3F5F8',  # 强调浅色
-    'accent_warm': '#F59D0A',   # 温暖琥珀
-    'accent_warm_light': '#FEF3CD', # 温暖浅色
+    # 语义色 - TDesign 标准
+    'success': '#00A870',         # Green-8 成功
+    'success_hover': '#25C288',   # Green-7 悬停
+    'danger': '#E34D59',          # Red-8 错误
+    'danger_hover': '#F66F7A',    # Red-7 悬停
+    'warning': '#ED7B2F',         # Orange-8 警告
+    'warning_hover': '#FB9A4B',   # Orange-7 悬停
+    'accent': '#00809A',          # 强调青
+    'accent_light': '#E3F5F8',    # 强调浅色
+    'accent_warm': '#F59D0A',     # 温暖琥珀
+    'accent_warm_light': '#FEF3CD',  # 温暖浅色
 
     # 文字色 - TDesign 中性色
-    'text_primary': '#1A2332',  # 主文字
-    'text_secondary': '#5B6B7F', # 次要文字
-    'text_muted': '#8C9BAC',    # 弱化文字
-    'text_disabled': '#BFC9D6', # 禁用文字
+    'text_primary': '#1A1A1A',    # Gray-15 主文字
+    'text_secondary': '#666666',  # Gray-9 次要文字
+    'text_muted': '#999999',      # Gray-6 弱化文字
+    'text_disabled': '#CCCCCC',   # Gray-4 禁用文字
     'text_on_primary': '#FFFFFF', # 主色背景上的文字
-    'text_on_dark': '#E8EDF4',  # 深色背景上的文字
+    'text_on_dark': '#EEEEEE',    # 深色背景上的文字
 
     # 边框色
-    'border': '#DDE1E8',        # 默认边框
-    'border_light': '#EBEEF3',  # 浅边框
-    'border_hover': '#C4CBD6',  # 悬停边框
-    'border_focus': '#0052D9',  # 焦点边框
-    'border_error': '#E34D59',  # 错误边框
+    'border': '#DEDEDE',          # Gray-5 默认边框
+    'border_light': '#EEEEEE',    # Gray-4 浅边框
+    'border_hover': '#C0C0C0',    # Gray-6 悬停边框
+    'border_focus': '#0052D9',    # 焦点边框
+    'border_error': '#E34D59',    # 错误边框
 
     # 日志背景
-    'log_bg': '#0D1117',        # 日志背景
-    'log_text': '#E2E8F0',      # 日志文字
+    'log_bg': '#2C2C2C',          # 深色日志背景
+    'log_text': '#EEEEEE',        # 日志文字
 
     # 阴影色
-    'shadow_sm': '#F0F2F5',
-    'shadow_md': '#E4E8ED',
-    'shadow_lg': '#D0D5DD',
+    'shadow_sm': '#F0F0F0',
+    'shadow_md': '#E0E0E0',
+    'shadow_lg': '#C0C0C0',
     'shadow_color': 'rgba(0, 0, 0, 0.06)',
     'shadow_color_hover': 'rgba(0, 0, 0, 0.10)',
 
@@ -270,11 +270,11 @@ SPACING = {
 # 圆角系统 - TDesign 规范
 RADIUS = {
     'none': 0,
-    'sm': 2,
-    'md': 4,
-    'lg': 6,
-    'xl': 8,
-    '2xl': 12,
+    'sm': 3,        # TDesign 小圆角
+    'md': 6,        # TDesign 中圆角
+    'lg': 9,        # TDesign 大圆角
+    'xl': 12,       # TDesign 超大圆角
+    '2xl': 16,
     'full': 9999,
 }
 
@@ -288,19 +288,19 @@ SHADOW = {
 
 # 字体系统 - TDesign 规范
 FONT = {
-    'family': 'Segoe UI',
-    'mono': 'Cascadia Code',
+    'family': 'PingFang SC, Microsoft YaHei, Helvetica Neue',
+    'mono': 'Cascadia Code, Consolas, monospace',
     'sizes': {
-        'xs': 8,
-        'sm': 9,
-        'base': 10,
-        'md': 11,
-        'lg': 12,
-        'xl': 14,
-        '2xl': 16,
-        '3xl': 18,
-        '4xl': 20,
-        '5xl': 24,
+        'xs': 10,       # TDesign - 辅助文字
+        'sm': 12,       # TDesign - 正文小
+        'base': 14,     # TDesign - 正文
+        'md': 14,       # TDesign - 正文中
+        'lg': 16,       # TDesign - 标题
+        'xl': 18,       # TDesign - 大标题
+        '2xl': 20,      # TDesign - 二级标题
+        '3xl': 24,      # TDesign - 一级标题
+        '4xl': 28,      # TDesign - 超大标题
+        '5xl': 32,      # TDesign - 展示标题
     },
     'weights': {
         'normal': 'normal',
@@ -2581,11 +2581,14 @@ def apply_modern_style(root: object) -> object:
     if 'clam' in available_themes:
         style.theme_use('clam')
 
+    font_family = FONT['family']
+    mono_family = FONT['mono']
+
     # ===== 全局配置 =====
     style.configure('.',
                     background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
-                    font=(FONT['family'], FONT['sizes']['sm']))
+                    font=(font_family, FONT['sizes']['base']))
     style.map('.',
               background=[('active', COLORS['bg'])],
               foreground=[('disabled', COLORS['text_disabled'])])
@@ -2600,47 +2603,47 @@ def apply_modern_style(root: object) -> object:
     style.configure('TLabel',
                     background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
-                    font=(FONT['family'], FONT['sizes']['sm']))
+                    font=(font_family, FONT['sizes']['base']))
 
     style.configure('Title.TLabel',
                     background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
-                    font=(FONT['family'], FONT['sizes']['5xl'], 'bold'))
+                    font=(font_family, FONT['sizes']['3xl'], 'bold'))
 
     style.configure('Subtitle.TLabel',
                     background=COLORS['bg'],
                     foreground=COLORS['text_secondary'],
-                    font=(FONT['family'], FONT['sizes']['base']))
+                    font=(font_family, FONT['sizes']['base']))
 
     style.configure('Status.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['text_primary'],
-                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+                    font=(font_family, FONT['sizes']['lg'], 'bold'))
 
     style.configure('StatusRunning.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['success'],
-                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+                    font=(font_family, FONT['sizes']['lg'], 'bold'))
 
     style.configure('StatusError.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['danger'],
-                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+                    font=(font_family, FONT['sizes']['lg'], 'bold'))
 
     style.configure('StatusWarn.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['warning'],
-                    font=(FONT['family'], FONT['sizes']['md'], 'bold'))
+                    font=(font_family, FONT['sizes']['lg'], 'bold'))
 
     style.configure('Hint.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['text_muted'],
-                    font=(FONT['family'], FONT['sizes']['xs']))
+                    font=(font_family, FONT['sizes']['sm']))
 
     style.configure('Disabled.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['text_disabled'],
-                    font=(FONT['family'], FONT['sizes']['sm']))
+                    font=(font_family, FONT['sizes']['sm']))
 
     # ===== LabelFrame =====
     style.configure('Card.TLabelframe',
@@ -2649,7 +2652,7 @@ def apply_modern_style(root: object) -> object:
     style.configure('Card.TLabelframe.Label',
                     background=COLORS['card'],
                     foreground=COLORS['primary'],
-                    font=(FONT['family'], FONT['sizes']['base'], 'bold'),
+                    font=(font_family, FONT['sizes']['base'], 'bold'),
                     padding=(SPACING['3'], SPACING['2'], 0, SPACING['2']))
     style.configure('TLabelframe',
                     background=COLORS['card'],
@@ -2657,12 +2660,12 @@ def apply_modern_style(root: object) -> object:
     style.configure('TLabelframe.Label',
                     background=COLORS['card'],
                     foreground=COLORS['primary'],
-                    font=(FONT['family'], FONT['sizes']['base'], 'bold'))
+                    font=(font_family, FONT['sizes']['base'], 'bold'))
 
-    # ===== Button - TDesign 默认 =====
+    # ===== Button - TDesign 默认按钮 (32px) =====
     style.configure('TButton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
-                    padding=(SPACING['3'], SPACING['2']),
+                    font=(font_family, FONT['sizes']['base']),
+                    padding=(SPACING['4'], SPACING['2']),
                     background=COLORS['card'],
                     foreground=COLORS['text_primary'],
                     borderwidth=1,
@@ -2676,10 +2679,10 @@ def apply_modern_style(root: object) -> object:
                          ('disabled', COLORS['text_disabled'])],
               relief=[('pressed', 'sunken')])
 
-    # ===== Button - TDesign Primary =====
+    # ===== Button - TDesign Primary (40px) =====
     style.configure('Primary.TButton',
-                    font=(FONT['family'], FONT['sizes']['base'], 'bold'),
-                    padding=(SPACING['4'], SPACING['3']),
+                    font=(font_family, FONT['sizes']['base'], 'bold'),
+                    padding=(SPACING['5'], SPACING['3']),
                     background=COLORS['primary'],
                     foreground=COLORS['text_on_primary'],
                     borderwidth=0,
@@ -2694,8 +2697,8 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Button - TDesign Success =====
     style.configure('Success.TButton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
-                    padding=(SPACING['3'], SPACING['2']),
+                    font=(font_family, FONT['sizes']['base'], 'bold'),
+                    padding=(SPACING['4'], SPACING['2']),
                     background=COLORS['success'],
                     foreground=COLORS['text_on_primary'],
                     borderwidth=0,
@@ -2710,8 +2713,8 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Button - TDesign Danger =====
     style.configure('Danger.TButton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
-                    padding=(SPACING['3'], SPACING['2']),
+                    font=(font_family, FONT['sizes']['base'], 'bold'),
+                    padding=(SPACING['4'], SPACING['2']),
                     background=COLORS['danger'],
                     foreground=COLORS['text_on_primary'],
                     borderwidth=0,
@@ -2726,8 +2729,8 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Button - TDesign Ghost =====
     style.configure('Ghost.TButton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
-                    padding=(SPACING['3'], SPACING['2']),
+                    font=(font_family, FONT['sizes']['base']),
+                    padding=(SPACING['4'], SPACING['2']),
                     background='transparent',
                     foreground=COLORS['text_secondary'],
                     borderwidth=0,
@@ -2738,9 +2741,9 @@ def apply_modern_style(root: object) -> object:
               foreground=[('active', COLORS['text_primary']),
                          ('pressed', COLORS['text_primary'])])
 
-    # ===== Button - TDesign Small =====
+    # ===== Button - TDesign Small (24px) =====
     style.configure('Small.TButton',
-                    font=(FONT['family'], FONT['sizes']['xs']),
+                    font=(font_family, FONT['sizes']['sm']),
                     padding=(SPACING['2'], SPACING['1']),
                     background=COLORS['surface'],
                     foreground=COLORS['text_secondary'],
@@ -2754,9 +2757,9 @@ def apply_modern_style(root: object) -> object:
                          ('pressed', COLORS['text_primary']),
                          ('disabled', COLORS['text_disabled'])])
 
-    # ===== Entry - TDesign 输入框 =====
+    # ===== Entry - TDesign 输入框 (32px) =====
     style.configure('TEntry',
-                    font=(FONT['mono'], FONT['sizes']['sm']),
+                    font=(mono_family, FONT['sizes']['base']),
                     padding=(SPACING['3'], SPACING['2']),
                     fieldbackground=COLORS['input_bg'],
                     insertcolor=COLORS['text_primary'],
@@ -2771,7 +2774,7 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Combobox - TDesign 下拉框 =====
     style.configure('TCombobox',
-                    font=(FONT['family'], FONT['sizes']['sm']),
+                    font=(font_family, FONT['sizes']['base']),
                     padding=(SPACING['3'], SPACING['2']),
                     fieldbackground=COLORS['input_bg'],
                     background=COLORS['surface'],
@@ -2788,7 +2791,7 @@ def apply_modern_style(root: object) -> object:
                     background=COLORS['bg'],
                     borderwidth=0)
     style.configure('TNotebook.Tab',
-                    font=(FONT['family'], FONT['sizes']['sm']),
+                    font=(font_family, FONT['sizes']['base']),
                     padding=(SPACING['4'], SPACING['2']),
                     background=COLORS['surface'],
                     foreground=COLORS['text_secondary'],
@@ -2799,7 +2802,7 @@ def apply_modern_style(root: object) -> object:
               foreground=[('selected', COLORS['primary']),
                          ('active', COLORS['text_primary'])])
 
-    # ===== Scrollbar - TDesign 滚动条 =====
+    # ===== Scrollbar - TDesign =====
     style.configure('Vertical.TScrollbar',
                     background=COLORS['border_light'],
                     troughcolor=COLORS['bg'],
@@ -2812,7 +2815,7 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Checkbutton =====
     style.configure('TCheckbutton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
+                    font=(font_family, FONT['sizes']['base']),
                     background=COLORS['bg'],
                     foreground=COLORS['text_primary'])
     style.map('TCheckbutton',
@@ -2821,14 +2824,14 @@ def apply_modern_style(root: object) -> object:
 
     # ===== Radiobutton =====
     style.configure('TRadiobutton',
-                    font=(FONT['family'], FONT['sizes']['sm']),
+                    font=(font_family, FONT['sizes']['base']),
                     background=COLORS['bg'],
                     foreground=COLORS['text_primary'])
     style.map('TRadiobutton',
               background=[('active', COLORS['bg'])],
               foreground=[('active', COLORS['text_primary'])])
 
-    # ===== Progressbar - TDesign 进度条 =====
+    # ===== Progressbar =====
     style.configure('Horizontal.TProgressbar',
                     background=COLORS['primary'],
                     troughcolor=COLORS['border_light'],
@@ -2969,7 +2972,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         text=f"🎨 {project_name}",
         bg=COLORS['card'],
         fg=COLORS['text_primary'],
-        font=('Segoe UI', 14, 'bold'),
+        font=(FONT['family'], 14, 'bold'),
     ).pack(side=tk.LEFT)
 
     status_var = tk.StringVar(value="正在加载设计稿...")
@@ -2978,7 +2981,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         textvariable=status_var,
         bg=COLORS['card'],
         fg=COLORS['text_muted'],
-        font=('Segoe UI', 9),
+        font=(FONT['family'], 9),
     ).pack(side=tk.LEFT, padx=(16, 0))
 
     # 右上角操作区
@@ -3078,7 +3081,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
     sidebar_header = tk.Frame(sidebar_frame, bg=COLORS['card'])
     sidebar_header.pack(fill=tk.X, padx=12, pady=(12, 8))
     tk.Label(sidebar_header, text="分组", bg=COLORS['card'], fg=COLORS['text_primary'],
-             font=('Segoe UI', 10, 'bold')).pack(side=tk.LEFT)
+             font=(FONT['family'], 10, 'bold')).pack(side=tk.LEFT)
 
     sidebar_list = tk.Frame(sidebar_frame, bg=COLORS['card'])
     sidebar_list.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 12))
@@ -3138,7 +3141,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         all_btn = tk.Frame(sidebar_list, bg=COLORS['primary_light'], cursor='hand2')
         all_btn.pack(fill=tk.X, pady=2)
         tk.Label(all_btn, text=f"全部设计稿", bg=COLORS['primary_light'], fg=COLORS['primary'],
-                 font=('Segoe UI', 9, 'bold'), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+                 font=(FONT['family'], 9, 'bold'), anchor='w').pack(fill=tk.X, padx=12, pady=8)
         sector_buttons['__all__'] = all_btn
         all_btn.bind('<Button-1>', lambda e: select_sector(None, '全部设计稿'))
         for child in all_btn.winfo_children():
@@ -3151,7 +3154,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
             btn.pack(fill=tk.X, pady=2)
             label = tk.Label(btn, text=f"{sname} ({count})", bg=COLORS['card'], fg=COLORS['text_secondary'],
-                             font=('Segoe UI', 9), anchor='w')
+                             font=(FONT['family'], 9), anchor='w')
             label.pack(fill=tk.X, padx=12, pady=8)
             sector_buttons[sid] = btn
             btn.bind('<Button-1>', lambda e, sid=sid, sname=sname: select_sector(sid, sname))
@@ -3163,7 +3166,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             ungrouped_btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
             ungrouped_btn.pack(fill=tk.X, pady=2)
             tk.Label(ungrouped_btn, text=f"未分组 ({ungrouped})", bg=COLORS['card'], fg=COLORS['text_muted'],
-                     font=('Segoe UI', 9), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+                     font=(FONT['family'], 9), anchor='w').pack(fill=tk.X, padx=12, pady=8)
             sector_buttons['__ungrouped__'] = ungrouped_btn
             ungrouped_btn.bind('<Button-1>', lambda e: select_sector('__ungrouped__', '未分组'))
             for child in ungrouped_btn.winfo_children():
@@ -3192,7 +3195,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
 
         if not filtered:
             tk.Label(design_grid, text="该分组下暂无设计稿", bg=COLORS['bg'], fg=COLORS['text_muted'],
-                     font=('Segoe UI', 11)).pack(pady=60)
+                     font=(FONT['family'], 11)).pack(pady=60)
             return
 
         # 网格布局：每行 3 个
@@ -3228,7 +3231,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             checkbox.config(command=toggle_design)
 
             tk.Label(top_bar, text=design.get('name', '未命名')[:20], bg=COLORS['card'],
-                     fg=COLORS['text_primary'], font=('Segoe UI', 9, 'bold'), anchor='w').pack(side=tk.LEFT, padx=(4, 0))
+                     fg=COLORS['text_primary'], font=(FONT['family'], 9, 'bold'), anchor='w').pack(side=tk.LEFT, padx=(4, 0))
 
             # 缩略图区域
             thumb_frame = tk.Frame(cell, bg=COLORS['surface'], width=240, height=160)
@@ -3236,7 +3239,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             thumb_frame.pack_propagate(False)
 
             thumb_label = tk.Label(thumb_frame, text="加载中...", bg=COLORS['surface'],
-                                   fg=COLORS['text_muted'], font=('Segoe UI', 8))
+                                   fg=COLORS['text_muted'], font=(FONT['family'], 8))
             thumb_label.pack(expand=True)
 
             # 尺寸信息
@@ -3244,7 +3247,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             if design.get('sectors'):
                 dims_text += f"  |  {', '.join(design['sectors'][:2])}"
             tk.Label(cell, text=dims_text, bg=COLORS['card'], fg=COLORS['text_muted'],
-                     font=('Segoe UI', 7), anchor='w').pack(fill=tk.X, pady=(4, 0))
+                     font=(FONT['family'], 7), anchor='w').pack(fill=tk.X, pady=(4, 0))
 
             # 异步加载缩略图
             def load_thumbnail(url=design.get('url', ''), label=thumb_label, design_id=design.get('id', '')):
@@ -3379,13 +3382,17 @@ def create_gui() -> None:
     # 主题样式统一由 ttk 接管，普通 tk 控件只保留必要颜色。
     apply_modern_style(root)
     # Tcl 字体名包含空格时需要加花括号，否则会被拆成错误参数。
-    root.option_add("*Font", "{Segoe UI} 9")
+    root.option_add("*Font", "{PingFang SC} 10")
 
     port_var = tk.StringVar(value="8000")
     cookie_var = tk.StringVar()
     account_var = tk.StringVar()
     project_status_var = tk.StringVar(value="登录后可读取当前账号项目")
     project_count_var = tk.StringVar(value="0 个项目")
+    _project_page_size = 20
+    _project_page = 0
+    _project_all_data: list[dict] = []
+    _project_page_info_var = tk.StringVar(value="")
     login_status_var = tk.StringVar(value="未登录")
     header_title_var = tk.StringVar(value="总览")
     header_desc_var = tk.StringVar(value="集中查看蓝湖账号、MCP 服务、项目和 AI 工具配置状态。")
@@ -3434,54 +3441,55 @@ def create_gui() -> None:
     bg_deco.bind("<Configure>", draw_background_decor)
 
     brand = tk.Frame(sidebar, bg=COLORS['sidebar'])
-    brand.pack(fill=tk.X, padx=18, pady=(22, 20))
+    brand.pack(fill=tk.X, padx=20, pady=(24, 20))
     brand_mark = tk.Frame(brand, bg=COLORS['sidebar'])
     brand_mark.pack(anchor='w', fill=tk.X)
-    mark_box = tk.Frame(brand_mark, bg=COLORS['primary'], width=34, height=34)
+    mark_box = tk.Frame(brand_mark, bg=COLORS['primary'], width=36, height=36)
     mark_box.pack(side=tk.LEFT)
     mark_box.pack_propagate(False)
-    tk.Label(mark_box, text="L", fg="#FFFFFF", bg=COLORS['primary'], font=('Segoe UI', 15, 'bold')).pack(expand=True)
+    tk.Label(mark_box, text="L", fg="#FFFFFF", bg=COLORS['primary'],
+             font=(FONT['family'], FONT['sizes']['xl'], 'bold')).pack(expand=True)
     tk.Label(
         brand_mark,
         text="Lanhu MCP",
         fg="#FFFFFF",
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 13, 'bold'),
-    ).pack(side=tk.LEFT, padx=(10, 0))
+        font=(FONT['family'], FONT['sizes']['lg'], 'bold'),
+    ).pack(side=tk.LEFT, padx=(12, 0))
     tk.Label(
         brand,
         text="设计还原与项目协作控制台",
-        fg="#8CA0B8",
+        fg=COLORS['text_muted'],
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 9),
-    ).pack(anchor='w', pady=(3, 0))
+        font=(FONT['family'], FONT['sizes']['sm']),
+    ).pack(anchor='w', pady=(4, 0))
 
     nav_host = tk.Frame(sidebar, bg=COLORS['sidebar'])
     nav_host.pack(fill=tk.X, padx=10)
     sidebar_footer = tk.Frame(sidebar, bg=COLORS['sidebar'])
-    sidebar_footer.pack(side=tk.BOTTOM, fill=tk.X, padx=18, pady=18)
+    sidebar_footer.pack(side=tk.BOTTOM, fill=tk.X, padx=20, pady=20)
     tk.Label(
         sidebar_footer,
         text="当前状态",
-        fg="#6CA0D9",
+        fg=COLORS['primary'],
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 8, 'bold'),
-    ).pack(anchor='w', pady=(0, 5))
+        font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
+    ).pack(anchor='w', pady=(0, 6))
     tk.Label(
         sidebar_footer,
         textvariable=login_status_var,
-        fg="#B0C4DE",
+        fg=COLORS['text_on_dark'],
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 9),
+        font=(FONT['family'], FONT['sizes']['sm']),
         wraplength=184,
         justify=tk.LEFT,
     ).pack(anchor='w')
     tk.Label(
         sidebar_footer,
         textvariable=package_status_var,
-        fg="#7A8FA3",
+        fg=COLORS['text_muted'],
         bg=COLORS['sidebar'],
-        font=('Segoe UI', 8),
+        font=(FONT['family'], FONT['sizes']['xs']),
         wraplength=184,
         justify=tk.LEFT,
     ).pack(anchor='w', pady=(8, 0))
@@ -3500,7 +3508,7 @@ def create_gui() -> None:
         root.after(animation_interval_ms("sidebar_pulse"), animate_sidebar_pulse)
 
     header = tk.Frame(content, bg=COLORS['bg'])
-    header.pack(fill=tk.X, padx=24, pady=(22, 14))
+    header.pack(fill=tk.X, padx=24, pady=(24, 16))
     header_text = tk.Frame(header, bg=COLORS['bg'])
     header_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
     tk.Label(
@@ -3508,17 +3516,17 @@ def create_gui() -> None:
         textvariable=header_title_var,
         bg=COLORS['bg'],
         fg=COLORS['text_primary'],
-        font=('Segoe UI', 20, 'bold'),
+        font=(FONT['family'], FONT['sizes']['3xl'], 'bold'),
     ).pack(anchor='w')
     tk.Label(
         header_text,
         textvariable=header_desc_var,
         bg=COLORS['bg'],
         fg=COLORS['text_secondary'],
-        font=('Segoe UI', 10),
-    ).pack(anchor='w', pady=(4, 0))
+        font=(FONT['family'], FONT['sizes']['base']),
+    ).pack(anchor='w', pady=(6, 0))
     page_transition_bar = tk.Canvas(header_text, height=2, bg=COLORS['bg'], highlightthickness=0, bd=0)
-    page_transition_bar.pack(fill=tk.X, pady=(10, 0))
+    page_transition_bar.pack(fill=tk.X, pady=(12, 0))
     header_stats = tk.Frame(header, bg=COLORS['bg'])
     header_stats.pack(side=tk.RIGHT)
     header_stat_cells: list[tk.Frame] = []
@@ -3528,10 +3536,12 @@ def create_gui() -> None:
         ("方法", tk.StringVar(value=str(len(MCP_TOOL_NAMES)))),
     ):
         stat_cell = tk.Frame(header_stats, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
-        stat_cell.pack(side=tk.LEFT, padx=(8, 0))
+        stat_cell.pack(side=tk.LEFT, padx=(10, 0))
         header_stat_cells.append(stat_cell)
-        tk.Label(stat_cell, text=stat_label, bg=COLORS['card'], fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(padx=12, pady=(7, 0))
-        tk.Label(stat_cell, textvariable=stat_var, bg="#FFFFFF", fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(padx=12, pady=(1, 7))
+        tk.Label(stat_cell, text=stat_label, bg=COLORS['card'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['sm'])).pack(padx=14, pady=(8, 0))
+        tk.Label(stat_cell, textvariable=stat_var, bg=COLORS['card'], fg=COLORS['text_primary'],
+                 font=(FONT['family'], FONT['sizes']['lg'], 'bold')).pack(padx=14, pady=(2, 8))
 
     def layout_header(event: object = None) -> None:
         """根据窗口宽度调整顶部统计区位置。"""
@@ -3722,7 +3732,15 @@ def create_gui() -> None:
         return create_lucide_icon(parent, icon_name, color, 18, COLORS['card'])
 
     def make_card(parent: tk.Misc, title: str, icon_name: str, padding: int = 16) -> tk.Frame:
-        """创建 TDesign 风格卡片容器。"""
+        """创建 TDesign 风格卡片容器。
+
+        TDesign 卡片规范：
+        - 白底, 1px 边框 #EEEEEE
+        - 圆角 9px (lg)
+        - hover 时边框变 #0052D9
+        - 标题区: 图标 + 标题 + 可选操作区
+        - 内容区: 分隔线下方
+        """
         card = tk.Frame(
             parent,
             bg=COLORS['card'],
@@ -3732,11 +3750,15 @@ def create_gui() -> None:
             bd=0,
         )
 
+        # 标题区
         header_frame = tk.Frame(card, bg=COLORS['card'])
         header_frame.pack(fill=tk.X, padx=padding, pady=(padding, SPACING['2']))
 
-        icon_canvas = make_icon_label(header_frame, icon_name, COLORS['primary'])
-        icon_canvas.pack(side=tk.LEFT)
+        icon_bg = COLORS['primary_light']
+        icon_shell = tk.Frame(header_frame, bg=icon_bg, width=32, height=32)
+        icon_shell.pack(side=tk.LEFT)
+        icon_shell.pack_propagate(False)
+        create_lucide_icon(icon_shell, icon_name, COLORS['primary'], 18, icon_bg).pack(expand=True)
 
         tk.Label(
             header_frame,
@@ -3746,12 +3768,20 @@ def create_gui() -> None:
             font=(FONT['family'], FONT['sizes']['base'], 'bold'),
         ).pack(side=tk.LEFT, padx=(SPACING['2'], 0))
 
+        # 操作区 (可选)
+        action_frame = tk.Frame(header_frame, bg=COLORS['card'])
+        action_frame.pack(side=tk.RIGHT)
+        setattr(card, "action_area", action_frame)
+
+        # 分隔线
         separator = tk.Frame(card, bg=COLORS['border_light'], height=1)
         separator.pack(fill=tk.X, padx=padding, pady=(0, SPACING['2']))
 
+        # 内容区
         body = ttk.Frame(card, style='Card.TFrame')
         body.pack(fill=tk.BOTH, expand=True, padx=padding, pady=(0, padding))
 
+        # Hover 效果
         def on_enter(event):
             card.config(highlightbackground=COLORS['primary'], highlightthickness=2)
 
@@ -3767,7 +3797,14 @@ def create_gui() -> None:
         return card
 
     def make_metric_tile(parent: tk.Misc, label: str, value_var: object, accent: str) -> tk.Frame:
-        """创建 TDesign 风格指标块。"""
+        """创建 TDesign 风格指标块。
+
+        TDesign 指标块规范：
+        - 白底, 1px 边框
+        - 左侧 3px 强调色条
+        - 标签: 12px 灰色
+        - 数值: 18px 粗体
+        """
         tile = tk.Frame(
             parent,
             bg=COLORS['card'],
@@ -3786,7 +3823,7 @@ def create_gui() -> None:
             text=label,
             bg=COLORS['card'],
             fg=COLORS['text_muted'],
-            font=(FONT['family'], FONT['sizes']['xs'])
+            font=(FONT['family'], FONT['sizes']['sm'])
         ).pack(anchor='w')
 
         tk.Label(
@@ -3794,7 +3831,7 @@ def create_gui() -> None:
             textvariable=value_var,
             bg=COLORS['card'],
             fg=COLORS['text_primary'],
-            font=(FONT['family'], FONT['sizes']['xl'], 'bold')
+            font=(FONT['family'], FONT['sizes']['2xl'], 'bold')
         ).pack(anchor='w', pady=(SPACING['1'], 0))
 
         def on_enter(event):
@@ -3826,7 +3863,14 @@ def create_gui() -> None:
         icon_name: str,
         accent: str,
     ) -> tk.Frame:
-        """创建 TDesign 风格总览指标块。"""
+        """创建 TDesign 风格总览指标块。
+
+        TDesign 总览指标规范：
+        - 白底, 1px 边框
+        - 顶部: 图标 (40px) + 标签
+        - 中间: 大数字 (24px)
+        - 底部: 描述文字 (12px)
+        """
         tile = tk.Frame(
             parent,
             bg=COLORS['card'],
@@ -3834,6 +3878,7 @@ def create_gui() -> None:
             highlightthickness=1,
         )
 
+        # 顶部: 图标 + 标签
         top = tk.Frame(tile, bg=COLORS['card'])
         top.pack(fill=tk.X, padx=SPACING['4'], pady=(SPACING['4'], SPACING['2']))
 
@@ -3850,6 +3895,7 @@ def create_gui() -> None:
             font=(FONT['family'], FONT['sizes']['sm'], 'bold')
         ).pack(side=tk.LEFT, padx=(SPACING['3'], 0))
 
+        # 中间: 大数字
         tk.Label(
             tile,
             textvariable=value_var,
@@ -3858,12 +3904,13 @@ def create_gui() -> None:
             font=(FONT['family'], FONT['sizes']['4xl'], 'bold'),
         ).pack(anchor='w', padx=SPACING['4'])
 
+        # 底部: 描述
         tk.Label(
             tile,
             text=detail,
             bg=COLORS['card'],
             fg=COLORS['text_muted'],
-            font=(FONT['family'], FONT['sizes']['xs']),
+            font=(FONT['family'], FONT['sizes']['sm']),
             wraplength=220,
             justify=tk.LEFT,
         ).pack(anchor='w', padx=SPACING['4'], pady=(SPACING['2'], SPACING['4']))
@@ -4142,7 +4189,7 @@ def create_gui() -> None:
     overview_hero = tk.Frame(overview_page, bg=COLORS['primary'], highlightbackground=COLORS['primary_active'], highlightthickness=1)
     overview_hero.pack(fill=tk.X)
     overview_hero_inner = tk.Frame(overview_hero, bg=COLORS['primary'])
-    overview_hero_inner.pack(fill=tk.X, padx=22, pady=20)
+    overview_hero_inner.pack(fill=tk.X, padx=24, pady=24)
     overview_hero_text = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
     overview_hero_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
     tk.Label(
@@ -4150,37 +4197,37 @@ def create_gui() -> None:
         text="Lanhu MCP 工作台",
         bg=COLORS['primary'],
         fg="#FFFFFF",
-        font=('Segoe UI', 20, 'bold'),
+        font=(FONT['family'], FONT['sizes']['3xl'], 'bold'),
     ).pack(anchor='w')
     tk.Label(
         overview_hero_text,
         text="登录蓝湖账号后启动服务，把项目、设计稿、切图和团队消息交给 AI IDE 直接调用。",
         bg=COLORS['primary'],
         fg="#D0E0FF",
-        font=('Segoe UI', 10),
+        font=(FONT['family'], FONT['sizes']['base']),
         wraplength=760,
         justify=tk.LEFT,
-    ).pack(anchor='w', pady=(6, 0))
+    ).pack(anchor='w', pady=(8, 0))
     overview_runtime = tk.Frame(overview_hero_text, bg=COLORS['primary_active'])
-    overview_runtime.pack(fill=tk.X, pady=(14, 0))
+    overview_runtime.pack(fill=tk.X, pady=(16, 0))
     tk.Label(
         overview_runtime,
         textvariable=runtime_var,
         bg=COLORS['primary_active'],
         fg="#C0D8FF",
-        font=('Consolas', 8),
+        font=(FONT['mono'], FONT['sizes']['sm']),
         wraplength=760,
         justify=tk.LEFT,
     ).pack(anchor='w', padx=12, pady=8)
     overview_actions = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
-    overview_actions.pack(side=tk.RIGHT, padx=(18, 0))
+    overview_actions.pack(side=tk.RIGHT, padx=(20, 0))
 
     overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=14)
-    overview_login_btn.pack(fill=tk.X, pady=(0, 8))
+    overview_login_btn.pack(fill=tk.X, pady=(0, 10))
     add_button_hover_effect(overview_login_btn)
 
     overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=14)
-    overview_start_btn.pack(fill=tk.X, pady=(0, 8))
+    overview_start_btn.pack(fill=tk.X, pady=(0, 10))
     add_button_hover_effect(overview_start_btn)
 
     overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='Ghost.TButton', width=14)
@@ -4188,7 +4235,7 @@ def create_gui() -> None:
     add_button_hover_effect(overview_config_btn)
 
     overview_metrics = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_metrics.pack(fill=tk.X, pady=(14, 0))
+    overview_metrics.pack(fill=tk.X, pady=(16, 0))
     metric_specs = (
         ("账号", overview_account_var, "多账号可切换，服务启动前会强制检查登录态。", "user", COLORS['primary']),
         ("服务", overview_service_var, "HTTP MCP 服务启动后可被 Codex、Claude、Mimo 等工具调用。", "activity", COLORS['success']),
@@ -4201,7 +4248,7 @@ def create_gui() -> None:
         overview_metrics.columnconfigure(index, weight=1)
 
     overview_main = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_main.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
+    overview_main.pack(fill=tk.BOTH, expand=True, pady=(16, 0))
     overview_left = make_card(overview_main, "下一步操作", "wand-sparkles")
     overview_right = make_card(overview_main, "诊断与能力", "database")
     pack_responsive_pair(overview_main, overview_left, overview_right)
@@ -4215,11 +4262,13 @@ def create_gui() -> None:
     ]
     for row_index, (title, detail, target_page) in enumerate(quick_rows):
         row = tk.Frame(overview_left_body, bg=COLORS['surface'], highlightbackground=COLORS['border_light'], highlightthickness=1)
-        row.pack(fill=tk.X, pady=(0 if row_index == 0 else 8, 0))
+        row.pack(fill=tk.X, pady=(0 if row_index == 0 else 10, 0))
         row_inner = tk.Frame(row, bg=COLORS['surface'])
-        row_inner.pack(fill=tk.X, padx=12, pady=10)
-        tk.Label(row_inner, text=title, bg=COLORS['surface'], fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(anchor='w')
-        tk.Label(row_inner, text=detail, bg=COLORS['surface'], fg=COLORS['text_muted'], font=('Segoe UI', 8), wraplength=520, justify=tk.LEFT).pack(anchor='w', pady=(3, 0))
+        row_inner.pack(fill=tk.X, padx=14, pady=12)
+        tk.Label(row_inner, text=title, bg=COLORS['surface'], fg=COLORS['text_primary'],
+                 font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(anchor='w')
+        tk.Label(row_inner, text=detail, bg=COLORS['surface'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['sm']), wraplength=520, justify=tk.LEFT).pack(anchor='w', pady=(4, 0))
         def _make_row_hover(row_frame, inner_frame):
             def on_enter(e):
                 row_frame.config(bg=COLORS['primary_light'], highlightbackground=COLORS['primary'])
@@ -4246,7 +4295,7 @@ def create_gui() -> None:
         textvariable=package_status_var,
         bg=COLORS['card'],
         fg=COLORS['warning'] if "注意" in package_status_var.get() else COLORS['text_secondary'],
-        font=('Segoe UI', 9, 'bold'),
+        font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
         wraplength=520,
         justify=tk.LEFT,
     ).pack(anchor='w')
@@ -4255,30 +4304,30 @@ def create_gui() -> None:
         textvariable=overview_ide_var,
         bg=COLORS['card'],
         fg=COLORS['text_primary'],
-        font=('Segoe UI', 16, 'bold'),
-    ).pack(anchor='w', pady=(12, 2))
+        font=(FONT['family'], FONT['sizes']['2xl'], 'bold'),
+    ).pack(anchor='w', pady=(14, 4))
     tk.Label(
         overview_right_body,
         text="已识别 AI 开发工具数量。点击 AI 工具页可查看每个工具的安装路径、配置路径和写入结果。",
         bg=COLORS['card'],
         fg=COLORS['text_muted'],
-        font=('Segoe UI', 8),
+        font=(FONT['family'], FONT['sizes']['sm']),
         wraplength=520,
         justify=tk.LEFT,
     ).pack(anchor='w')
     method_groups_frame = tk.Frame(overview_right_body, bg=COLORS['card'])
-    method_groups_frame.pack(fill=tk.X, pady=(14, 0))
+    method_groups_frame.pack(fill=tk.X, pady=(16, 0))
     for group_index, (group_name, group_tools) in enumerate(group_mcp_tools(MCP_TOOL_NAMES).items()):
         group_chip = tk.Frame(method_groups_frame, bg=COLORS['primary_light'])
-        group_chip.pack(side=tk.LEFT, padx=(0 if group_index == 0 else 8, 0), pady=(0, 8))
+        group_chip.pack(side=tk.LEFT, padx=(0 if group_index == 0 else 10, 0), pady=(0, 10))
         tk.Label(
             group_chip,
             text=f"{group_name} {len(group_tools)}",
             bg=COLORS['primary_light'],
             fg=COLORS['primary'],
-            font=('Segoe UI', 8, 'bold'),
-            padx=9,
-            pady=4,
+            font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
+            padx=10,
+            pady=5,
         ).pack()
 
     overview_metric_layout = {"mode": ""}
@@ -4308,7 +4357,7 @@ def create_gui() -> None:
     log_card.pack(fill=tk.BOTH, expand=True)
     log_body = card_body(log_card)
     log_toolbar = ttk.Frame(log_body, style='Card.TFrame')
-    log_toolbar.pack(fill=tk.X, pady=(0, 10))
+    log_toolbar.pack(fill=tk.X, pady=(0, 12))
     ttk.Label(
         log_toolbar,
         text="日志会自动滚动到底部",
@@ -4330,7 +4379,7 @@ def create_gui() -> None:
     log_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     log_text = tk.Text(
         log_container,
-        font=('Consolas', 9),
+        font=(FONT['mono'], FONT['sizes']['sm']),
         bg=COLORS['log_bg'],
         fg=COLORS['log_text'],
         insertbackground=COLORS['log_text'],
@@ -4397,20 +4446,20 @@ def create_gui() -> None:
         text="端口",
         style='TLabel',
         background=COLORS['card'],
-    ).pack(side=tk.LEFT, padx=(24, 6))
-    port_entry = ttk.Entry(service_status_row, textvariable=port_var, width=8, font=(FONT['mono'], FONT['sizes']['md'], 'bold'))
+    ).pack(side=tk.LEFT, padx=(28, 8))
+    port_entry = ttk.Entry(service_status_row, textvariable=port_var, width=8, font=(FONT['mono'], FONT['sizes']['base'], 'bold'))
     port_entry.pack(side=tk.LEFT)
     add_entry_focus_effect(port_entry)
 
     service_actions = ttk.Frame(status_body, style='Card.TFrame')
-    service_actions.pack(fill=tk.X, pady=(18, 0))
+    service_actions.pack(fill=tk.X, pady=(20, 0))
     
     start_btn = ttk.Button(service_actions, text="启动服务", style='Primary.TButton', width=15)
     start_btn.pack(side=tk.LEFT)
     add_button_hover_effect(start_btn)
     
     stop_btn = ttk.Button(service_actions, text="停止", style='Danger.TButton', width=10, state=tk.DISABLED)
-    stop_btn.pack(side=tk.LEFT, padx=(10, 0))
+    stop_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(stop_btn)
     
     open_btn = ttk.Button(
@@ -4420,7 +4469,7 @@ def create_gui() -> None:
         width=13,
         command=lambda: webbrowser.open(f"http://localhost:{port_var.get()}/"),
     )
-    open_btn.pack(side=tk.LEFT, padx=(10, 0))
+    open_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(open_btn)
     ttk.Label(
         status_body,
@@ -4428,9 +4477,9 @@ def create_gui() -> None:
         style='Hint.TLabel',
         background=COLORS['card'],
         wraplength=430,
-    ).pack(anchor='w', pady=(16, 0))
+    ).pack(anchor='w', pady=(18, 0))
     capability_frame = tk.Frame(status_body, bg=COLORS['card'])
-    capability_frame.pack(fill=tk.X, pady=(18, 0))
+    capability_frame.pack(fill=tk.X, pady=(20, 0))
     capability_data = [
         ("账号", account_count_var),
         ("项目", project_count_var),
@@ -4438,7 +4487,7 @@ def create_gui() -> None:
     ]
     for label_text, value_var in capability_data:
         tile = make_metric_tile(capability_frame, label_text, value_var, COLORS['primary'])
-        tile.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 8))
+        tile.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(0, 10))
 
     tools_grid = ttk.Frame(method_body, style='Card.TFrame')
     tools_grid.pack(fill=tk.BOTH, expand=True)
@@ -4462,32 +4511,32 @@ def create_gui() -> None:
                 text=f"{group_name}  {len(group_tools)}",
                 bg=COLORS['card'],
                 fg=COLORS['primary'],
-                font=('Segoe UI', 9, 'bold'),
-            ).grid(row=row_index, column=0, sticky='w', pady=(8 if row_index else 0, 4))
+                font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
+            ).grid(row=row_index, column=0, sticky='w', pady=(10 if row_index else 0, 6))
             row_index += 1
             for tool_name, tool_desc in group_tools:
                 item = tk.Frame(tools_grid, bg=COLORS['card'])
-                item.grid(row=row_index, column=0, sticky='ew', pady=1)
+                item.grid(row=row_index, column=0, sticky='ew', pady=2)
                 tk.Label(
                     item,
                     text="●",
                     foreground=COLORS['success'],
                     background=COLORS['card'],
-                    font=('Segoe UI', 8, 'bold'),
+                    font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
                 ).pack(side=tk.LEFT)
                 tk.Label(
                     item,
                     text=f"  {tool_name}",
                     foreground=COLORS['text_primary'],
                     background=COLORS['card'],
-                    font=('Consolas', 8, 'bold'),
+                    font=(FONT['mono'], FONT['sizes']['sm'], 'bold'),
                 ).pack(side=tk.LEFT)
                 tk.Label(
                     item,
                     text=f"  {tool_desc}",
                     foreground=COLORS['text_muted'],
                     background=COLORS['card'],
-                    font=('Segoe UI', 8),
+                    font=(FONT['family'], FONT['sizes']['sm']),
                     wraplength=360,
                     justify=tk.LEFT,
                 ).pack(side=tk.LEFT)
@@ -4496,20 +4545,20 @@ def create_gui() -> None:
     render_tool_list(False)
 
     mcp_card = make_card(service_page, "MCP 配置代码", "file-json")
-    mcp_card.pack(fill=tk.X, pady=(14, 0))
+    mcp_card.pack(fill=tk.X, pady=(16, 0))
     mcp_body = card_body(mcp_card)
     mcp_code = tk.Text(
         mcp_body,
         height=5,
-        font=('Consolas', 9),
+        font=(FONT['mono'], FONT['sizes']['sm']),
         bg='#1E293B',
         fg='#E2E8F0',
         insertbackground='#E2E8F0',
         selectbackground=COLORS['primary'],
         wrap=tk.NONE,
         state=tk.DISABLED,
-        padx=12,
-        pady=10,
+        padx=14,
+        pady=12,
         relief='flat',
         borderwidth=1,
         highlightthickness=1,
@@ -4517,7 +4566,7 @@ def create_gui() -> None:
     )
     mcp_code.pack(fill=tk.X)
     copy_btn = ttk.Button(mcp_body, text="复制配置", style='Small.TButton', width=14)
-    copy_btn.pack(anchor='e', pady=(10, 0))
+    copy_btn.pack(anchor='e', pady=(12, 0))
 
     def build_mcp_config_code() -> str:
         """生成 JSON 格式 MCP 配置片段。"""
@@ -4567,14 +4616,14 @@ def create_gui() -> None:
         style='Hint.TLabel',
         background=COLORS['card'],
         wraplength=420,
-    ).pack(anchor='w', pady=(6, 0))
+    ).pack(anchor='w', pady=(8, 0))
     ttk.Label(
         project_status_body,
         text="读取成功后可直接复制 tid/pid 项目链接给 AI，用于 PRD、设计图和切图分析。",
         style='Hint.TLabel',
         background=COLORS['card'],
         wraplength=420,
-    ).pack(anchor='w', pady=(6, 0))
+    ).pack(anchor='w', pady=(8, 0))
     project_action_card = make_card(project_summary, "项目操作", "refresh-cw")
     pack_responsive_pair(project_summary, project_status_card, project_action_card)
     project_action_body = card_body(project_action_card)
@@ -4630,16 +4679,37 @@ def create_gui() -> None:
     projects_list.pack(fill=tk.BOTH, expand=True)
 
     def render_project_rows(projects: list[dict], message: str = "") -> None:
-        """渲染当前账号项目列表。"""
-        current_signature = (project_rows_signature(projects), message)
+        """渲染当前账号项目列表（分页）。"""
+        nonlocal _project_all_data, _project_page
+        _project_all_data = projects
+        _project_page = 0
         project_count_var.set(f"{len(projects)} 个项目")
         overview_project_var.set(f"{len(projects)} 个项目")
+        _render_current_project_page(message)
+
+    def _total_project_pages() -> int:
+        total = len(_project_all_data)
+        if total == 0:
+            return 0
+        return (total + _project_page_size - 1) // _project_page_size
+
+    def _goto_project_page(page: int) -> None:
+        nonlocal _project_page
+        total = _total_project_pages()
+        if total == 0:
+            return
+        _project_page = max(0, min(page, total - 1))
+        _render_current_project_page()
+
+    def _render_current_project_page(message: str = "") -> None:
+        """渲染当前页的项目行。"""
+        current_signature = (project_rows_signature(_project_all_data), message, _project_page)
         if project_rows_state["signature"] == current_signature:
             return
         project_rows_state["signature"] = current_signature
         for widget in projects_list.winfo_children():
             widget.destroy()
-        if not projects:
+        if not _project_all_data:
             empty_text = message or "尚未读取到项目。请先登录账号，然后点击刷新项目。"
             make_empty_state(
                 projects_list,
@@ -4648,7 +4718,11 @@ def create_gui() -> None:
                 f"{empty_text} 也可以手动粘贴蓝湖项目链接保存到本地项目列表。",
             )
             return
-        for index, project in enumerate(projects):
+        start = _project_page * _project_page_size
+        end = start + _project_page_size
+        page_projects = _project_all_data[start:end]
+        for index, project in enumerate(page_projects):
+            global_index = start + index
             row = tk.Frame(
                 projects_list,
                 bg='#F8FAFC' if index % 2 == 0 else COLORS['card'],
@@ -4661,11 +4735,11 @@ def create_gui() -> None:
             row_inner.pack(fill=tk.X, padx=12, pady=10)
             badge = tk.Label(
                 row_inner,
-                text=str(project.get("type", "项目"))[:2],
+                text=f"{global_index + 1}",
                 bg=COLORS['primary_light'],
                 fg=COLORS['primary'],
                 width=4,
-                font=('Segoe UI', 9, 'bold'),
+                font=(FONT['family'], 9, 'bold'),
             )
             badge.pack(side=tk.LEFT, ipady=6)
             info = tk.Frame(row_inner, bg=row.cget('bg'))
@@ -4675,7 +4749,7 @@ def create_gui() -> None:
                 text=str(project.get("name", "未命名项目")),
                 bg=row.cget('bg'),
                 fg=COLORS['text_primary'],
-                font=('Segoe UI', 10, 'bold'),
+                font=(FONT['family'], 10, 'bold'),
             ).pack(anchor='w')
             meta_parts = [
                 f"PID {project.get('id') or '-'}",
@@ -4694,7 +4768,7 @@ def create_gui() -> None:
                 text="  |  ".join(meta_parts),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=('Segoe UI', 8),
+                font=(FONT['family'], 8),
             ).pack(anchor='w', pady=(3, 0))
 
             def open_project(project_url: str = str(project.get("url", ""))) -> None:
@@ -4723,6 +4797,28 @@ def create_gui() -> None:
             ttk.Button(actions, text="设计稿", style='Small.TButton', width=8, command=open_design_browser_for_project).pack(side=tk.LEFT)
             ttk.Button(actions, text="打开", style='Small.TButton', width=8, command=open_project).pack(side=tk.LEFT, padx=(8, 0))
             ttk.Button(actions, text="复制", style='Small.TButton', width=8, command=copy_project).pack(side=tk.LEFT, padx=(8, 0))
+
+        # 分页控件
+        total_pages = _total_project_pages()
+        if total_pages > 1:
+            paging = tk.Frame(projects_list, bg=COLORS['card'])
+            paging.pack(fill=tk.X, pady=(12, 0))
+            prev_btn = ttk.Button(paging, text="◀ 上一页", style='Small.TButton', width=10,
+                                  command=lambda: _goto_project_page(_project_page - 1))
+            prev_btn.pack(side=tk.LEFT)
+            if _project_page <= 0:
+                prev_btn.config(state=tk.DISABLED)
+            _project_page_info_var.set(
+                f"第 {_project_page + 1}/{total_pages} 页  "
+                f"({start + 1}–{min(end, len(_project_all_data))} / 共 {len(_project_all_data)} 个项目)"
+            )
+            tk.Label(paging, textvariable=_project_page_info_var, bg=COLORS['card'],
+                     fg=COLORS['text_secondary'], font=(FONT['family'], 9)).pack(side=tk.LEFT, expand=True)
+            next_btn = ttk.Button(paging, text="下一页 ▶", style='Small.TButton', width=10,
+                                  command=lambda: _goto_project_page(_project_page + 1))
+            next_btn.pack(side=tk.RIGHT)
+            if _project_page >= total_pages - 1:
+                next_btn.config(state=tk.DISABLED)
 
     def refresh_projects() -> None:
         """后台刷新当前登录账号的项目列表。"""
@@ -4802,12 +4898,12 @@ def create_gui() -> None:
         background=COLORS['card'],
         wraplength=720,
         justify=tk.LEFT,
-    ).pack(anchor='w', pady=(4, 0))
+    ).pack(anchor='w', pady=(6, 0))
     account_combo = ttk.Combobox(account_top, textvariable=account_var, width=30, state='readonly')
     account_combo.pack(side=tk.RIGHT)
 
     account_detail_grid = tk.Frame(account_body, bg=COLORS['card'])
-    account_detail_grid.pack(fill=tk.X, pady=(14, 0))
+    account_detail_grid.pack(fill=tk.X, pady=(16, 0))
     account_detail_vars = {
         "email": tk.StringVar(value="未读取到"),
         "mobile": tk.StringVar(value="未读取到"),
@@ -4821,21 +4917,22 @@ def create_gui() -> None:
         ("头像", "avatar"),
     )):
         detail_cell = tk.Frame(account_detail_grid, bg=COLORS['surface'], highlightbackground=COLORS['border_light'], highlightthickness=1)
-        detail_cell.grid(row=0, column=detail_index, sticky='ew', padx=(0 if detail_index == 0 else 8, 0))
+        detail_cell.grid(row=0, column=detail_index, sticky='ew', padx=(0 if detail_index == 0 else 10, 0))
         account_detail_grid.columnconfigure(detail_index, weight=1)
-        tk.Label(detail_cell, text=detail_label, bg=COLORS['surface'], fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(anchor='w', padx=10, pady=(8, 0))
+        tk.Label(detail_cell, text=detail_label, bg=COLORS['surface'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['sm'])).pack(anchor='w', padx=12, pady=(10, 0))
         tk.Label(
             detail_cell,
             textvariable=account_detail_vars[detail_key],
             bg=COLORS['surface'],
             fg=COLORS['text_primary'],
-            font=('Segoe UI', 9, 'bold'),
+            font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
             wraplength=180,
             justify=tk.LEFT,
-        ).pack(anchor='w', padx=10, pady=(2, 8))
+        ).pack(anchor='w', padx=12, pady=(4, 10))
 
     login_url_row = ttk.Frame(account_body, style='Card.TFrame')
-    login_url_row.pack(fill=tk.X, pady=(14, 0))
+    login_url_row.pack(fill=tk.X, pady=(16, 0))
     ttk.Label(
         login_url_row,
         text="登录地址",
@@ -4843,7 +4940,7 @@ def create_gui() -> None:
         background=COLORS['card'],
     ).pack(side=tk.LEFT)
     login_url_entry = ttk.Entry(login_url_row, textvariable=login_url_var, width=56)
-    login_url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(10, 8))
+    login_url_entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 10))
     add_entry_focus_effect(login_url_entry)
     
     browser_btn = ttk.Button(
@@ -4857,32 +4954,32 @@ def create_gui() -> None:
     add_button_hover_effect(browser_btn)
 
     account_button_row = ttk.Frame(account_body, style='Card.TFrame')
-    account_button_row.pack(fill=tk.X, pady=(14, 0))
+    account_button_row.pack(fill=tk.X, pady=(16, 0))
     
     login_btn = ttk.Button(account_button_row, text="添加账号 / 一键登录", style='Primary.TButton')
     login_btn.pack(side=tk.LEFT)
     add_button_hover_effect(login_btn)
     
     refresh_profile_btn = ttk.Button(account_button_row, text="刷新资料", style='TButton')
-    refresh_profile_btn.pack(side=tk.LEFT, padx=(10, 0))
+    refresh_profile_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(refresh_profile_btn)
     
     save_cookie_btn = ttk.Button(account_button_row, text="保存 Cookie", style='Success.TButton')
-    save_cookie_btn.pack(side=tk.LEFT, padx=(10, 0))
+    save_cookie_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(save_cookie_btn)
     
     logout_btn = ttk.Button(account_button_row, text="退出当前账号", style='Danger.TButton')
-    logout_btn.pack(side=tk.LEFT, padx=(10, 0))
+    logout_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(logout_btn)
 
     accounts_card = make_card(account_page, "已登录账号", "user")
-    accounts_card.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
+    accounts_card.pack(fill=tk.BOTH, expand=True, pady=(16, 0))
     accounts_body = card_body(accounts_card)
     accounts_list = ttk.Frame(accounts_body, style='Card.TFrame')
     accounts_list.pack(fill=tk.BOTH, expand=True)
 
     cookie_card = make_card(account_page, "手动 Cookie", "key-round")
-    cookie_card.pack(fill=tk.X, pady=(14, 0))
+    cookie_card.pack(fill=tk.X, pady=(16, 0))
     cookie_body = card_body(cookie_card)
     ttk.Label(
         cookie_body,
@@ -4890,11 +4987,11 @@ def create_gui() -> None:
         style='Hint.TLabel',
         background=COLORS['card'],
         wraplength=740,
-    ).pack(anchor='w', pady=(0, 8))
+    ).pack(anchor='w', pady=(0, 10))
     cookie_text = tk.Text(
         cookie_body,
         height=4,
-        font=('Consolas', 9),
+        font=(FONT['mono'], FONT['sizes']['sm']),
         bg='#FFFFFF',
         fg=COLORS['text_primary'],
         insertbackground=COLORS['text_primary'],
@@ -4976,7 +5073,7 @@ def create_gui() -> None:
                     bg=COLORS['primary'] if is_active else COLORS['border_light'],
                     fg='#FFFFFF' if is_active else COLORS['text_secondary'],
                     width=3,
-                    font=('Segoe UI', 11, 'bold'),
+                    font=(FONT['family'], 11, 'bold'),
                 )
             avatar_widget.pack(side=tk.LEFT, ipady=5)
             info = tk.Frame(row_inner, bg=row.cget('bg'))
@@ -4988,7 +5085,7 @@ def create_gui() -> None:
                 text=str(account.get("name", "蓝湖用户")),
                 bg=row.cget('bg'),
                 fg=COLORS['text_primary'],
-                font=('Segoe UI', 10, 'bold'),
+                font=(FONT['family'], 10, 'bold'),
             ).pack(side=tk.LEFT)
             if is_active:
                 tk.Label(
@@ -4996,7 +5093,7 @@ def create_gui() -> None:
                     text="当前使用",
                     bg=COLORS['primary_light'],
                     fg=COLORS['primary'],
-                    font=('Segoe UI', 8, 'bold'),
+                    font=(FONT['family'], 8, 'bold'),
                     padx=8,
                     pady=2,
                 ).pack(side=tk.LEFT, padx=(8, 0))
@@ -5005,14 +5102,14 @@ def create_gui() -> None:
                 text=account_detail_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=('Segoe UI', 8),
+                font=(FONT['family'], 8),
             ).pack(anchor='w', pady=(3, 0))
             tk.Label(
                 info,
                 text=account_profile_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=('Segoe UI', 8),
+                font=(FONT['family'], 8),
                 wraplength=520,
                 justify=tk.LEFT,
             ).pack(anchor='w', pady=(2, 0))
@@ -5021,7 +5118,7 @@ def create_gui() -> None:
                 text=account_cookie_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=('Segoe UI', 8),
+                font=(FONT['family'], 8),
                 wraplength=520,
                 justify=tk.LEFT,
             ).pack(anchor='w', pady=(2, 0))
@@ -5340,7 +5437,7 @@ def create_gui() -> None:
         textvariable=ide_count_var,
         style='Status.TLabel',
         background=COLORS['card'],
-    ).pack(anchor='w', pady=(4, 0))
+    ).pack(anchor='w', pady=(6, 0))
     tools_action_card = make_card(tools_summary, "批量操作", "wand-sparkles")
     pack_responsive_pair(tools_summary, tools_status_card, tools_action_card)
     tools_action_body = card_body(tools_action_card)
@@ -5350,11 +5447,11 @@ def create_gui() -> None:
     add_button_hover_effect(config_all_btn)
     
     refresh_ide_btn = ttk.Button(tools_action_body, text="重新检测", style='TButton')
-    refresh_ide_btn.pack(side=tk.LEFT, padx=(10, 0))
+    refresh_ide_btn.pack(side=tk.LEFT, padx=(12, 0))
     add_button_hover_effect(refresh_ide_btn)
 
     ide_card = make_card(tools_page, "AI 开发工具", "plug-zap")
-    ide_card.pack(fill=tk.BOTH, expand=True, pady=(14, 0))
+    ide_card.pack(fill=tk.BOTH, expand=True, pady=(16, 0))
     ide_body = card_body(ide_card)
     ide_grid = ttk.Frame(ide_body, style='Card.TFrame')
     ide_grid.pack(fill=tk.BOTH, expand=True)
@@ -5372,25 +5469,25 @@ def create_gui() -> None:
         for index, (name, installed) in enumerate(detected.items()):
             row = index // max_cols
             col = index % max_cols
-            cell_bg = '#F8FAFC' if installed else '#FFFFFF'
+            cell_bg = COLORS['surface'] if installed else COLORS['card']
             cell = tk.Frame(
                 ide_grid,
                 bg=cell_bg,
                 highlightbackground=COLORS['primary_light'] if installed else COLORS['border_light'],
                 highlightthickness=1,
             )
-            cell.grid(row=row, column=col, sticky='ew', padx=(0 if col == 0 else 16, 0), pady=3)
+            cell.grid(row=row, column=col, sticky='ew', padx=(0 if col == 0 else 16, 0), pady=4)
             ide_grid.columnconfigure(col, weight=1)
             detail = details.get(name, {})
             cell_inner = tk.Frame(cell, bg=cell_bg)
-            cell_inner.pack(fill=tk.X, padx=12, pady=10)
+            cell_inner.pack(fill=tk.X, padx=14, pady=12)
             create_lucide_icon(
                 cell_inner,
                 str(detail.get('icon') or 'plug-zap'),
                 COLORS['success'] if installed else COLORS['text_muted'],
-                20,
+                22,
                 cell_bg,
-            ).pack(side=tk.LEFT, padx=(0, 10))
+            ).pack(side=tk.LEFT, padx=(0, 12))
             title = tk.Frame(cell_inner, bg=cell_bg)
             title.pack(side=tk.LEFT, fill=tk.X, expand=True)
             status_text = "●" if installed else "○"
@@ -5400,7 +5497,7 @@ def create_gui() -> None:
                 text=f"{status_text} {name}",
                 foreground=status_color,
                 background=cell_bg,
-                font=('Segoe UI', 9, 'bold' if installed else 'normal'),
+                font=(FONT['family'], FONT['sizes']['base'], 'bold' if installed else 'normal'),
             ).pack(anchor='w')
             detail_text = detail.get('exe_path') or detail.get('config_path') or "未发现安装路径或配置目录"
             tk.Label(
@@ -5408,7 +5505,7 @@ def create_gui() -> None:
                 text=str(detail_text),
                 fg=COLORS['text_muted'],
                 bg=cell_bg,
-                font=('Segoe UI', 8),
+                font=(FONT['family'], FONT['sizes']['sm']),
                 wraplength=420,
                 justify=tk.LEFT,
             ).pack(anchor='w', pady=(4, 0))
