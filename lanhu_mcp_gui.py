@@ -185,71 +185,75 @@ def bootstrap_tcl_tk_runtime() -> None:
 # 现代配色方案 + 设计Token
 # ============================================
 
-# 颜色系统
+# ============================================
+# TDesign 风格设计令牌
+# ============================================
+
+# 颜色系统 - TDesign 调色板
 COLORS = {
     # 背景色
-    'bg': '#F6F7F9',           # 主背景 - 冷灰工作台
-    'sidebar': '#101418',      # 侧边栏背景 - 深色导航
-    'sidebar_hover': '#1B232A', # 侧边栏悬停背景
-    'sidebar_active': '#202B33',# 侧边栏选中背景
-    'sidebar_text': '#E6EDF3', # 侧边栏文字
-    'card': '#FFFFFF',         # 卡片背景 - 白色
-    'card_hover': '#FAFBFC',   # 卡片悬停背景
-    'surface': '#F8FAFC',      # 表面背景
-    'surface_hover': '#F1F5F9',# 表面悬停背景
-    'input_bg': '#FFFFFF',     # 输入框背景
-    'input_bg_disabled': '#F1F5F9', # 输入框禁用背景
-    
-    # 主色调
-    'primary': '#2563EB',      # 主色调 - 工具蓝
-    'primary_hover': '#1D4ED8',# 主色悬停
-    'primary_active': '#1E40AF',# 主色点击
-    'primary_light': '#E8F0FF',# 主色浅色背景
-    'primary_light_hover': '#DBEAFE', # 主色浅色悬停
-    
+    'bg': '#F5F7FA',           # 主背景 - TDesign 浅灰
+    'sidebar': '#00112E',      # 侧边栏背景 - TDesign 深蓝黑
+    'sidebar_hover': '#0A1E3D', # 侧边栏悬停
+    'sidebar_active': '#0F2A4A', # 侧边栏选中
+    'sidebar_text': '#E8EDF4',  # 侧边栏文字
+    'card': '#FFFFFF',          # 卡片背景
+    'card_hover': '#F8F9FB',    # 卡片悬停
+    'surface': '#F5F7FA',       # 表面背景
+    'surface_hover': '#EDF0F5', # 表面悬停
+    'input_bg': '#FFFFFF',      # 输入框背景
+    'input_bg_disabled': '#F5F7FA', # 输入框禁用
+
+    # 主色调 - TDesign Blue
+    'primary': '#0052D9',       # TDesign 品牌蓝
+    'primary_hover': '#0045B5', # 主色悬停
+    'primary_active': '#003A99', # 主色点击
+    'primary_light': '#E8F0FF', # 主色浅色背景
+    'primary_light_hover': '#D0E0FF', # 主色浅色悬停
+
     # 语义色
-    'success': '#0F9F6E',      # 成功绿
-    'success_hover': '#059669',# 成功悬停
-    'danger': '#C2413B',       # 错误红
-    'danger_hover': '#B91C1C', # 错误悬停
-    'warning': '#B7791F',      # 警告橙
-    'warning_hover': '#A16207',# 警告悬停
-    'accent': '#0F766E',       # 强调青绿
-    'accent_light': '#DDF7F0', # 强调浅色
-    'accent_warm': '#F97345',  # 温暖橙
-    'accent_warm_light': '#FFF0E9', # 温暖浅色
-    
-    # 文字色
-    'text_primary': '#141922', # 主文字
-    'text_secondary': '#4A5565',# 次要文字
-    'text_muted': '#7C8794',   # 弱化文字
-    'text_disabled': '#A0AEC0',# 禁用文字
+    'success': '#00A870',       # 成功绿 - TDesign
+    'success_hover': '#009966', # 成功悬停
+    'danger': '#E34D59',        # 错误红 - TDesign
+    'danger_hover': '#CD2E3A',  # 错误悬停
+    'warning': '#ED7B2F',       # 警告橙 - TDesign
+    'warning_hover': '#D96A20', # 警告悬停
+    'accent': '#00809A',        # 强调青
+    'accent_light': '#E3F5F8',  # 强调浅色
+    'accent_warm': '#F59D0A',   # 温暖琥珀
+    'accent_warm_light': '#FEF3CD', # 温暖浅色
+
+    # 文字色 - TDesign 中性色
+    'text_primary': '#1A2332',  # 主文字
+    'text_secondary': '#5B6B7F', # 次要文字
+    'text_muted': '#8C9BAC',    # 弱化文字
+    'text_disabled': '#BFC9D6', # 禁用文字
     'text_on_primary': '#FFFFFF', # 主色背景上的文字
-    'text_on_dark': '#E6EDF3', # 深色背景上的文字
-    
+    'text_on_dark': '#E8EDF4',  # 深色背景上的文字
+
     # 边框色
-    'border': '#D9E0E8',       # 默认边框
-    'border_light': '#ECF0F4', # 浅边框
-    'border_hover': '#CBD5E1', # 悬停边框
-    'border_focus': '#2563EB', # 焦点边框
-    'border_error': '#C2413B', # 错误边框
-    
+    'border': '#DDE1E8',        # 默认边框
+    'border_light': '#EBEEF3',  # 浅边框
+    'border_hover': '#C4CBD6',  # 悬停边框
+    'border_focus': '#0052D9',  # 焦点边框
+    'border_error': '#E34D59',  # 错误边框
+
     # 日志背景
-    'log_bg': '#111318',       # 日志背景（深色终端风）
-    'log_text': '#E5E7EB',     # 日志文字
-    
-    # 阴影色（用于模拟box-shadow效果）
-    'shadow_sm': '#F0F0F0',    # 小阴影
-    'shadow_md': '#E5E5E5',    # 中阴影
-    'shadow_lg': '#D4D4D4',    # 大阴影
-    'shadow_color': 'rgba(0, 0, 0, 0.08)',  # 卡片阴影色
-    'shadow_color_hover': 'rgba(0, 0, 0, 0.12)', # 卡片悬停阴影
-    
+    'log_bg': '#0D1117',        # 日志背景
+    'log_text': '#E2E8F0',      # 日志文字
+
+    # 阴影色
+    'shadow_sm': '#F0F2F5',
+    'shadow_md': '#E4E8ED',
+    'shadow_lg': '#D0D5DD',
+    'shadow_color': 'rgba(0, 0, 0, 0.06)',
+    'shadow_color_hover': 'rgba(0, 0, 0, 0.10)',
+
     # 焦点环
-    'focus_ring': 'rgba(37, 99, 235, 0.3)', # 焦点环颜色
+    'focus_ring': 'rgba(0, 82, 217, 0.25)',
 }
 
-# 间距系统 (4px基准)
+# 间距系统 (4px基准, TDesign 规范)
 SPACING = {
     '0': 0,
     '1': 4,
@@ -263,18 +267,18 @@ SPACING = {
     '12': 48,
 }
 
-# 圆角系统
+# 圆角系统 - TDesign 规范
 RADIUS = {
     'none': 0,
-    'sm': 4,
-    'md': 6,
-    'lg': 8,
-    'xl': 12,
-    '2xl': 16,
+    'sm': 2,
+    'md': 4,
+    'lg': 6,
+    'xl': 8,
+    '2xl': 12,
     'full': 9999,
 }
 
-# 阴影系统（通过多层Frame模拟）
+# 阴影系统
 SHADOW = {
     'none': {'offset': 0, 'blur': 0, 'color': 'transparent'},
     'sm': {'offset': 1, 'blur': 2, 'color': COLORS['shadow_sm']},
@@ -282,10 +286,10 @@ SHADOW = {
     'lg': {'offset': 4, 'blur': 12, 'color': COLORS['shadow_lg']},
 }
 
-# 字体系统
+# 字体系统 - TDesign 规范
 FONT = {
     'family': 'Segoe UI',
-    'mono': 'Consolas',
+    'mono': 'Cascadia Code',
     'sizes': {
         'xs': 8,
         'sm': 9,
@@ -300,7 +304,7 @@ FONT = {
     },
     'weights': {
         'normal': 'normal',
-        'medium': 'bold',
+        'medium': 'normal',
         'semibold': 'bold',
         'bold': 'bold',
     },
@@ -380,13 +384,11 @@ def account_rows_signature(accounts: list[dict], active_id: str) -> tuple[tuple[
 # ============================================
 
 def add_button_hover_effect(button, bg_normal=None, bg_hover=None, bg_active=None):
-    """为按钮添加hover和点击效果。"""
+    """为按钮添加 TDesign 风格 hover/active 效果。"""
     import tkinter as tk
-    
-    # 获取按钮当前样式
+
     current_style = str(button.cget('style'))
-    
-    # 根据样式确定颜色
+
     if bg_normal is None:
         if 'Primary' in current_style:
             bg_normal = COLORS['primary']
@@ -395,11 +397,11 @@ def add_button_hover_effect(button, bg_normal=None, bg_hover=None, bg_active=Non
         elif 'Success' in current_style:
             bg_normal = COLORS['success']
             bg_hover = COLORS['success_hover']
-            bg_active = '#047857'
+            bg_active = '#008F65'
         elif 'Danger' in current_style:
             bg_normal = COLORS['danger']
             bg_hover = COLORS['danger_hover']
-            bg_active = '#991B1B'
+            bg_active = '#B8323C'
         elif 'Ghost' in current_style:
             bg_normal = 'transparent'
             bg_hover = COLORS['surface_hover']
@@ -412,23 +414,23 @@ def add_button_hover_effect(button, bg_normal=None, bg_hover=None, bg_active=Non
             bg_normal = COLORS['card']
             bg_hover = COLORS['primary_light']
             bg_active = COLORS['primary_light_hover']
-    
+
     def on_enter(event):
         if str(button.cget('state')) != 'disabled':
             button.config(background=bg_hover)
-    
+
     def on_leave(event):
         if str(button.cget('state')) != 'disabled':
             button.config(background=bg_normal)
-    
+
     def on_press(event):
         if str(button.cget('state')) != 'disabled':
             button.config(background=bg_active)
-    
+
     def on_release(event):
         if str(button.cget('state')) != 'disabled':
             button.config(background=bg_hover)
-    
+
     button.bind("<Enter>", on_enter)
     button.bind("<Leave>", on_leave)
     button.bind("<ButtonPress>", on_press)
@@ -436,18 +438,18 @@ def add_button_hover_effect(button, bg_normal=None, bg_hover=None, bg_active=Non
 
 
 def add_entry_focus_effect(entry, focus_border_color=None):
-    """为输入框添加focus效果。"""
+    """为输入框添加 TDesign 风格 focus 效果。"""
     import tkinter as tk
-    
+
     if focus_border_color is None:
         focus_border_color = COLORS['border_focus']
-    
+
     def on_focus_in(event):
         entry.config(highlightbackground=focus_border_color, highlightthickness=2)
-    
+
     def on_focus_out(event):
         entry.config(highlightbackground=COLORS['border'], highlightthickness=1)
-    
+
     entry.bind("<FocusIn>", on_focus_in)
     entry.bind("<FocusOut>", on_focus_out)
 
@@ -2570,23 +2572,21 @@ class ServiceManager:
 # ============================================
 
 def apply_modern_style(root: object) -> object:
-    """应用现代主题样式 - 优化版"""
-    # ttk 必须在函数内部导入，避免依赖 create_gui 的局部变量。
+    """应用 TDesign 风格主题样式"""
     from tkinter import ttk
 
     style = ttk.Style()
 
-    # 尝试使用 clam 主题作为基础（比默认好看）
     available_themes = style.theme_names()
     if 'clam' in available_themes:
         style.theme_use('clam')
 
     # ===== 全局配置 =====
-    style.configure('.', 
-                    background=COLORS['bg'], 
+    style.configure('.',
+                    background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
                     font=(FONT['family'], FONT['sizes']['sm']))
-    style.map('.', 
+    style.map('.',
               background=[('active', COLORS['bg'])],
               foreground=[('disabled', COLORS['text_disabled'])])
 
@@ -2597,134 +2597,134 @@ def apply_modern_style(root: object) -> object:
     style.configure('Sidebar.TFrame', background=COLORS['sidebar'])
 
     # ===== Label =====
-    style.configure('TLabel', 
-                    background=COLORS['bg'], 
+    style.configure('TLabel',
+                    background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
                     font=(FONT['family'], FONT['sizes']['sm']))
-    
-    style.configure('Title.TLabel', 
-                    background=COLORS['bg'], 
+
+    style.configure('Title.TLabel',
+                    background=COLORS['bg'],
                     foreground=COLORS['text_primary'],
                     font=(FONT['family'], FONT['sizes']['5xl'], 'bold'))
-    
-    style.configure('Subtitle.TLabel', 
-                    background=COLORS['bg'], 
+
+    style.configure('Subtitle.TLabel',
+                    background=COLORS['bg'],
                     foreground=COLORS['text_secondary'],
                     font=(FONT['family'], FONT['sizes']['base']))
-    
-    style.configure('Status.TLabel', 
-                    background=COLORS['card'], 
+
+    style.configure('Status.TLabel',
+                    background=COLORS['card'],
                     foreground=COLORS['text_primary'],
                     font=(FONT['family'], FONT['sizes']['md'], 'bold'))
-    
-    style.configure('StatusRunning.TLabel', 
-                    background=COLORS['card'], 
+
+    style.configure('StatusRunning.TLabel',
+                    background=COLORS['card'],
                     foreground=COLORS['success'],
                     font=(FONT['family'], FONT['sizes']['md'], 'bold'))
-    
-    style.configure('StatusError.TLabel', 
-                    background=COLORS['card'], 
+
+    style.configure('StatusError.TLabel',
+                    background=COLORS['card'],
                     foreground=COLORS['danger'],
                     font=(FONT['family'], FONT['sizes']['md'], 'bold'))
-    
-    style.configure('StatusWarn.TLabel', 
-                    background=COLORS['card'], 
+
+    style.configure('StatusWarn.TLabel',
+                    background=COLORS['card'],
                     foreground=COLORS['warning'],
                     font=(FONT['family'], FONT['sizes']['md'], 'bold'))
-    
-    style.configure('Hint.TLabel', 
-                    background=COLORS['card'], 
+
+    style.configure('Hint.TLabel',
+                    background=COLORS['card'],
                     foreground=COLORS['text_muted'],
                     font=(FONT['family'], FONT['sizes']['xs']))
-    
+
     style.configure('Disabled.TLabel',
                     background=COLORS['card'],
                     foreground=COLORS['text_disabled'],
                     font=(FONT['family'], FONT['sizes']['sm']))
 
-    # ===== LabelFrame（卡片容器）=====
-    style.configure('Card.TLabelframe', 
-                    background=COLORS['card'], 
-                    foreground=COLORS['text_primary'])
-    style.configure('Card.TLabelframe.Label', 
+    # ===== LabelFrame =====
+    style.configure('Card.TLabelframe',
                     background=COLORS['card'],
-                    foreground=COLORS['primary'], 
+                    foreground=COLORS['text_primary'])
+    style.configure('Card.TLabelframe.Label',
+                    background=COLORS['card'],
+                    foreground=COLORS['primary'],
                     font=(FONT['family'], FONT['sizes']['base'], 'bold'),
                     padding=(SPACING['3'], SPACING['2'], 0, SPACING['2']))
-    style.configure('TLabelframe', 
-                    background=COLORS['card'], 
-                    foreground=COLORS['text_primary'])
-    style.configure('TLabelframe.Label', 
+    style.configure('TLabelframe',
                     background=COLORS['card'],
-                    foreground=COLORS['primary'], 
+                    foreground=COLORS['text_primary'])
+    style.configure('TLabelframe.Label',
+                    background=COLORS['card'],
+                    foreground=COLORS['primary'],
                     font=(FONT['family'], FONT['sizes']['base'], 'bold'))
 
-    # ===== Button - 默认样式 =====
-    style.configure('TButton', 
-                    font=(FONT['family'], FONT['sizes']['sm']), 
+    # ===== Button - TDesign 默认 =====
+    style.configure('TButton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
-                    background=COLORS['card'], 
+                    background=COLORS['card'],
                     foreground=COLORS['text_primary'],
-                    borderwidth=1, 
+                    borderwidth=1,
                     relief='flat')
     style.map('TButton',
               background=[('active', COLORS['primary_light']),
                          ('pressed', COLORS['primary_light_hover']),
                          ('disabled', COLORS['input_bg_disabled'])],
-              foreground=[('active', COLORS['primary']), 
+              foreground=[('active', COLORS['primary']),
                          ('pressed', COLORS['primary_active']),
                          ('disabled', COLORS['text_disabled'])],
               relief=[('pressed', 'sunken')])
 
-    # ===== Button - Primary 主按钮 =====
-    style.configure('Primary.TButton', 
-                    font=(FONT['family'], FONT['sizes']['base'], 'bold'), 
+    # ===== Button - TDesign Primary =====
+    style.configure('Primary.TButton',
+                    font=(FONT['family'], FONT['sizes']['base'], 'bold'),
                     padding=(SPACING['4'], SPACING['3']),
-                    background=COLORS['primary'], 
+                    background=COLORS['primary'],
                     foreground=COLORS['text_on_primary'],
-                    borderwidth=0, 
+                    borderwidth=0,
                     relief='flat')
     style.map('Primary.TButton',
-              background=[('active', COLORS['primary_hover']), 
+              background=[('active', COLORS['primary_hover']),
                          ('pressed', COLORS['primary_active']),
                          ('disabled', COLORS['text_disabled'])],
-              foreground=[('active', COLORS['text_on_primary']), 
+              foreground=[('active', COLORS['text_on_primary']),
                          ('pressed', COLORS['text_on_primary']),
                          ('disabled', COLORS['text_on_primary'])])
 
-    # ===== Button - Success 成功按钮 =====
-    style.configure('Success.TButton', 
-                    font=(FONT['family'], FONT['sizes']['sm']), 
+    # ===== Button - TDesign Success =====
+    style.configure('Success.TButton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
-                    background=COLORS['success'], 
+                    background=COLORS['success'],
                     foreground=COLORS['text_on_primary'],
-                    borderwidth=0, 
+                    borderwidth=0,
                     relief='flat')
     style.map('Success.TButton',
-              background=[('active', COLORS['success_hover']), 
-                         ('pressed', '#047857'),
+              background=[('active', COLORS['success_hover']),
+                         ('pressed', '#008F65'),
                          ('disabled', COLORS['text_disabled'])],
-              foreground=[('active', COLORS['text_on_primary']), 
+              foreground=[('active', COLORS['text_on_primary']),
                          ('pressed', COLORS['text_on_primary']),
                          ('disabled', COLORS['text_on_primary'])])
 
-    # ===== Button - Danger 危险按钮 =====
-    style.configure('Danger.TButton', 
-                    font=(FONT['family'], FONT['sizes']['sm']), 
+    # ===== Button - TDesign Danger =====
+    style.configure('Danger.TButton',
+                    font=(FONT['family'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
-                    background=COLORS['danger'], 
+                    background=COLORS['danger'],
                     foreground=COLORS['text_on_primary'],
-                    borderwidth=0, 
+                    borderwidth=0,
                     relief='flat')
     style.map('Danger.TButton',
-              background=[('active', COLORS['danger_hover']), 
-                         ('pressed', '#991B1B'),
+              background=[('active', COLORS['danger_hover']),
+                         ('pressed', '#B8323C'),
                          ('disabled', COLORS['text_disabled'])],
-              foreground=[('active', COLORS['text_on_primary']), 
+              foreground=[('active', COLORS['text_on_primary']),
                          ('pressed', COLORS['text_on_primary']),
                          ('disabled', COLORS['text_on_primary'])])
 
-    # ===== Button - Ghost 幽灵按钮 =====
+    # ===== Button - TDesign Ghost =====
     style.configure('Ghost.TButton',
                     font=(FONT['family'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
@@ -2738,13 +2738,13 @@ def apply_modern_style(root: object) -> object:
               foreground=[('active', COLORS['text_primary']),
                          ('pressed', COLORS['text_primary'])])
 
-    # ===== Button - Small 小按钮 =====
-    style.configure('Small.TButton', 
-                    font=(FONT['family'], FONT['sizes']['xs']), 
+    # ===== Button - TDesign Small =====
+    style.configure('Small.TButton',
+                    font=(FONT['family'], FONT['sizes']['xs']),
                     padding=(SPACING['2'], SPACING['1']),
-                    background=COLORS['surface'], 
+                    background=COLORS['surface'],
                     foreground=COLORS['text_secondary'],
-                    borderwidth=1, 
+                    borderwidth=1,
                     relief='flat')
     style.map('Small.TButton',
               background=[('active', COLORS['surface_hover']),
@@ -2754,22 +2754,22 @@ def apply_modern_style(root: object) -> object:
                          ('pressed', COLORS['text_primary']),
                          ('disabled', COLORS['text_disabled'])])
 
-    # ===== Entry 输入框 =====
-    style.configure('TEntry', 
-                    font=(FONT['mono'], FONT['sizes']['sm']), 
+    # ===== Entry - TDesign 输入框 =====
+    style.configure('TEntry',
+                    font=(FONT['mono'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
-                    fieldbackground=COLORS['input_bg'], 
+                    fieldbackground=COLORS['input_bg'],
                     insertcolor=COLORS['text_primary'],
                     borderwidth=1,
                     relief='flat')
     style.map('TEntry',
-              fieldbackground=[('focus', '#FFFFFF'), 
+              fieldbackground=[('focus', '#FFFFFF'),
                              ('disabled', COLORS['input_bg_disabled'])],
               bordercolor=[('focus', COLORS['border_focus']),
                           ('disabled', COLORS['border'])],
               foreground=[('disabled', COLORS['text_disabled'])])
 
-    # ===== Combobox 下拉框 =====
+    # ===== Combobox - TDesign 下拉框 =====
     style.configure('TCombobox',
                     font=(FONT['family'], FONT['sizes']['sm']),
                     padding=(SPACING['3'], SPACING['2']),
@@ -2782,9 +2782,9 @@ def apply_modern_style(root: object) -> object:
                              ('readonly', COLORS['input_bg_disabled'])],
               bordercolor=[('focus', COLORS['border_focus'])],
               foreground=[('readonly', COLORS['text_disabled'])])
-    
-    # ===== Notebook 选项卡 =====
-    style.configure('TNotebook', 
+
+    # ===== Notebook - TDesign 选项卡 =====
+    style.configure('TNotebook',
                     background=COLORS['bg'],
                     borderwidth=0)
     style.configure('TNotebook.Tab',
@@ -2796,10 +2796,10 @@ def apply_modern_style(root: object) -> object:
     style.map('TNotebook.Tab',
               background=[('selected', COLORS['card']),
                          ('active', COLORS['card_hover'])],
-              foreground=[('selected', COLORS['text_primary']),
+              foreground=[('selected', COLORS['primary']),
                          ('active', COLORS['text_primary'])])
 
-    # ===== Scrollbar 滚动条 =====
+    # ===== Scrollbar - TDesign 滚动条 =====
     style.configure('Vertical.TScrollbar',
                     background=COLORS['border_light'],
                     troughcolor=COLORS['bg'],
@@ -2810,7 +2810,7 @@ def apply_modern_style(root: object) -> object:
               background=[('active', COLORS['border']),
                          ('!active', COLORS['border_light'])])
 
-    # ===== Checkbutton 复选框 =====
+    # ===== Checkbutton =====
     style.configure('TCheckbutton',
                     font=(FONT['family'], FONT['sizes']['sm']),
                     background=COLORS['bg'],
@@ -2819,7 +2819,7 @@ def apply_modern_style(root: object) -> object:
               background=[('active', COLORS['bg'])],
               foreground=[('active', COLORS['text_primary'])])
 
-    # ===== Radiobutton 单选框 =====
+    # ===== Radiobutton =====
     style.configure('TRadiobutton',
                     font=(FONT['family'], FONT['sizes']['sm']),
                     background=COLORS['bg'],
@@ -2828,18 +2828,18 @@ def apply_modern_style(root: object) -> object:
               background=[('active', COLORS['bg'])],
               foreground=[('active', COLORS['text_primary'])])
 
-    # ===== Progressbar 进度条 =====
+    # ===== Progressbar - TDesign 进度条 =====
     style.configure('Horizontal.TProgressbar',
                     background=COLORS['primary'],
                     troughcolor=COLORS['border_light'],
                     borderwidth=0,
-                    thickness=6)
+                    thickness=4)
 
-    # ===== Separator 分隔线 =====
+    # ===== Separator =====
     style.configure('TSeparator',
                     background=COLORS['border_light'])
 
-    # ===== Log日志区域专用 =====
+    # ===== Log日志区域 =====
     style.configure('Log.TFrame', background=COLORS['log_bg'])
 
     return style
@@ -3424,11 +3424,10 @@ def create_gui() -> None:
     bg_deco.place(relx=0, rely=0, relwidth=1, height=140)
 
     def draw_background_decor(event: object = None) -> None:
-        """绘制轻量装饰线条，增强现代工作台氛围。"""
         bg_deco.delete("all")
         width = max(bg_deco.winfo_width(), 1)
         for index in range(0, width, 34):
-            color = "#E7ECF3" if (index // 34) % 2 == 0 else "#F0F4F8"
+            color = "#E8ECF2" if (index // 34) % 2 == 0 else "#EFF2F7"
             bg_deco.create_line(index, 0, index + 92, 140, fill=color, width=1)
         bg_deco.create_rectangle(0, 0, width, 140, outline="", fill="", stipple="gray75")
 
@@ -3438,10 +3437,10 @@ def create_gui() -> None:
     brand.pack(fill=tk.X, padx=18, pady=(22, 20))
     brand_mark = tk.Frame(brand, bg=COLORS['sidebar'])
     brand_mark.pack(anchor='w', fill=tk.X)
-    mark_box = tk.Frame(brand_mark, bg="#2563EB", width=34, height=34)
+    mark_box = tk.Frame(brand_mark, bg=COLORS['primary'], width=34, height=34)
     mark_box.pack(side=tk.LEFT)
     mark_box.pack_propagate(False)
-    tk.Label(mark_box, text="L", fg="#FFFFFF", bg="#2563EB", font=('Segoe UI', 15, 'bold')).pack(expand=True)
+    tk.Label(mark_box, text="L", fg="#FFFFFF", bg=COLORS['primary'], font=('Segoe UI', 15, 'bold')).pack(expand=True)
     tk.Label(
         brand_mark,
         text="Lanhu MCP",
@@ -3452,7 +3451,7 @@ def create_gui() -> None:
     tk.Label(
         brand,
         text="设计还原与项目协作控制台",
-        fg="#AAB4C2",
+        fg="#8CA0B8",
         bg=COLORS['sidebar'],
         font=('Segoe UI', 9),
     ).pack(anchor='w', pady=(3, 0))
@@ -3464,14 +3463,14 @@ def create_gui() -> None:
     tk.Label(
         sidebar_footer,
         text="当前状态",
-        fg="#7DD3FC",
+        fg="#6CA0D9",
         bg=COLORS['sidebar'],
         font=('Segoe UI', 8, 'bold'),
     ).pack(anchor='w', pady=(0, 5))
     tk.Label(
         sidebar_footer,
         textvariable=login_status_var,
-        fg="#C7D2FE",
+        fg="#B0C4DE",
         bg=COLORS['sidebar'],
         font=('Segoe UI', 9),
         wraplength=184,
@@ -3480,7 +3479,7 @@ def create_gui() -> None:
     tk.Label(
         sidebar_footer,
         textvariable=package_status_var,
-        fg="#8EA0B8",
+        fg="#7A8FA3",
         bg=COLORS['sidebar'],
         font=('Segoe UI', 8),
         wraplength=184,
@@ -3492,13 +3491,12 @@ def create_gui() -> None:
     pulse_step = {"value": 0}
 
     def animate_sidebar_pulse() -> None:
-        """绘制侧栏状态呼吸条。"""
         if should_run_sidebar_pulse(root.state(), bool(window_focus_state["focused"])):
             pulse_step["value"] = (pulse_step["value"] + 1) % 36
             sidebar_pulse.delete("all")
-            sidebar_pulse.create_line(0, 9, 184, 9, fill="#31405E", width=2)
+            sidebar_pulse.create_line(0, 9, 184, 9, fill="#1A2E4A", width=2)
             start = pulse_step["value"] * 5
-            sidebar_pulse.create_line(start % 184, 9, min((start % 184) + 34, 184), 9, fill="#38BDF8", width=2)
+            sidebar_pulse.create_line(start % 184, 9, min((start % 184) + 34, 184), 9, fill=COLORS['primary'], width=2)
         root.after(animation_interval_ms("sidebar_pulse"), animate_sidebar_pulse)
 
     header = tk.Frame(content, bg=COLORS['bg'])
@@ -3510,7 +3508,7 @@ def create_gui() -> None:
         textvariable=header_title_var,
         bg=COLORS['bg'],
         fg=COLORS['text_primary'],
-        font=('Segoe UI', 22, 'bold'),
+        font=('Segoe UI', 20, 'bold'),
     ).pack(anchor='w')
     tk.Label(
         header_text,
@@ -3529,10 +3527,10 @@ def create_gui() -> None:
         ("项目", project_count_var),
         ("方法", tk.StringVar(value=str(len(MCP_TOOL_NAMES)))),
     ):
-        stat_cell = tk.Frame(header_stats, bg="#FFFFFF", highlightbackground=COLORS['border_light'], highlightthickness=1)
+        stat_cell = tk.Frame(header_stats, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
         stat_cell.pack(side=tk.LEFT, padx=(8, 0))
         header_stat_cells.append(stat_cell)
-        tk.Label(stat_cell, text=stat_label, bg="#FFFFFF", fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(padx=12, pady=(7, 0))
+        tk.Label(stat_cell, text=stat_label, bg=COLORS['card'], fg=COLORS['text_muted'], font=('Segoe UI', 8)).pack(padx=12, pady=(7, 0))
         tk.Label(stat_cell, textvariable=stat_var, bg="#FFFFFF", fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(padx=12, pady=(1, 7))
 
     def layout_header(event: object = None) -> None:
@@ -3724,26 +3722,22 @@ def create_gui() -> None:
         return create_lucide_icon(parent, icon_name, color, 18, COLORS['card'])
 
     def make_card(parent: tk.Misc, title: str, icon_name: str, padding: int = 16) -> tk.Frame:
-        """创建自绘卡片容器，统一边距、标题和浅边框 - 优化版。"""
-        # 主卡片容器
+        """创建 TDesign 风格卡片容器。"""
         card = tk.Frame(
             parent,
             bg=COLORS['card'],
             highlightbackground=COLORS['border_light'],
-            highlightcolor=COLORS['border'],
+            highlightcolor=COLORS['primary'],
             highlightthickness=1,
             bd=0,
         )
-        
-        # 标题区域
+
         header_frame = tk.Frame(card, bg=COLORS['card'])
         header_frame.pack(fill=tk.X, padx=padding, pady=(padding, SPACING['2']))
-        
-        # 图标
+
         icon_canvas = make_icon_label(header_frame, icon_name, COLORS['primary'])
         icon_canvas.pack(side=tk.LEFT)
-        
-        # 标题文字
+
         tk.Label(
             header_frame,
             text=title,
@@ -3751,85 +3745,77 @@ def create_gui() -> None:
             fg=COLORS['text_primary'],
             font=(FONT['family'], FONT['sizes']['base'], 'bold'),
         ).pack(side=tk.LEFT, padx=(SPACING['2'], 0))
-        
-        # 分隔线
+
         separator = tk.Frame(card, bg=COLORS['border_light'], height=1)
         separator.pack(fill=tk.X, padx=padding, pady=(0, SPACING['2']))
-        
-        # 内容区域
+
         body = ttk.Frame(card, style='Card.TFrame')
         body.pack(fill=tk.BOTH, expand=True, padx=padding, pady=(0, padding))
-        
-        # 添加hover效果
+
         def on_enter(event):
-            card.config(highlightbackground=COLORS['border'])
-        
+            card.config(highlightbackground=COLORS['primary'], highlightthickness=2)
+
         def on_leave(event):
-            card.config(highlightbackground=COLORS['border_light'])
-        
+            card.config(highlightbackground=COLORS['border_light'], highlightthickness=1)
+
         card.bind("<Enter>", on_enter)
         card.bind("<Leave>", on_leave)
-        
+
         setattr(card, "body", body)
         setattr(card, "header", header_frame)
         setattr(card, "separator", separator)
         return card
 
     def make_metric_tile(parent: tk.Misc, label: str, value_var: object, accent: str) -> tk.Frame:
-        """创建紧凑指标块 - 优化版。"""
+        """创建 TDesign 风格指标块。"""
         tile = tk.Frame(
-            parent, 
-            bg=COLORS['surface'], 
-            highlightbackground=COLORS['border_light'], 
-            highlightthickness=1
+            parent,
+            bg=COLORS['card'],
+            highlightbackground=COLORS['border_light'],
+            highlightthickness=1,
         )
-        
-        # 左侧强调色条
-        accent_bar = tk.Frame(tile, bg=accent, width=4)
+
+        accent_bar = tk.Frame(tile, bg=accent, width=3)
         accent_bar.pack(side=tk.LEFT, fill=tk.Y)
-        
-        # 内容区域
-        content_frame = tk.Frame(tile, bg=COLORS['surface'])
-        content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=SPACING['3'], pady=SPACING['2'])
-        
-        # 标签
+
+        content_frame = tk.Frame(tile, bg=COLORS['card'])
+        content_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=SPACING['3'], pady=SPACING['3'])
+
         tk.Label(
-            content_frame, 
-            text=label, 
-            bg=COLORS['surface'], 
-            fg=COLORS['text_muted'], 
+            content_frame,
+            text=label,
+            bg=COLORS['card'],
+            fg=COLORS['text_muted'],
             font=(FONT['family'], FONT['sizes']['xs'])
         ).pack(anchor='w')
-        
-        # 数值
+
         tk.Label(
-            content_frame, 
-            textvariable=value_var, 
-            bg=COLORS['surface'], 
-            fg=COLORS['text_primary'], 
+            content_frame,
+            textvariable=value_var,
+            bg=COLORS['card'],
+            fg=COLORS['text_primary'],
             font=(FONT['family'], FONT['sizes']['xl'], 'bold')
         ).pack(anchor='w', pady=(SPACING['1'], 0))
-        
-        # 添加hover效果
+
         def on_enter(event):
-            tile.config(highlightbackground=COLORS['border'])
+            tile.config(highlightbackground=accent, highlightthickness=2)
+            tile.config(bg=COLORS['card_hover'])
+            content_frame.config(bg=COLORS['card_hover'])
+            for child in content_frame.winfo_children():
+                if isinstance(child, tk.Label):
+                    child.config(bg=COLORS['card_hover'])
+
+        def on_leave(event):
+            tile.config(highlightbackground=COLORS['border_light'], highlightthickness=1)
             tile.config(bg=COLORS['card'])
             content_frame.config(bg=COLORS['card'])
             for child in content_frame.winfo_children():
                 if isinstance(child, tk.Label):
                     child.config(bg=COLORS['card'])
-        
-        def on_leave(event):
-            tile.config(highlightbackground=COLORS['border_light'])
-            tile.config(bg=COLORS['surface'])
-            content_frame.config(bg=COLORS['surface'])
-            for child in content_frame.winfo_children():
-                if isinstance(child, tk.Label):
-                    child.config(bg=COLORS['surface'])
-        
+
         tile.bind("<Enter>", on_enter)
         tile.bind("<Leave>", on_leave)
-        
+
         return tile
 
     def make_overview_tile(
@@ -3840,34 +3826,30 @@ def create_gui() -> None:
         icon_name: str,
         accent: str,
     ) -> tk.Frame:
-        """创建总览页的大号指标块 - 优化版。"""
+        """创建 TDesign 风格总览指标块。"""
         tile = tk.Frame(
-            parent, 
-            bg=COLORS['card'], 
-            highlightbackground=COLORS['border_light'], 
-            highlightthickness=1
+            parent,
+            bg=COLORS['card'],
+            highlightbackground=COLORS['border_light'],
+            highlightthickness=1,
         )
-        
-        # 顶部区域：图标 + 标题
+
         top = tk.Frame(tile, bg=COLORS['card'])
         top.pack(fill=tk.X, padx=SPACING['4'], pady=(SPACING['4'], SPACING['2']))
-        
-        # 图标容器
-        icon_shell = tk.Frame(top, bg=COLORS['surface'], width=40, height=40)
+
+        icon_shell = tk.Frame(top, bg=COLORS['primary_light'], width=40, height=40)
         icon_shell.pack(side=tk.LEFT)
         icon_shell.pack_propagate(False)
-        create_lucide_icon(icon_shell, icon_name, accent, 24, COLORS['surface']).pack(expand=True)
-        
-        # 标题
+        create_lucide_icon(icon_shell, icon_name, accent, 24, COLORS['primary_light']).pack(expand=True)
+
         tk.Label(
-            top, 
-            text=title, 
-            bg=COLORS['card'], 
-            fg=COLORS['text_secondary'], 
+            top,
+            text=title,
+            bg=COLORS['card'],
+            fg=COLORS['text_secondary'],
             font=(FONT['family'], FONT['sizes']['sm'], 'bold')
         ).pack(side=tk.LEFT, padx=(SPACING['3'], 0))
-        
-        # 数值
+
         tk.Label(
             tile,
             textvariable=value_var,
@@ -3875,8 +3857,7 @@ def create_gui() -> None:
             fg=COLORS['text_primary'],
             font=(FONT['family'], FONT['sizes']['4xl'], 'bold'),
         ).pack(anchor='w', padx=SPACING['4'])
-        
-        # 描述
+
         tk.Label(
             tile,
             text=detail,
@@ -3886,77 +3867,72 @@ def create_gui() -> None:
             wraplength=220,
             justify=tk.LEFT,
         ).pack(anchor='w', padx=SPACING['4'], pady=(SPACING['2'], SPACING['4']))
-        
-        # 添加hover效果
+
         def on_enter(event):
-            tile.config(highlightbackground=COLORS['border'])
+            tile.config(highlightbackground=accent, highlightthickness=2)
             tile.config(bg=COLORS['card_hover'])
             for child in tile.winfo_children():
                 if isinstance(child, tk.Frame):
                     child.config(bg=COLORS['card_hover'])
                 elif isinstance(child, tk.Label):
                     child.config(bg=COLORS['card_hover'])
-        
+
         def on_leave(event):
-            tile.config(highlightbackground=COLORS['border_light'])
+            tile.config(highlightbackground=COLORS['border_light'], highlightthickness=1)
             tile.config(bg=COLORS['card'])
             for child in tile.winfo_children():
                 if isinstance(child, tk.Frame):
                     child.config(bg=COLORS['card'])
                 elif isinstance(child, tk.Label):
                     child.config(bg=COLORS['card'])
-        
+
         tile.bind("<Enter>", on_enter)
         tile.bind("<Leave>", on_leave)
-        
+
         return tile
 
     def make_empty_state(parent: tk.Misc, icon_name: str, title: str, detail: str) -> tk.Frame:
-        """创建空状态块 - 优化版。"""
+        """创建 TDesign 风格空状态块。"""
         state = tk.Frame(
-            parent, 
-            bg=COLORS['surface'], 
-            highlightbackground=COLORS['border_light'], 
-            highlightthickness=1
+            parent,
+            bg=COLORS['card'],
+            highlightbackground=COLORS['border_light'],
+            highlightthickness=1,
         )
         state.pack(fill=tk.X)
-        
-        state_inner = tk.Frame(state, bg=COLORS['surface'])
-        state_inner.pack(fill=tk.X, padx=SPACING['5'], pady=SPACING['5'])
-        
-        # 图标
+
+        state_inner = tk.Frame(state, bg=COLORS['card'])
+        state_inner.pack(fill=tk.X, padx=SPACING['6'], pady=SPACING['8'])
+
         create_lucide_icon(
-            state_inner, 
-            icon_name, 
-            COLORS['primary'], 
-            32, 
-            COLORS['surface']
-        ).pack(side=tk.LEFT, padx=(0, SPACING['3']))
-        
-        # 文本区域
-        text_frame = tk.Frame(state_inner, bg=COLORS['surface'])
+            state_inner,
+            icon_name,
+            COLORS['text_disabled'],
+            48,
+            COLORS['card']
+        ).pack(side=tk.LEFT, padx=(0, SPACING['4']))
+
+        text_frame = tk.Frame(state_inner, bg=COLORS['card'])
         text_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        
-        # 标题
+
         tk.Label(
-            text_frame, 
-            text=title, 
-            bg=COLORS['surface'], 
-            fg=COLORS['text_primary'], 
-            font=(FONT['family'], FONT['sizes']['md'], 'bold')
+            text_frame,
+            text=title,
+            bg=COLORS['card'],
+            fg=COLORS['text_primary'],
+            font=(FONT['family'], FONT['sizes']['xl'], 'bold')
         ).pack(anchor='w')
-        
-        # 描述
+
         tk.Label(
-            text_frame, 
-            text=detail, 
-            bg=COLORS['surface'], 
-            fg=COLORS['text_muted'], 
-            font=(FONT['family'], FONT['sizes']['sm']), 
-            wraplength=760, 
+            text_frame,
+            text=detail,
+            bg=COLORS['card'],
+            fg=COLORS['text_muted'],
+            font=(FONT['family'], FONT['sizes']['sm']),
+            wraplength=760,
             justify=tk.LEFT
-        ).pack(anchor='w', pady=(SPACING['1'], 0))
-        
+        ).pack(anchor='w', pady=(SPACING['2'], 0))
+
         return state
 
     def pack_responsive_pair(
@@ -4163,51 +4139,51 @@ def create_gui() -> None:
     logs_page = create_page("logs")
 
     # 总览页：作为默认入口，把常用状态和动作集中在第一屏。
-    overview_hero = tk.Frame(overview_page, bg="#111820", highlightbackground="#24313B", highlightthickness=1)
+    overview_hero = tk.Frame(overview_page, bg=COLORS['primary'], highlightbackground=COLORS['primary_active'], highlightthickness=1)
     overview_hero.pack(fill=tk.X)
-    overview_hero_inner = tk.Frame(overview_hero, bg="#111820")
+    overview_hero_inner = tk.Frame(overview_hero, bg=COLORS['primary'])
     overview_hero_inner.pack(fill=tk.X, padx=22, pady=20)
-    overview_hero_text = tk.Frame(overview_hero_inner, bg="#111820")
+    overview_hero_text = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
     overview_hero_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
     tk.Label(
         overview_hero_text,
         text="Lanhu MCP 工作台",
-        bg="#111820",
+        bg=COLORS['primary'],
         fg="#FFFFFF",
         font=('Segoe UI', 20, 'bold'),
     ).pack(anchor='w')
     tk.Label(
         overview_hero_text,
         text="登录蓝湖账号后启动服务，把项目、设计稿、切图和团队消息交给 AI IDE 直接调用。",
-        bg="#111820",
-        fg="#B9C5D2",
+        bg=COLORS['primary'],
+        fg="#D0E0FF",
         font=('Segoe UI', 10),
         wraplength=760,
         justify=tk.LEFT,
     ).pack(anchor='w', pady=(6, 0))
-    overview_runtime = tk.Frame(overview_hero_text, bg="#17212B")
+    overview_runtime = tk.Frame(overview_hero_text, bg=COLORS['primary_active'])
     overview_runtime.pack(fill=tk.X, pady=(14, 0))
     tk.Label(
         overview_runtime,
         textvariable=runtime_var,
-        bg="#17212B",
-        fg="#A7F3D0",
+        bg=COLORS['primary_active'],
+        fg="#C0D8FF",
         font=('Consolas', 8),
         wraplength=760,
         justify=tk.LEFT,
     ).pack(anchor='w', padx=12, pady=8)
-    overview_actions = tk.Frame(overview_hero_inner, bg="#111820")
+    overview_actions = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
     overview_actions.pack(side=tk.RIGHT, padx=(18, 0))
-    
+
     overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=14)
     overview_login_btn.pack(fill=tk.X, pady=(0, 8))
     add_button_hover_effect(overview_login_btn)
-    
+
     overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=14)
     overview_start_btn.pack(fill=tk.X, pady=(0, 8))
     add_button_hover_effect(overview_start_btn)
-    
-    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='TButton', width=14)
+
+    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='Ghost.TButton', width=14)
     overview_config_btn.pack(fill=tk.X)
     add_button_hover_effect(overview_config_btn)
 
@@ -4244,6 +4220,24 @@ def create_gui() -> None:
         row_inner.pack(fill=tk.X, padx=12, pady=10)
         tk.Label(row_inner, text=title, bg=COLORS['surface'], fg=COLORS['text_primary'], font=('Segoe UI', 10, 'bold')).pack(anchor='w')
         tk.Label(row_inner, text=detail, bg=COLORS['surface'], fg=COLORS['text_muted'], font=('Segoe UI', 8), wraplength=520, justify=tk.LEFT).pack(anchor='w', pady=(3, 0))
+        def _make_row_hover(row_frame, inner_frame):
+            def on_enter(e):
+                row_frame.config(bg=COLORS['primary_light'], highlightbackground=COLORS['primary'])
+                inner_frame.config(bg=COLORS['primary_light'])
+                for c in inner_frame.winfo_children():
+                    if isinstance(c, tk.Label):
+                        bg_c = COLORS['primary_light']
+                        fg_c = COLORS['primary'] if c.cget('font').split()[-1] == 'bold' else COLORS['text_primary']
+                        c.config(bg=bg_c, fg=fg_c)
+            def on_leave(e):
+                row_frame.config(bg=COLORS['surface'], highlightbackground=COLORS['border_light'])
+                inner_frame.config(bg=COLORS['surface'])
+                for c in inner_frame.winfo_children():
+                    if isinstance(c, tk.Label):
+                        c.config(bg=COLORS['surface'], fg=COLORS['text_primary'] if c.cget('font').split()[-1] == 'bold' else COLORS['text_muted'])
+            row_frame.bind("<Enter>", on_enter)
+            row_frame.bind("<Leave>", on_leave)
+        _make_row_hover(row, row_inner)
         row.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
         row_inner.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
 
