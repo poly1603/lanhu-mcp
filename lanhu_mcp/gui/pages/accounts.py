@@ -35,6 +35,8 @@ class AccountsPage:
         )
         self._account_list = ft.Column(spacing=theme.space("2"))
         self._detail_holder = ft.Column(spacing=theme.space("2"))
+        # Signature of the last rendered account view; skip rebuild when unchanged.
+        self._render_sig = None
 
     # -- data -----------------------------------------------------------
     def _safe(self, fn, default):
@@ -43,11 +45,35 @@ class AccountsPage:
         except Exception:
             return default
 
+    def _accounts_signature(self, account_list, active, active_id: str) -> str:
+        """Visible-field fingerprint covering rows + active detail + port."""
+        parts: List[str] = [f"active={active_id}", f"port={self.ctx.port}"]
+        for acc in account_list or []:
+            acc_id = acc.get("id", "")
+            parts.append("|".join([
+                str(acc_id),
+                "1" if acc_id == active_id else "0",
+                str(accounts_core.account_primary_contact(acc)),
+                str(accounts_core.account_detail_line(acc)),
+            ]))
+        if active:
+            parts.append("detail|" + "|".join(str(x) for x in (
+                accounts_core.account_primary_contact(active),
+                accounts_core.account_profile_line(active),
+                accounts_core.account_cookie_line(active),
+            )))
+        return "\n".join(parts)
+
     def _render_accounts(self) -> None:
         p = self.ctx.palette
         account_list = self._safe(accounts_core.get_accounts, [])
         active = self._safe(accounts_core.get_active_account, None)
         active_id = (active or {}).get("id", "") if active else ""
+
+        signature = self._accounts_signature(account_list, active, active_id)
+        if signature == self._render_sig and self._account_list.controls and self._detail_holder.controls:
+            return  # nothing visible changed; avoid widget churn
+        self._render_sig = signature
 
         if not account_list:
             self._account_list.controls = [

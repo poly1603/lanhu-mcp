@@ -33,6 +33,8 @@ class ProjectsPage:
         self._refreshing = False
         self._refresh_btn_holder = ft.Row(spacing=theme.space("2"))
         self._design_browser = DesignBrowser(ctx)
+        # Signature of the last rendered list; skip rebuild when unchanged.
+        self._list_sig = None
 
     def _safe(self, fn, default):
         try:
@@ -59,8 +61,24 @@ class ProjectsPage:
         except Exception:
             toast(self.ctx.page, "无法打开链接", "error", self.ctx.palette)
 
+    def _list_signature(self, projects: List[dict]) -> str:
+        """Visible-field fingerprint; raw/internal keys are ignored."""
+        if not projects:
+            return "EMPTY"
+        parts: List[str] = []
+        for proj in projects:
+            parts.append("|".join(str(proj.get(k, "")) for k in (
+                "name", "url", "team_name", "owner_name", "updated_at",
+                "source", "id", "project_id", "team_id", "tid",
+            )))
+        return "\n".join(parts)
+
     def _render_list(self, projects: List[dict]) -> None:
         p = self.ctx.palette
+        signature = self._list_signature(projects)
+        if signature == self._list_sig and self._list.controls:
+            return  # nothing visible changed; avoid widget churn
+        self._list_sig = signature
         if not projects:
             self._list.controls = [
                 empty_state(p, "暂无项目，可刷新或手动添加项目链接", icon=ft.Icons.FOLDER_OPEN)
