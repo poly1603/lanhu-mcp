@@ -42,6 +42,14 @@ fastmcp_datas = collect_data_files('fastmcp')
 
 mcp_hiddenimports = collect_submodules('mcp')
 
+# 收集 flet（新的 Flet GUI 依赖）。flet 未安装时不阻断 server/CLI 打包。
+try:
+    flet_hiddenimports = collect_submodules('flet')
+    flet_datas = collect_data_files('flet')
+except Exception:
+    flet_hiddenimports = []
+    flet_datas = []
+
 a = Analysis(
     ['lanhu_mcp_gui.py'],
     pathex=['.'],
@@ -49,7 +57,7 @@ a = Analysis(
     datas=[
         ('.env.example', '.'),
         ('lanhu_login_helper.py', '.'),
-    ] + fastmcp_datas + tcl_tk_datas,
+    ] + fastmcp_datas + tcl_tk_datas + flet_datas,
     hiddenimports=[
         # === 核心入口 ===
         'lanhu_mcp_server',
@@ -105,6 +113,22 @@ a = Analysis(
         'lanhu_mcp.services.lanhu_api',
         'lanhu_mcp.services.ide_config',
         'lanhu_mcp.services.service_manager',
+
+        # === lanhu_mcp.gui（Flet 界面）===
+        'lanhu_mcp.gui',
+        'lanhu_mcp.gui.theme',
+        'lanhu_mcp.gui.state',
+        'lanhu_mcp.gui.app',
+        'lanhu_mcp.gui.components',
+        'lanhu_mcp.gui.components.widgets',
+        'lanhu_mcp.gui.pages',
+        'lanhu_mcp.gui.pages.overview',
+        'lanhu_mcp.gui.pages.service',
+        'lanhu_mcp.gui.pages.accounts',
+        'lanhu_mcp.gui.pages.projects',
+        'lanhu_mcp.gui.pages.ide_tools',
+        'lanhu_mcp.gui.pages.logs',
+
         'lanhu_mcp.converters',
         'lanhu_mcp.utils',
         'lanhu_mcp.prompts',
@@ -179,7 +203,7 @@ a = Analysis(
         # === importlib 元数据（关键！fastmcp 需要） ===
         'importlib.metadata',
         'importlib_metadata',
-    ] + fastmcp_hiddenimports + mcp_hiddenimports,
+    ] + fastmcp_hiddenimports + mcp_hiddenimports + flet_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=['hook_tcl_find_executable.py', 'hook_fastmcp_metadata.py'],

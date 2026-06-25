@@ -3520,6 +3520,20 @@ def create_gui() -> None:
     root.mainloop()
 
 
+def launch_gui() -> None:
+    """启动应用界面：优先使用新的 Flet 界面，缺少 flet 时回退到旧 Tkinter 界面。"""
+    if '--legacy-ui' not in sys.argv:
+        try:
+            from lanhu_mcp.gui.app import run as run_flet
+        except Exception as import_error:  # noqa: BLE001 - flet 未安装等
+            flog(f"Flet 界面不可用，回退到旧界面: {import_error}", 'warning')
+        else:
+            flog("启动 Flet 界面")
+            run_flet()
+            return
+    create_gui()
+
+
 def run_login_helper_from_gui_args() -> int:
     """作为打包后的登录助手子进程运行。"""
     result_file = Path(sys.argv[2]) if len(sys.argv) > 2 else DATA_DIR / '.login_result.json'
@@ -3587,4 +3601,4 @@ if __name__ == '__main__':
         raise SystemExit(run_login_helper_from_gui_args())
     if '--server' in sys.argv:
         raise SystemExit(run_server_from_gui_args())
-    create_gui()
+    launch_gui()
