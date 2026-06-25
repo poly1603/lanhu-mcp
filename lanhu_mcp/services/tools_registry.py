@@ -176,4 +176,14 @@ def group_mcp_tools(tools: list[tuple[str, str]]) -> dict[str, list[tuple[str, s
     return {name: items for name, items in grouped.items() if items}
 
 
-MCP_TOOL_NAMES = discover_mcp_tools()
+def __getattr__(name: str):
+    """惰性计算 ``MCP_TOOL_NAMES``（PEP 562）。
+
+    旧实现在模块导入时立即 ``discover_mcp_tools()``，会对 ``lanhu_mcp_server.py``
+    等大文件做 AST 扫描；Flet 页面仅需 ``discover_mcp_tools`` 函数，故把这一开销
+    推迟到首次真正访问 ``MCP_TOOL_NAMES`` 时（多为后台线程内），缩短冷启动。
+    结果仍由 ``_MCP_TOOLS_CACHE`` 缓存，重复访问不再扫描。
+    """
+    if name == "MCP_TOOL_NAMES":
+        return discover_mcp_tools()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

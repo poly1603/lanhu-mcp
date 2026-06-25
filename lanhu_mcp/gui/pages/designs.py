@@ -10,6 +10,8 @@ back to a placeholder icon so the dialog never blocks on a single bad image.
 from __future__ import annotations
 
 import base64
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Optional
 
 import flet as ft
@@ -21,6 +23,7 @@ from ...core import accounts as accounts_core
 from ...services.lanhu_api import _fetch_designs_api, _download_image_bytes
 
 THUMB_MAX_BYTES = 2 * 1024 * 1024  # skip oversized thumbnails
+THUMB_CONCURRENCY = 4  # cap parallel thumbnail downloads
 
 
 class DesignBrowser:
@@ -35,6 +38,11 @@ class DesignBrowser:
         self._selected: Dict[str, dict] = {}
         self._project_name = ""
         self._cookie = ""
+        # url -> base64 thumbnail, reused across re-opens within a session.
+        self._thumb_cache: Dict[str, str] = {}
+        self._thumb_pool: Optional[ThreadPoolExecutor] = None
+        self._thumb_lock = threading.Lock()
+        self._pending_update = False
 
     # -- public ---------------------------------------------------------
     def open_for(self, project_id: str, team_id: str, project_name: str) -> None:
@@ -129,28 +137,66 @@ class DesignBrowser:
         self.ctx.page.update()
 
     def _load_thumbnails(self) -> None:
-        """Download thumbnails in the background and cache them on the design dict."""
+        """Download thumbnails with bounded concurrency, caching by URL.
+
+        Already-cached thumbnails are applied immediately; the rest are fetched
+        on a small thread pool so a project with many designs cannot spawn an
+        unbounded number of threads. UI updates are throttled into one refresh
+        per batch of completed downloads.
+        """
+        # Apply any cached thumbnails up front.
+        applied_cached = False
         for design in self._designs:
             url = design.get("url")
-            if not url:
-                continue
+            if url and url in self._thumb_cache and not design.get("_thumb_b64"):
+                design["_thumb_b64"] = self._thumb_cache[url]
+                applied_cached = True
+        if applied_cached:
+            self._reapply_thumbnails()
+            self._safe_update()
 
-            def work(u=url):
-                data = _download_image_bytes(u, self._cookie)
-                if not data or len(data) > THUMB_MAX_BYTES:
-                    return None
-                return base64.b64encode(data).decode("ascii")
+        pending = [d for d in self._designs if d.get("url") and not d.get("_thumb_b64")]
+        if not pending:
+            return
+        self._thumb_pool = ThreadPoolExecutor(max_workers=THUMB_CONCURRENCY)
 
-            def done(b64, d=design):
-                if b64:
-                    d["_thumb_b64"] = b64
-                    self._reapply_thumbnails()
-                    try:
-                        self.ctx.page.update()
-                    except Exception:
-                        pass
+        def fetch(design: dict) -> None:
+            url = design.get("url")
+            try:
+                data = _download_image_bytes(url, self._cookie, max_bytes=THUMB_MAX_BYTES)
+            except Exception:
+                data = b""
+            if not data:
+                return
+            b64 = base64.b64encode(data).decode("ascii")
+            with self._thumb_lock:
+                self._thumb_cache[url] = b64
+                design["_thumb_b64"] = b64
+                should_schedule = not self._pending_update
+                self._pending_update = True
+            if should_schedule:
+                self._schedule_thumbnail_refresh()
 
-            run_in_background(self.ctx.page, work, on_done=done)
+        for design in pending:
+            self._thumb_pool.submit(fetch, design)
+
+    def _schedule_thumbnail_refresh(self) -> None:
+        """Coalesce rapid thumbnail completions into a single UI refresh."""
+        def flush() -> None:
+            with self._thumb_lock:
+                self._pending_update = False
+            self._reapply_thumbnails()
+            self._safe_update()
+
+        timer = threading.Timer(0.15, flush)
+        timer.daemon = True
+        timer.start()
+
+    def _safe_update(self) -> None:
+        try:
+            self.ctx.page.update()
+        except Exception:
+            pass
 
     def _reapply_thumbnails(self) -> None:
         index = {self._design_key(d): d for d in self._designs}
@@ -216,6 +262,9 @@ class DesignBrowser:
             toast(self.ctx.page, "复制失败", "error", self.ctx.palette)
 
     def _close(self) -> None:
+        if self._thumb_pool is not None:
+            self._thumb_pool.shutdown(wait=False, cancel_futures=True)
+            self._thumb_pool = None
         if self._dialog is not None:
             self.ctx.page.close(self._dialog)
             self.ctx.page.update()

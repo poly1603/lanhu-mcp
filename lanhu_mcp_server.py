@@ -2501,6 +2501,8 @@ class LanhuExtractor:
                 headers["Authorization"] = f"Basic {basic_auth}"
                 break
         self.client = httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=headers, follow_redirects=True)
+        # 复用的 DDS 客户端（连接池），首次访问 schema 时惰性创建，避免每次设计稿转换都新建连接池。
+        self._dds_client: Optional[httpx.AsyncClient] = None
         self._max_retries = int(os.getenv("HTTP_MAX_RETRIES", "3"))
         self._retry_base_delay = float(os.getenv("HTTP_RETRY_BASE_DELAY", "1.0"))
 
@@ -3634,34 +3636,40 @@ class LanhuExtractor:
                 raise Exception("该设计图无 latest_version")
         raise Exception(f"未找到 image_id={image_id} 的设计图")
 
+    def _get_dds_client(self) -> httpx.AsyncClient:
+        """惰性创建并复用 DDS 客户端，共享连接池。"""
+        if self._dds_client is None:
+            dds_headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+                "Accept": "application/json, text/plain, */*",
+                "Referer": "https://dds.lanhuapp.com/",
+                "Cookie": DDS_COOKIE,
+            }
+            # 从 DDS_COOKIE 中提取 user_token 构造 Basic Auth
+            import base64 as _b64
+            for pair in DDS_COOKIE.split("; "):
+                parts = pair.split("=", 1)
+                if len(parts) == 2 and parts[0] == "user_token":
+                    dds_headers["Authorization"] = f"Basic {_b64.b64encode(f'{parts[1]}:'.encode()).decode()}"
+                    break
+            self._dds_client = httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=dds_headers, follow_redirects=True)
+        return self._dds_client
+
     async def _fetch_dds_schema(self, version_id: str) -> dict:
         """调用 DDS store_schema_revise 获取 data_resource_url，再拉取 schema JSON（与 lanhu-html-converter-mcp 一致）"""
-        dds_headers = {
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-            "Accept": "application/json, text/plain, */*",
-            "Referer": "https://dds.lanhuapp.com/",
-            "Cookie": DDS_COOKIE,
-        }
-        # 从 DDS_COOKIE 中提取 user_token 构造 Basic Auth
-        import base64 as _b64
-        for pair in DDS_COOKIE.split("; "):
-            parts = pair.split("=", 1)
-            if len(parts) == 2 and parts[0] == "user_token":
-                dds_headers["Authorization"] = f"Basic {_b64.b64encode(f'{parts[1]}:'.encode()).decode()}"
-                break
-        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT, headers=dds_headers, follow_redirects=True) as dds_client:
-            rev_url = f"{DDS_BASE_URL}/api/dds/image/store_schema_revise"
-            rev_resp = await dds_client.get(rev_url, params={"version_id": version_id})
-            rev_resp.raise_for_status()
-            rev_data = rev_resp.json()
-            if rev_data.get("code") != "00000":
-                raise Exception(f"store_schema_revise 失败: {rev_data.get('msg', '未知错误')}")
-            schema_url = (rev_data.get("data") or {}).get("data_resource_url")
-            if not schema_url:
-                raise Exception("store_schema_revise 未返回 data_resource_url")
-            schema_resp = await dds_client.get(schema_url)
-            schema_resp.raise_for_status()
-            return schema_resp.json()
+        dds_client = self._get_dds_client()
+        rev_url = f"{DDS_BASE_URL}/api/dds/image/store_schema_revise"
+        rev_resp = await dds_client.get(rev_url, params={"version_id": version_id})
+        rev_resp.raise_for_status()
+        rev_data = rev_resp.json()
+        if rev_data.get("code") != "00000":
+            raise Exception(f"store_schema_revise 失败: {rev_data.get('msg', '未知错误')}")
+        schema_url = (rev_data.get("data") or {}).get("data_resource_url")
+        if not schema_url:
+            raise Exception("store_schema_revise 未返回 data_resource_url")
+        schema_resp = await dds_client.get(schema_url)
+        schema_resp.raise_for_status()
+        return schema_resp.json()
 
     async def get_design_schema_json(self, image_id: str, team_id: str = None, project_id: str = None) -> dict:
         """
@@ -3694,6 +3702,9 @@ class LanhuExtractor:
     async def close(self):
         """关闭客户端"""
         await self.client.aclose()
+        if self._dds_client is not None:
+            await self._dds_client.aclose()
+            self._dds_client = None
 
 
 def _format_axure_rect(rect: Optional[dict]) -> str:

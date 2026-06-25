@@ -253,11 +253,25 @@ def _fetch_designs_api(cookie: str, project_id: str, team_id: str = "") -> dict:
     }
 
 
-def _download_image_bytes(url: str, cookie: str = "") -> bytes:
-    """下载图片字节。"""
+def _download_image_bytes(url: str, cookie: str = "", max_bytes: int | None = None) -> bytes:
+    """下载图片字节。
+
+    传入 ``max_bytes`` 时先根据 ``Content-Length`` 预检，并限制读取字节数，
+    避免超大图片占用内存；超限时返回空字节。默认（``None``）不限制，
+    保持与旧调用方兼容。
+    """
     headers = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"}
     if cookie:
         headers["Cookie"] = cookie
     request = urllib.request.Request(url, headers=headers)
     with urllib.request.urlopen(request, timeout=30) as response:
+        if max_bytes is not None:
+            try:
+                content_length = int(response.headers.get("Content-Length") or "0")
+            except (TypeError, ValueError):
+                content_length = 0
+            if content_length > max_bytes:
+                return b""
+            content = response.read(max_bytes + 1)
+            return content if len(content) <= max_bytes else b""
         return response.read()
