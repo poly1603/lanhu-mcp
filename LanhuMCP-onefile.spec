@@ -96,6 +96,7 @@ a = Analysis(
         'lanhu_mcp.tools.export_options',
         'lanhu_mcp.tools.responsive',
         'lanhu_mcp.core',
+        'lanhu_mcp.core.paths',
         'lanhu_mcp.converters',
         'lanhu_mcp.utils',
         'lanhu_mcp.prompts',
