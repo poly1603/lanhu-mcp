@@ -18,6 +18,8 @@ from .paths import DATA_DIR, PROJECTS_FILE, now_text
 __all__ = [
     "PROJECT_CONTAINER_KEYS",
     "PROJECT_URL_PATTERN",
+    "RECENT_PROJECTS_FILE",
+    "RECENT_PROJECTS_LIMIT",
     "read_projects_data",
     "write_projects_data",
     "parse_lanhu_project_url",
@@ -29,7 +31,12 @@ __all__ = [
     "projects_from_payload",
     "project_identity_key",
     "merge_project_lists",
+    "record_recent_project",
+    "recent_projects",
 ]
+
+RECENT_PROJECTS_FILE = DATA_DIR / "recent_projects.json"
+RECENT_PROJECTS_LIMIT = 10
 
 
 PROJECT_CONTAINER_KEYS = (
@@ -146,6 +153,57 @@ def save_manual_project(project_url: str, account_id: str = "") -> tuple[bool, s
         projects.append(project)
     write_projects_data(data)
     return True, "项目链接已保存到本地列表。", project
+
+
+def _read_recents() -> list[dict]:
+    """读取最近打开的项目记录，文件损坏时返回空列表。"""
+    if not RECENT_PROJECTS_FILE.exists():
+        return []
+    try:
+        data = json.loads(RECENT_PROJECTS_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    items = data.get("recent", []) if isinstance(data, dict) else []
+    return [item for item in items if isinstance(item, dict)]
+
+
+def _write_recents(items: list[dict]) -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    RECENT_PROJECTS_FILE.write_text(
+        json.dumps({"recent": items}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def record_recent_project(project: dict, account_id: str = "",
+                          limit: int = RECENT_PROJECTS_LIMIT) -> list[dict]:
+    """记录一个刚被打开/浏览的项目，去重后置顶。
+
+    去重依据 :func:`project_identity_key`（同一 ``team_id+project_id`` 视为同一
+    项目）；记录按打开时间倒序，最多保留 ``limit`` 条。
+    """
+    if not isinstance(project, dict) or not project:
+        return _read_recents()
+    entry = dict(project)
+    entry["account_id"] = account_id or entry.get("account_id", "")
+    entry["opened_at"] = now_text()
+    key = project_identity_key(entry)
+    items = [it for it in _read_recents() if project_identity_key(it) != key]
+    items.insert(0, entry)
+    items = items[: max(1, int(limit or RECENT_PROJECTS_LIMIT))]
+    _write_recents(items)
+    return items
+
+
+def recent_projects(account_id: str = "", limit: int = RECENT_PROJECTS_LIMIT) -> list[dict]:
+    """读取当前账号可见的最近打开项目（按打开时间倒序）。"""
+    items = _read_recents()
+    if account_id:
+        items = [
+            it for it in items
+            if not it.get("account_id") or it.get("account_id") == account_id
+        ]
+    return items[: max(1, int(limit or RECENT_PROJECTS_LIMIT))]
 
 
 def cached_projects_for_account(account_id: str = "") -> list[dict]:

@@ -18,7 +18,30 @@ from ..core.accounts import current_mcp_url
 __all__ = [
     "IDE_REGISTRY",
     "IDEManager",
+    "mcp_config_snippets",
 ]
+
+
+def mcp_config_snippets(port: int = 8000) -> list[tuple[str, str]]:
+    """生成各类 IDE 的 MCP 接入配置片段，供“一键复制”使用。
+
+    返回 ``[(标签, 可直接粘贴的文本), ...]``。不写任何文件，纯生成。
+    """
+    url = current_mcp_url(port)
+    generic = json.dumps(
+        {"mcpServers": {"lanhu": {"url": url, "disabled": False}}},
+        indent=2, ensure_ascii=False,
+    )
+    claude = json.dumps(
+        {"mcpServers": {"lanhu": {"type": "http", "url": url}}},
+        indent=2, ensure_ascii=False,
+    )
+    codex = f"[mcp_servers.lanhu]\nurl = \"{url}\"\n"
+    return [
+        ("通用 (mcpServers JSON)", generic),
+        ("Claude Code (HTTP)", claude),
+        ("Codex (TOML)", codex),
+    ]
 
 
 IDE_REGISTRY = {

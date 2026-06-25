@@ -29,6 +29,7 @@ class ProjectsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._list = ft.Column(spacing=theme.space("2"))
+        self._recent = ft.Column(spacing=theme.space("2"))
         self._manual_field = ft.TextField(label="项目链接", dense=True, expand=True)
         self._search_field = ft.TextField(
             label="搜索项目", dense=True, expand=True, prefix_icon=ft.Icons.SEARCH,
@@ -58,13 +59,58 @@ class ProjectsPage:
         except Exception:
             toast(self.ctx.page, "复制失败", "error", self.ctx.palette)
 
-    def _open(self, url: str) -> None:
+    def _open(self, url: str, project: dict | None = None) -> None:
         if not url:
             return
+        if project:
+            self._remember(project)
         try:
             webbrowser.open(url)
         except Exception:
             toast(self.ctx.page, "无法打开链接", "error", self.ctx.palette)
+
+    def _remember(self, project: dict) -> None:
+        self._safe(lambda: projects_core.record_recent_project(project, self._active_id()), None)
+        self._render_recent()
+        try:
+            self.ctx.page.update()
+        except Exception:
+            pass
+
+    def _design(self, pid: str, tid: str, name: str, project: dict) -> None:
+        self._remember(project)
+        self._design_browser.open_for(pid, tid, name)
+
+    def _render_recent(self) -> None:
+        p = self.ctx.palette
+        items = self._safe(lambda: projects_core.recent_projects(self._active_id(), 8), [])
+        if not items:
+            self._recent.controls = [
+                empty_state(p, "打开或浏览过的项目会出现在这里", icon=ft.Icons.HISTORY)
+            ]
+            return
+        rows: List[ft.Control] = []
+        for proj in items:
+            name = proj.get("name") or "未命名项目"
+            url = proj.get("url") or ""
+            opened = proj.get("opened_at") or ""
+            actions: List[ft.Control] = []
+            if url:
+                actions.append(ghost_icon_button(
+                    ft.Icons.OPEN_IN_NEW, lambda e, u=url, pr=proj: self._open(u, pr),
+                    tooltip="打开项目"))
+            rows.append(ft.Row(
+                [
+                    ft.Icon(ft.Icons.HISTORY, size=16, color=p.text_muted),
+                    ft.Text(name, color=p.text_primary, expand=True,
+                            overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(str(opened), size=theme.font_size("xs"), color=p.text_muted),
+                    ft.Row(actions, spacing=theme.space("1")),
+                ],
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                spacing=theme.space("2"),
+            ))
+        self._recent.controls = rows
 
     def _list_signature(self, projects: List[dict]) -> str:
         """Visible-field fingerprint; raw/internal keys are ignored."""
@@ -104,10 +150,11 @@ class ProjectsPage:
             if proj_id:
                 actions.append(ghost_icon_button(
                     ft.Icons.IMAGE,
-                    lambda e, pid=proj_id, tid=team_id, nm=name: self._design_browser.open_for(pid, tid, nm),
+                    lambda e, pid=proj_id, tid=team_id, nm=name, pr=proj: self._design(pid, tid, nm, pr),
                     tooltip="浏览设计稿"))
             if url:
-                actions.append(ghost_icon_button(ft.Icons.OPEN_IN_NEW, lambda e, u=url: self._open(u),
+                actions.append(ghost_icon_button(ft.Icons.OPEN_IN_NEW,
+                                                  lambda e, u=url, pr=proj: self._open(u, pr),
                                                   tooltip="打开项目"))
                 actions.append(ghost_icon_button(ft.Icons.CONTENT_COPY, lambda e, u=url: self._copy(u),
                                                   tooltip="复制链接"))
@@ -177,6 +224,7 @@ class ProjectsPage:
     def refresh(self) -> None:
         self._render_refresh_button()
         self._load_cached()
+        self._render_recent()
         try:
             self.ctx.page.update()
         except Exception:
@@ -240,6 +288,7 @@ class ProjectsPage:
         p = self.ctx.palette
         self._render_refresh_button()
         self._load_cached()
+        self._render_recent()
 
         manual_card = card(
             p,
@@ -272,10 +321,22 @@ class ProjectsPage:
                 spacing=theme.space("3"),
             ),
         )
+        recent_card = card(
+            p,
+            ft.Column(
+                [
+                    ft.Text("最近打开", size=theme.font_size("lg"),
+                            weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    self._recent,
+                ],
+                spacing=theme.space("3"),
+            ),
+        )
         return ft.Column(
             [
                 section_title(p, "项目", "查看与管理当前账号的蓝湖项目"),
                 manual_card,
+                recent_card,
                 list_card,
             ],
             spacing=theme.space("6"),
