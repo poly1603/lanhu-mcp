@@ -30,6 +30,11 @@ class ProjectsPage:
         self.ctx = ctx
         self._list = ft.Column(spacing=theme.space("2"))
         self._manual_field = ft.TextField(label="项目链接", dense=True, expand=True)
+        self._search_field = ft.TextField(
+            label="搜索项目", dense=True, expand=True, prefix_icon=ft.Icons.SEARCH,
+            on_change=lambda e: self._apply_filter(do_update=True),
+        )
+        self._all_projects: List[dict] = []
         self._refreshing = False
         self._refresh_btn_holder = ft.Row(spacing=theme.space("2"))
         self._design_browser = DesignBrowser(ctx)
@@ -144,9 +149,30 @@ class ProjectsPage:
                 secondary_button("刷新项目", lambda e: self._refresh_remote(), icon=ft.Icons.REFRESH)
             ]
 
+    def _set_projects(self, projects: List[dict]) -> None:
+        self._all_projects = list(projects or [])
+        self._apply_filter()
+
+    def _apply_filter(self, do_update: bool = False) -> None:
+        query = (self._search_field.value or "").strip().lower()
+        if not query:
+            filtered = self._all_projects
+        else:
+            def hit(proj: dict) -> bool:
+                blob = " ".join(str(proj.get(k, "")) for k in (
+                    "name", "url", "team_name", "owner_name")).lower()
+                return query in blob
+            filtered = [p for p in self._all_projects if hit(p)]
+        self._render_list(filtered)
+        if do_update:
+            try:
+                self.ctx.page.update()
+            except Exception:
+                pass
+
     def _load_cached(self) -> None:
         projects = self._safe(lambda: projects_core.cached_projects_for_account(self._active_id()), [])
-        self._render_list(projects)
+        self._set_projects(projects)
 
     def refresh(self) -> None:
         self._render_refresh_button()
@@ -179,7 +205,7 @@ class ProjectsPage:
             self._render_refresh_button()
             ok, msg, projects = result if isinstance(result, tuple) and len(result) == 3 else (False, "", [])
             if ok:
-                self._render_list(projects or [])
+                self._set_projects(projects or [])
                 self.ctx.add_log(f"项目刷新成功，共 {len(projects or [])} 个")
             else:
                 self.ctx.add_log(f"项目刷新失败: {msg}")
@@ -240,6 +266,7 @@ class ProjectsPage:
                                     weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
                             ft.Container(expand=True), self._refresh_btn_holder],
                            vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    self._search_field,
                     self._list,
                 ],
                 spacing=theme.space("3"),

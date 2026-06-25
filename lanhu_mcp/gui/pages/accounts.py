@@ -61,6 +61,7 @@ class AccountsPage:
                 accounts_core.account_primary_contact(active),
                 accounts_core.account_profile_line(active),
                 accounts_core.account_cookie_line(active),
+                accounts_core.account_cookie_expiry(active).get("status"),
             )))
         return "\n".join(parts)
 
@@ -122,9 +123,16 @@ class AccountsPage:
 
         # Active account detail panel.
         if active:
+            expiry = accounts_core.account_cookie_expiry(active)
+            status_kind = {"valid": "ok", "expiring": "warn", "expired": "error"}.get(
+                expiry.get("status"), "info")
             self._detail_holder.controls = [
-                ft.Text("账号资料", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD,
-                        color=p.text_primary),
+                ft.Row([
+                    ft.Text("账号资料", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD,
+                            color=p.text_primary),
+                    ft.Container(expand=True),
+                    StatusBadge(p, accounts_core.account_cookie_status_line(active), status_kind),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 field_row(p, "联系方式", accounts_core.account_primary_contact(active)),
                 field_row(p, "资料", accounts_core.account_profile_line(active)),
                 field_row(p, "Cookie", accounts_core.account_cookie_line(active)),

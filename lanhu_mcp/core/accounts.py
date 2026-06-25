@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import time
 from typing import Optional
 from urllib.parse import quote, unquote
 
@@ -56,6 +57,8 @@ __all__ = [
     "account_detail_line",
     "account_profile_line",
     "account_cookie_line",
+    "account_cookie_expiry",
+    "account_cookie_status_line",
 ]
 
 
@@ -765,3 +768,53 @@ def account_cookie_line(account: dict) -> str:
     if account.get("source_url"):
         parts.append(f"来源 {account.get('source_url')}")
     return "  |  ".join(parts)
+
+
+def account_cookie_expiry(account: dict) -> dict:
+    """根据 Cookie 内 JWT 的 ``exp`` 推断登录有效期。
+
+    返回字段：``status``（valid/expiring/expired/unknown）、``expires_at``
+    （epoch 秒，可能为 None）、``remaining``（剩余秒数，可能为 None）。仅用于
+    展示提醒，不做安全鉴权。
+    """
+    cookie = str((account or {}).get("cookie") or "")
+    exp_values: list[int] = []
+    for name, value in parse_cookie_pairs(cookie).items():
+        lowered = name.lower()
+        if not any(word in lowered for word in ("token", "auth", "jwt")):
+            continue
+        payload = decode_jwt_payload(value)
+        exp = payload.get("exp")
+        if isinstance(exp, (int, float)) and exp > 0:
+            exp_values.append(int(exp))
+    if not exp_values:
+        return {"status": "unknown", "expires_at": None, "remaining": None}
+    expires_at = max(exp_values)
+    remaining = expires_at - int(time.time())
+    if remaining <= 0:
+        status = "expired"
+    elif remaining <= 3 * 24 * 3600:  # 3 天内提醒
+        status = "expiring"
+    else:
+        status = "valid"
+    return {"status": status, "expires_at": expires_at, "remaining": remaining}
+
+
+def account_cookie_status_line(account: dict) -> str:
+    """生成登录状态/过期提醒展示行。"""
+    info = account_cookie_expiry(account)
+    status = info.get("status")
+    if status == "unknown":
+        return "登录状态：未知（Cookie 未含可解析的有效期）"
+    expires_at = info.get("expires_at")
+    when = "-"
+    if isinstance(expires_at, int):
+        when = time.strftime("%Y-%m-%d %H:%M", time.localtime(expires_at))
+    if status == "expired":
+        return f"登录已过期（{when}），请重新登录"
+    remaining = info.get("remaining") or 0
+    days = remaining // 86400
+    hours = (remaining % 86400) // 3600
+    if status == "expiring":
+        return f"登录即将过期：{when}（剩余 {days} 天 {hours} 小时），建议尽快重新登录"
+    return f"登录有效，到期 {when}（剩余 {days} 天 {hours} 小时）"
