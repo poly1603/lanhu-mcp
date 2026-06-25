@@ -22,6 +22,7 @@ from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...core import projects as projects_core
 from ...services.lanhu_api import load_projects_for_account
+from .designs import DesignBrowser
 
 
 class ProjectsPage:
@@ -31,6 +32,7 @@ class ProjectsPage:
         self._manual_field = ft.TextField(label="项目链接", dense=True, expand=True)
         self._refreshing = False
         self._refresh_btn_holder = ft.Row(spacing=theme.space("2"))
+        self._design_browser = DesignBrowser(ctx)
 
     def _safe(self, fn, default):
         try:
@@ -74,6 +76,13 @@ class ProjectsPage:
             ]
             meta = "  ·  ".join(str(x) for x in meta_parts)
             actions: List[ft.Control] = []
+            proj_id = str(proj.get("id") or proj.get("project_id") or "")
+            team_id = str(proj.get("team_id") or proj.get("tid") or "")
+            if proj_id:
+                actions.append(ghost_icon_button(
+                    ft.Icons.IMAGE,
+                    lambda e, pid=proj_id, tid=team_id, nm=name: self._design_browser.open_for(pid, tid, nm),
+                    tooltip="浏览设计稿"))
             if url:
                 actions.append(ghost_icon_button(ft.Icons.OPEN_IN_NEW, lambda e, u=url: self._open(u),
                                                   tooltip="打开项目"))

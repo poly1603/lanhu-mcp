@@ -113,6 +113,7 @@ a = Analysis(
         'lanhu_mcp.services.lanhu_api',
         'lanhu_mcp.services.ide_config',
         'lanhu_mcp.services.service_manager',
+        'lanhu_mcp.services.login_helper',
 
         # === lanhu_mcp.gui（Flet 界面）===
         'lanhu_mcp.gui',
@@ -126,6 +127,7 @@ a = Analysis(
         'lanhu_mcp.gui.pages.service',
         'lanhu_mcp.gui.pages.accounts',
         'lanhu_mcp.gui.pages.projects',
+        'lanhu_mcp.gui.pages.designs',
         'lanhu_mcp.gui.pages.ide_tools',
         'lanhu_mcp.gui.pages.logs',
 

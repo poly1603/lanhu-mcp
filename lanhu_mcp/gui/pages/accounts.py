@@ -23,6 +23,7 @@ from ..components import (
 from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...services.lanhu_api import fetch_lanhu_user_profile
+from ...services.login_helper import run_login_helper
 
 
 class AccountsPage:
@@ -147,20 +148,52 @@ class AccountsPage:
             except Exception:
                 toast(self.ctx.page, "无法打开浏览器", "error", self.ctx.palette)
 
-    def _save_cookie(self) -> None:
-        cookie = (self._cookie_field.value or "").strip()
-        if not cookie:
-            toast(self.ctx.page, "请粘贴 Cookie", "warn", self.ctx.palette)
-            return
-        account = self._safe(lambda: accounts_core.upsert_account(cookie), None)
-        if not account:
-            toast(self.ctx.page, "Cookie 解析失败", "error", self.ctx.palette)
-            return
-        self._cookie_field.value = ""
-        toast(self.ctx.page, "账号已保存，正在读取资料…", "ok", self.ctx.palette)
-        self.refresh()
+    def _quick_login(self) -> None:
+        """用独立进程弹出 WebView 登录窗口，登录成功后写入账号。"""
+        url = (self._login_url_field.value or "").strip() or self._safe(accounts_core.get_saved_login_url, "")
+        self._save_login_url()
+        toast(self.ctx.page, "正在打开蓝湖登录窗口…", "info", self.ctx.palette)
+        self.ctx.add_log("=== 一键登录开始 ===")
 
-        # Enrich profile in background.
+        def work():
+            return run_login_helper(url)
+
+        def done(result):
+            if not isinstance(result, dict):
+                self.ctx.add_log("登录助手未返回有效结果")
+                toast(self.ctx.page, "登录失败", "error", self.ctx.palette)
+                return
+            diagnostics = result.get("diagnostics")
+            if isinstance(diagnostics, list):
+                for item in diagnostics[-4:]:
+                    self.ctx.add_log(f"登录诊断: {item}")
+            if result.get("status") == "success" and result.get("cookies"):
+                cookie = str(result.get("cookies", ""))
+                user_info = self._safe(lambda: accounts_core.parse_user_payload(result), {})
+                account = self._safe(lambda: accounts_core.upsert_account(cookie, user_info), None)
+                name = (user_info or {}).get("name") or "蓝湖用户"
+                self.ctx.add_log(f"[OK] 登录成功，用户: {name}")
+                toast(self.ctx.page, f"登录成功：{name}", "ok", self.ctx.palette)
+                self.refresh()
+                # Enrich profile in background.
+                self._enrich_profile(cookie)
+                return
+            error = str(result.get("error") or "").strip()
+            if error:
+                self.ctx.add_log(f"登录失败: {error}")
+                toast(self.ctx.page, f"登录失败：{error}", "error", self.ctx.palette)
+                if url:
+                    try:
+                        webbrowser.open(url)
+                    except Exception:
+                        pass
+                return
+            self.ctx.add_log("未检测到蓝湖登录，登录窗口已关闭或超时")
+            toast(self.ctx.page, "未检测到登录，窗口已关闭或超时", "warn", self.ctx.palette)
+
+        run_in_background(self.ctx.page, work, on_done=done)
+
+    def _enrich_profile(self, cookie: str) -> None:
         def work():
             return fetch_lanhu_user_profile(cookie)
 
@@ -175,6 +208,22 @@ class AccountsPage:
 
         run_in_background(self.ctx.page, work, on_done=done)
 
+    def _save_cookie(self) -> None:
+        cookie = (self._cookie_field.value or "").strip()
+        if not cookie:
+            toast(self.ctx.page, "请粘贴 Cookie", "warn", self.ctx.palette)
+            return
+        account = self._safe(lambda: accounts_core.upsert_account(cookie), None)
+        if not account:
+            toast(self.ctx.page, "Cookie 解析失败", "error", self.ctx.palette)
+            return
+        self._cookie_field.value = ""
+        toast(self.ctx.page, "账号已保存，正在读取资料…", "ok", self.ctx.palette)
+        self.refresh()
+
+        # Enrich profile in background.
+        self._enrich_profile(cookie)
+
     # -- view -----------------------------------------------------------
     def build(self) -> ft.Control:
         p = self.ctx.palette
@@ -187,8 +236,10 @@ class AccountsPage:
                 [
                     ft.Text("登录", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
                     ft.Row([self._login_url_field,
-                            secondary_button("保存", lambda e: self._save_login_url(), icon=ft.Icons.SAVE),
-                            primary_button("打开登录页", lambda e: self._open_login(), icon=ft.Icons.OPEN_IN_NEW)],
+                            secondary_button("保存", lambda e: self._save_login_url(), icon=ft.Icons.SAVE)],
+                           spacing=theme.space("2")),
+                    ft.Row([primary_button("一键登录", lambda e: self._quick_login(), icon=ft.Icons.LOGIN),
+                            secondary_button("浏览器登录", lambda e: self._open_login(), icon=ft.Icons.OPEN_IN_NEW)],
                            spacing=theme.space("2")),
                     ft.Divider(height=1, color=p.border_light),
                     self._cookie_field,
