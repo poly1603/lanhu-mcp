@@ -1,27 +1,20 @@
 # Lanhu MCP Server - 打包指南
 
+> 打包统一使用唯一权威配置 `LanhuMCP-onefile.spec`（GUI + Server 合并为单个 exe）。
+
 ## 快速打包
 
-### Windows
-```batch
-双击 build.bat
-```
-或在命令行运行：
-```batch
-build.bat
+```bash
+# 1. 安装所有依赖（含 pyinstaller）
+pip install -e ".[build]"
+# 或
+pip install -r requirements.txt pyinstaller
+
+# 2. 打包
+pyinstaller LanhuMCP-onefile.spec --clean --noconfirm
 ```
 
-### macOS/Linux
-```bash
-chmod +x build.sh
-./build.sh
-```
-
-创建 macOS .app：
-```bash
-chmod +x create_app.sh
-./create_app.sh
-```
+输出位于 `dist/LanhuMCP.exe`。
 
 ## 打包后的使用
 
@@ -101,11 +94,9 @@ lanhu_mcp --config
 
 | 文件 | 说明 |
 |------|------|
-| `lanhu_mcp_app.py` | 应用入口，支持命令行/托盘/配置向导 |
-| `lanhu_mcp.spec` | PyInstaller 打包配置 |
-| `build.bat` | Windows 打包脚本 |
-| `build.sh` | macOS/Linux 打包脚本 |
-| `create_app.sh` | macOS .app 创建脚本 |
+| `lanhu_mcp_gui.py` | GUI 主入口（亦分发 `--server` / `--login-helper` 子进程） |
+| `lanhu_mcp_app.py` | CLI 入口，支持 `--setup` / `--tray` / `--config` |
+| `LanhuMCP-onefile.spec` | PyInstaller 唯一打包配置 |
 
 ## 故障排除
 

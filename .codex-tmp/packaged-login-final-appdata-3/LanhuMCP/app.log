@@ -1,9 +1,0 @@
-2026-06-19 00:48:19 [INFO] === LanhuMCP GUI 启动 ===
-2026-06-19 00:48:19 [INFO] APP_DIR: D:\WorkBench\lanhu-mcp\dist
-2026-06-19 00:48:19 [INFO] DATA_DIR: D:\WorkBench\lanhu-mcp\.codex-tmp\packaged-login-final-appdata-3\LanhuMCP
-2026-06-19 00:48:19 [INFO] LOG_FILE: D:\WorkBench\lanhu-mcp\.codex-tmp\packaged-login-final-appdata-3\LanhuMCP\app.log
-2026-06-19 00:48:19 [INFO] sys.executable: D:\WorkBench\lanhu-mcp\dist\LanhuMCP.exe
-2026-06-19 00:48:19 [INFO] sys.frozen: True
-2026-06-19 00:48:19 [INFO] sys.version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
-2026-06-19 00:48:19 [INFO] sys._MEIPASS: C:\Users\swiml\AppData\Local\Temp\_MEI395522
-2026-06-19 00:48:19 [INFO] 登录助手分支启动: args=['D:\\WorkBench\\lanhu-mcp\\dist\\LanhuMCP.exe', '--login-helper', 'D:\\WorkBench\\lanhu-mcp\\.codex-tmp\\login-helper-final-3.json', 'D:\\WorkBench\\lanhu-mcp\\.codex-tmp\\webview-final-3', 'https://lanhuapp.com/web/']

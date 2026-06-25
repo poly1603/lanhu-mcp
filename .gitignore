@@ -12,10 +12,26 @@ uv.lock
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
 # Runtime data
 logs/
 data/
+*.login_result.json
+
+# Build artifacts
+build/
+dist/
+dist2/
+*.exe
+*.spec.bak
+
+# Tooling / temp caches
+.codex-tmp/
+.pycache_build/
+.mimocode/
+.test_scaffold/
 
 # Editors
 .DS_Store

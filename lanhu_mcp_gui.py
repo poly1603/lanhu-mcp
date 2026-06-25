@@ -2972,7 +2972,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         text=f"🎨 {project_name}",
         bg=COLORS['card'],
         fg=COLORS['text_primary'],
-        font=(FONT['family'], 14, 'bold'),
+        font=(FONT['family'], FONT['sizes']['lg'], 'bold'),
     ).pack(side=tk.LEFT)
 
     status_var = tk.StringVar(value="正在加载设计稿...")
@@ -2981,7 +2981,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         textvariable=status_var,
         bg=COLORS['card'],
         fg=COLORS['text_muted'],
-        font=(FONT['family'], 9),
+        font=(FONT['family'], FONT['sizes']['sm']),
     ).pack(side=tk.LEFT, padx=(16, 0))
 
     # 右上角操作区
@@ -2998,7 +2998,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
     # 提示词文本区（底部可折叠）
     prompt_frame = tk.Frame(win, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
     prompt_text = tk.Text(prompt_frame, height=8, bg=COLORS['card'], fg=COLORS['text_primary'],
-                          font=('Consolas', 10), wrap=tk.WORD, relief=tk.FLAT, padx=12, pady=10)
+                          font=(FONT['mono'], FONT['sizes']['base']), wrap=tk.WORD, relief=tk.FLAT, padx=14, pady=12)
     prompt_scroll = tk.Scrollbar(prompt_frame, orient=tk.VERTICAL, command=prompt_text.yview)
     prompt_text.configure(yscrollcommand=prompt_scroll.set)
     prompt_scroll.pack(side=tk.RIGHT, fill=tk.Y)
@@ -3081,7 +3081,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
     sidebar_header = tk.Frame(sidebar_frame, bg=COLORS['card'])
     sidebar_header.pack(fill=tk.X, padx=12, pady=(12, 8))
     tk.Label(sidebar_header, text="分组", bg=COLORS['card'], fg=COLORS['text_primary'],
-             font=(FONT['family'], 10, 'bold')).pack(side=tk.LEFT)
+             font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(side=tk.LEFT)
 
     sidebar_list = tk.Frame(sidebar_frame, bg=COLORS['card'])
     sidebar_list.pack(fill=tk.BOTH, expand=True, padx=8, pady=(0, 12))
@@ -3141,7 +3141,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
         all_btn = tk.Frame(sidebar_list, bg=COLORS['primary_light'], cursor='hand2')
         all_btn.pack(fill=tk.X, pady=2)
         tk.Label(all_btn, text=f"全部设计稿", bg=COLORS['primary_light'], fg=COLORS['primary'],
-                 font=(FONT['family'], 9, 'bold'), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+                 font=(FONT['family'], FONT['sizes']['sm'], 'bold'), anchor='w').pack(fill=tk.X, padx=12, pady=8)
         sector_buttons['__all__'] = all_btn
         all_btn.bind('<Button-1>', lambda e: select_sector(None, '全部设计稿'))
         for child in all_btn.winfo_children():
@@ -3154,7 +3154,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
             btn.pack(fill=tk.X, pady=2)
             label = tk.Label(btn, text=f"{sname} ({count})", bg=COLORS['card'], fg=COLORS['text_secondary'],
-                             font=(FONT['family'], 9), anchor='w')
+                             font=(FONT['family'], FONT['sizes']['sm']), anchor='w')
             label.pack(fill=tk.X, padx=12, pady=8)
             sector_buttons[sid] = btn
             btn.bind('<Button-1>', lambda e, sid=sid, sname=sname: select_sector(sid, sname))
@@ -3166,7 +3166,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             ungrouped_btn = tk.Frame(sidebar_list, bg=COLORS['card'], cursor='hand2')
             ungrouped_btn.pack(fill=tk.X, pady=2)
             tk.Label(ungrouped_btn, text=f"未分组 ({ungrouped})", bg=COLORS['card'], fg=COLORS['text_muted'],
-                     font=(FONT['family'], 9), anchor='w').pack(fill=tk.X, padx=12, pady=8)
+                     font=(FONT['family'], FONT['sizes']['sm']), anchor='w').pack(fill=tk.X, padx=12, pady=8)
             sector_buttons['__ungrouped__'] = ungrouped_btn
             ungrouped_btn.bind('<Button-1>', lambda e: select_sector('__ungrouped__', '未分组'))
             for child in ungrouped_btn.winfo_children():
@@ -3195,7 +3195,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
 
         if not filtered:
             tk.Label(design_grid, text="该分组下暂无设计稿", bg=COLORS['bg'], fg=COLORS['text_muted'],
-                     font=(FONT['family'], 11)).pack(pady=60)
+                     font=(FONT['family'], FONT['sizes']['base'])).pack(pady=60)
             return
 
         # 网格布局：每行 3 个
@@ -3231,7 +3231,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             checkbox.config(command=toggle_design)
 
             tk.Label(top_bar, text=design.get('name', '未命名')[:20], bg=COLORS['card'],
-                     fg=COLORS['text_primary'], font=(FONT['family'], 9, 'bold'), anchor='w').pack(side=tk.LEFT, padx=(4, 0))
+                     fg=COLORS['text_primary'], font=(FONT['family'], FONT['sizes']['sm'], 'bold'), anchor='w').pack(side=tk.LEFT, padx=(4, 0))
 
             # 缩略图区域
             thumb_frame = tk.Frame(cell, bg=COLORS['surface'], width=240, height=160)
@@ -3239,7 +3239,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             thumb_frame.pack_propagate(False)
 
             thumb_label = tk.Label(thumb_frame, text="加载中...", bg=COLORS['surface'],
-                                   fg=COLORS['text_muted'], font=(FONT['family'], 8))
+                                   fg=COLORS['text_muted'], font=(FONT['family'], FONT['sizes']['xs']))
             thumb_label.pack(expand=True)
 
             # 尺寸信息
@@ -3247,7 +3247,7 @@ def open_design_browser(parent_root, project_id: str, team_id: str, project_name
             if design.get('sectors'):
                 dims_text += f"  |  {', '.join(design['sectors'][:2])}"
             tk.Label(cell, text=dims_text, bg=COLORS['card'], fg=COLORS['text_muted'],
-                     font=(FONT['family'], 7), anchor='w').pack(fill=tk.X, pady=(4, 0))
+                     font=(FONT['family'], FONT['sizes']['sm']), anchor='w').pack(fill=tk.X, pady=(4, 0))
 
             # 异步加载缩略图
             def load_thumbnail(url=design.get('url', ''), label=thumb_label, design_id=design.get('id', '')):
@@ -3420,49 +3420,54 @@ def create_gui() -> None:
     main = tk.Frame(root, bg=COLORS['bg'])
     main.pack(fill=tk.BOTH, expand=True)
 
-    sidebar = tk.Frame(main, width=228, bg=COLORS['sidebar'])
+    sidebar = tk.Frame(main, width=232, bg=COLORS['sidebar'])
     sidebar.pack(side=tk.LEFT, fill=tk.Y)
     sidebar.pack_propagate(False)
 
     content = tk.Frame(main, bg=COLORS['bg'])
     content.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+    # 顶部装饰区域 - 使用简洁渐变而非复杂图案
     bg_deco = tk.Canvas(content, bg=COLORS['bg'], height=1, highlightthickness=0, bd=0)
-    bg_deco.place(relx=0, rely=0, relwidth=1, height=140)
+    bg_deco.place(relx=0, rely=0, relwidth=1, height=120)
 
     def draw_background_decor(event: object = None) -> None:
         bg_deco.delete("all")
         width = max(bg_deco.winfo_width(), 1)
-        for index in range(0, width, 34):
-            color = "#E8ECF2" if (index // 34) % 2 == 0 else "#EFF2F7"
-            bg_deco.create_line(index, 0, index + 92, 140, fill=color, width=1)
-        bg_deco.create_rectangle(0, 0, width, 140, outline="", fill="", stipple="gray75")
+        # 绘制简洁的渐变效果
+        for i in range(120):
+            alpha = i / 120
+            r = int(243 + (236 - 243) * alpha)
+            g = int(243 + (242 - 243) * alpha)
+            b = int(243 + (254 - 243) * alpha)
+            color = f"#{r:02x}{g:02x}{b:02x}"
+            bg_deco.create_line(0, i, width, i, fill=color, width=1)
 
     bg_deco.bind("<Configure>", draw_background_decor)
 
     brand = tk.Frame(sidebar, bg=COLORS['sidebar'])
-    brand.pack(fill=tk.X, padx=20, pady=(24, 20))
+    brand.pack(fill=tk.X, padx=24, pady=(28, 24))
     brand_mark = tk.Frame(brand, bg=COLORS['sidebar'])
     brand_mark.pack(anchor='w', fill=tk.X)
-    mark_box = tk.Frame(brand_mark, bg=COLORS['primary'], width=36, height=36)
+    mark_box = tk.Frame(brand_mark, bg=COLORS['primary'], width=40, height=40)
     mark_box.pack(side=tk.LEFT)
     mark_box.pack_propagate(False)
     tk.Label(mark_box, text="L", fg="#FFFFFF", bg=COLORS['primary'],
-             font=(FONT['family'], FONT['sizes']['xl'], 'bold')).pack(expand=True)
+             font=(FONT['family'], FONT['sizes']['2xl'], 'bold')).pack(expand=True)
     tk.Label(
         brand_mark,
         text="Lanhu MCP",
         fg="#FFFFFF",
         bg=COLORS['sidebar'],
-        font=(FONT['family'], FONT['sizes']['lg'], 'bold'),
-    ).pack(side=tk.LEFT, padx=(12, 0))
+        font=(FONT['family'], FONT['sizes']['xl'], 'bold'),
+    ).pack(side=tk.LEFT, padx=(14, 0))
     tk.Label(
         brand,
-        text="设计还原与项目协作控制台",
+        text="设计还原与项目协作",
         fg=COLORS['text_muted'],
         bg=COLORS['sidebar'],
         font=(FONT['family'], FONT['sizes']['sm']),
-    ).pack(anchor='w', pady=(4, 0))
+    ).pack(anchor='w', pady=(6, 0))
 
     nav_host = tk.Frame(sidebar, bg=COLORS['sidebar'])
     nav_host.pack(fill=tk.X, padx=10)
@@ -3508,7 +3513,7 @@ def create_gui() -> None:
         root.after(animation_interval_ms("sidebar_pulse"), animate_sidebar_pulse)
 
     header = tk.Frame(content, bg=COLORS['bg'])
-    header.pack(fill=tk.X, padx=24, pady=(24, 16))
+    header.pack(fill=tk.X, padx=28, pady=(28, 20))
     header_text = tk.Frame(header, bg=COLORS['bg'])
     header_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
     tk.Label(
@@ -3524,9 +3529,9 @@ def create_gui() -> None:
         bg=COLORS['bg'],
         fg=COLORS['text_secondary'],
         font=(FONT['family'], FONT['sizes']['base']),
-    ).pack(anchor='w', pady=(6, 0))
+    ).pack(anchor='w', pady=(8, 0))
     page_transition_bar = tk.Canvas(header_text, height=2, bg=COLORS['bg'], highlightthickness=0, bd=0)
-    page_transition_bar.pack(fill=tk.X, pady=(12, 0))
+    page_transition_bar.pack(fill=tk.X, pady=(14, 0))
     header_stats = tk.Frame(header, bg=COLORS['bg'])
     header_stats.pack(side=tk.RIGHT)
     header_stat_cells: list[tk.Frame] = []
@@ -3536,12 +3541,12 @@ def create_gui() -> None:
         ("方法", tk.StringVar(value=str(len(MCP_TOOL_NAMES)))),
     ):
         stat_cell = tk.Frame(header_stats, bg=COLORS['card'], highlightbackground=COLORS['border_light'], highlightthickness=1)
-        stat_cell.pack(side=tk.LEFT, padx=(10, 0))
+        stat_cell.pack(side=tk.LEFT, padx=(12, 0))
         header_stat_cells.append(stat_cell)
         tk.Label(stat_cell, text=stat_label, bg=COLORS['card'], fg=COLORS['text_muted'],
-                 font=(FONT['family'], FONT['sizes']['sm'])).pack(padx=14, pady=(8, 0))
+                 font=(FONT['family'], FONT['sizes']['sm'])).pack(padx=16, pady=(10, 0))
         tk.Label(stat_cell, textvariable=stat_var, bg=COLORS['card'], fg=COLORS['text_primary'],
-                 font=(FONT['family'], FONT['sizes']['lg'], 'bold')).pack(padx=14, pady=(2, 8))
+                 font=(FONT['family'], FONT['sizes']['lg'], 'bold')).pack(padx=16, pady=(4, 10))
 
     def layout_header(event: object = None) -> None:
         """根据窗口宽度调整顶部统计区位置。"""
@@ -3555,7 +3560,7 @@ def create_gui() -> None:
     root.bind("<Configure>", layout_header)
 
     page_shell = tk.Frame(content, bg=COLORS['bg'])
-    page_shell.pack(fill=tk.BOTH, expand=True, padx=24, pady=(0, 18))
+    page_shell.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 24))
     pages: dict[str, tk.Frame] = {}
     page_canvases: dict[str, tk.Canvas] = {}
     nav_buttons: dict[str, tk.Frame] = {}
@@ -4113,7 +4118,7 @@ def create_gui() -> None:
         fg="#8EA0B8",
         bg=COLORS['sidebar'],
         font=(FONT['family'], FONT['sizes']['xs'], 'bold'),
-    ).pack(fill=tk.X, padx=SPACING['3'], pady=(0, SPACING['2']))
+    ).pack(fill=tk.X, padx=SPACING['4'], pady=(0, SPACING['3']))
     
     for key, icon_name, title in nav_items:
         # 导航按钮容器
@@ -4126,7 +4131,7 @@ def create_gui() -> None:
         
         # 左侧选中指示条
         nav_indicator = tk.Frame(nav_button, width=3, bg=COLORS['sidebar'])
-        nav_indicator.pack(side=tk.LEFT, fill=tk.Y, padx=(0, SPACING['2']))
+        nav_indicator.pack(side=tk.LEFT, fill=tk.Y, padx=(0, SPACING['3']))
         setattr(nav_button, "indicator", nav_indicator)
         
         # 图标
@@ -4134,10 +4139,10 @@ def create_gui() -> None:
             nav_button, 
             icon_name, 
             COLORS['sidebar_text'], 
-            18, 
+            20, 
             COLORS['sidebar']
         )
-        nav_icon.pack(side=tk.LEFT, padx=(SPACING['2'], SPACING['2']), pady=SPACING['3'])
+        nav_icon.pack(side=tk.LEFT, padx=(SPACING['3'], SPACING['3']), pady=SPACING['3'])
         
         # 文字标签
         nav_label = tk.Label(
@@ -4147,7 +4152,7 @@ def create_gui() -> None:
             bg=COLORS['sidebar'],
             fg=COLORS['sidebar_text'],
             cursor='hand2',
-            font=(FONT['family'], FONT['sizes']['base'], 'bold'),
+            font=(FONT['family'], FONT['sizes']['base']),
         )
         nav_label.pack(side=tk.LEFT, fill=tk.X, expand=True, pady=SPACING['3'])
         
@@ -4186,10 +4191,10 @@ def create_gui() -> None:
     logs_page = create_page("logs")
 
     # 总览页：作为默认入口，把常用状态和动作集中在第一屏。
-    overview_hero = tk.Frame(overview_page, bg=COLORS['primary'], highlightbackground=COLORS['primary_active'], highlightthickness=1)
+    overview_hero = tk.Frame(overview_page, bg=COLORS['primary'])
     overview_hero.pack(fill=tk.X)
     overview_hero_inner = tk.Frame(overview_hero, bg=COLORS['primary'])
-    overview_hero_inner.pack(fill=tk.X, padx=24, pady=24)
+    overview_hero_inner.pack(fill=tk.X, padx=28, pady=28)
     overview_hero_text = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
     overview_hero_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
     tk.Label(
@@ -4197,19 +4202,19 @@ def create_gui() -> None:
         text="Lanhu MCP 工作台",
         bg=COLORS['primary'],
         fg="#FFFFFF",
-        font=(FONT['family'], FONT['sizes']['3xl'], 'bold'),
+        font=(FONT['family'], FONT['sizes']['4xl'], 'bold'),
     ).pack(anchor='w')
     tk.Label(
         overview_hero_text,
         text="登录蓝湖账号后启动服务，把项目、设计稿、切图和团队消息交给 AI IDE 直接调用。",
         bg=COLORS['primary'],
         fg="#D0E0FF",
-        font=(FONT['family'], FONT['sizes']['base']),
+        font=(FONT['family'], FONT['sizes']['lg']),
         wraplength=760,
         justify=tk.LEFT,
-    ).pack(anchor='w', pady=(8, 0))
+    ).pack(anchor='w', pady=(10, 0))
     overview_runtime = tk.Frame(overview_hero_text, bg=COLORS['primary_active'])
-    overview_runtime.pack(fill=tk.X, pady=(16, 0))
+    overview_runtime.pack(fill=tk.X, pady=(20, 0))
     tk.Label(
         overview_runtime,
         textvariable=runtime_var,
@@ -4218,24 +4223,24 @@ def create_gui() -> None:
         font=(FONT['mono'], FONT['sizes']['sm']),
         wraplength=760,
         justify=tk.LEFT,
-    ).pack(anchor='w', padx=12, pady=8)
+    ).pack(anchor='w', padx=14, pady=10)
     overview_actions = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
-    overview_actions.pack(side=tk.RIGHT, padx=(20, 0))
+    overview_actions.pack(side=tk.RIGHT, padx=(24, 0))
 
-    overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=14)
-    overview_login_btn.pack(fill=tk.X, pady=(0, 10))
+    overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=16)
+    overview_login_btn.pack(fill=tk.X, pady=(0, 12))
     add_button_hover_effect(overview_login_btn)
 
-    overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=14)
-    overview_start_btn.pack(fill=tk.X, pady=(0, 10))
+    overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=16)
+    overview_start_btn.pack(fill=tk.X, pady=(0, 12))
     add_button_hover_effect(overview_start_btn)
 
-    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='Ghost.TButton', width=14)
+    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='Ghost.TButton', width=16)
     overview_config_btn.pack(fill=tk.X)
     add_button_hover_effect(overview_config_btn)
 
     overview_metrics = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_metrics.pack(fill=tk.X, pady=(16, 0))
+    overview_metrics.pack(fill=tk.X, pady=(20, 0))
     metric_specs = (
         ("账号", overview_account_var, "多账号可切换，服务启动前会强制检查登录态。", "user", COLORS['primary']),
         ("服务", overview_service_var, "HTTP MCP 服务启动后可被 Codex、Claude、Mimo 等工具调用。", "activity", COLORS['success']),
@@ -4248,7 +4253,7 @@ def create_gui() -> None:
         overview_metrics.columnconfigure(index, weight=1)
 
     overview_main = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_main.pack(fill=tk.BOTH, expand=True, pady=(16, 0))
+    overview_main.pack(fill=tk.BOTH, expand=True, pady=(20, 0))
     overview_left = make_card(overview_main, "下一步操作", "wand-sparkles")
     overview_right = make_card(overview_main, "诊断与能力", "database")
     pack_responsive_pair(overview_main, overview_left, overview_right)
@@ -4739,7 +4744,7 @@ def create_gui() -> None:
                 bg=COLORS['primary_light'],
                 fg=COLORS['primary'],
                 width=4,
-                font=(FONT['family'], 9, 'bold'),
+                font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
             )
             badge.pack(side=tk.LEFT, ipady=6)
             info = tk.Frame(row_inner, bg=row.cget('bg'))
@@ -4749,7 +4754,7 @@ def create_gui() -> None:
                 text=str(project.get("name", "未命名项目")),
                 bg=row.cget('bg'),
                 fg=COLORS['text_primary'],
-                font=(FONT['family'], 10, 'bold'),
+                font=(FONT['family'], FONT['sizes']['base'], 'bold'),
             ).pack(anchor='w')
             meta_parts = [
                 f"PID {project.get('id') or '-'}",
@@ -4768,7 +4773,7 @@ def create_gui() -> None:
                 text="  |  ".join(meta_parts),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=(FONT['family'], 8),
+                font=(FONT['family'], FONT['sizes']['xs']),
             ).pack(anchor='w', pady=(3, 0))
 
             def open_project(project_url: str = str(project.get("url", ""))) -> None:
@@ -4813,7 +4818,7 @@ def create_gui() -> None:
                 f"({start + 1}–{min(end, len(_project_all_data))} / 共 {len(_project_all_data)} 个项目)"
             )
             tk.Label(paging, textvariable=_project_page_info_var, bg=COLORS['card'],
-                     fg=COLORS['text_secondary'], font=(FONT['family'], 9)).pack(side=tk.LEFT, expand=True)
+                     fg=COLORS['text_secondary'], font=(FONT['family'], FONT['sizes']['sm'])).pack(side=tk.LEFT, expand=True)
             next_btn = ttk.Button(paging, text="下一页 ▶", style='Small.TButton', width=10,
                                   command=lambda: _goto_project_page(_project_page + 1))
             next_btn.pack(side=tk.RIGHT)
@@ -5073,7 +5078,7 @@ def create_gui() -> None:
                     bg=COLORS['primary'] if is_active else COLORS['border_light'],
                     fg='#FFFFFF' if is_active else COLORS['text_secondary'],
                     width=3,
-                    font=(FONT['family'], 11, 'bold'),
+                    font=(FONT['family'], FONT['sizes']['lg'], 'bold'),
                 )
             avatar_widget.pack(side=tk.LEFT, ipady=5)
             info = tk.Frame(row_inner, bg=row.cget('bg'))
@@ -5085,7 +5090,7 @@ def create_gui() -> None:
                 text=str(account.get("name", "蓝湖用户")),
                 bg=row.cget('bg'),
                 fg=COLORS['text_primary'],
-                font=(FONT['family'], 10, 'bold'),
+                font=(FONT['family'], FONT['sizes']['base'], 'bold'),
             ).pack(side=tk.LEFT)
             if is_active:
                 tk.Label(
@@ -5093,7 +5098,7 @@ def create_gui() -> None:
                     text="当前使用",
                     bg=COLORS['primary_light'],
                     fg=COLORS['primary'],
-                    font=(FONT['family'], 8, 'bold'),
+                    font=(FONT['family'], FONT['sizes']['xs'], 'bold'),
                     padx=8,
                     pady=2,
                 ).pack(side=tk.LEFT, padx=(8, 0))
@@ -5102,14 +5107,14 @@ def create_gui() -> None:
                 text=account_detail_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=(FONT['family'], 8),
+                font=(FONT['family'], FONT['sizes']['xs']),
             ).pack(anchor='w', pady=(3, 0))
             tk.Label(
                 info,
                 text=account_profile_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=(FONT['family'], 8),
+                font=(FONT['family'], FONT['sizes']['xs']),
                 wraplength=520,
                 justify=tk.LEFT,
             ).pack(anchor='w', pady=(2, 0))
@@ -5118,7 +5123,7 @@ def create_gui() -> None:
                 text=account_cookie_line(account),
                 bg=row.cget('bg'),
                 fg=COLORS['text_muted'],
-                font=(FONT['family'], 8),
+                font=(FONT['family'], FONT['sizes']['xs']),
                 wraplength=520,
                 justify=tk.LEFT,
             ).pack(anchor='w', pady=(2, 0))

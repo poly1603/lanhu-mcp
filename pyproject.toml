@@ -89,7 +89,7 @@ lanhu-mcp-gui = "lanhu_mcp_gui:create_gui"
 lanhu-mcp-setup = "lanhu_mcp_app:main"
 
 [tool.setuptools]
-py-modules = ["lanhu_mcp_server", "lanhu_mcp_gui", "lanhu_mcp_app", "lanhu_mcp_all"]
+py-modules = ["lanhu_mcp_server", "lanhu_mcp_gui", "lanhu_mcp_app", "lanhu_login_helper"]
 
 [tool.setuptools.packages.find]
 where = ["."]

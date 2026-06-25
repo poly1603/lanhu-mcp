@@ -21,7 +21,6 @@ REM 安装依赖
 echo [1/4] 安装依赖...
 pip install -r requirements.txt -q
 pip install pyinstaller -q
-pip install pystray Pillow -q
 
 REM 清理旧的构建
 echo [2/4] 清理旧构建...
@@ -30,22 +29,20 @@ if exist build rmdir /s /q build
 
 REM 打包
 echo [3/4] 开始打包...
-pyinstaller lanhu_mcp.spec --clean --noconfirm
+pyinstaller LanhuMCP-onefile.spec --clean --noconfirm
 
 REM 检查结果
-if exist dist\lanhu_mcp\lanhu_mcp.exe (
+if exist dist\LanhuMCP.exe (
     echo.
     echo ========================================
     echo   打包成功！
     echo ========================================
     echo.
-    echo 输出目录: dist\lanhu_mcp\
-    echo 可执行文件: dist\lanhu_mcp\lanhu_mcp.exe
+    echo 输出文件: dist\LanhuMCP.exe
     echo.
     echo 使用方法:
-    echo   1. 双击 lanhu_mcp.exe 启动服务
-    echo   2. 首次运行会自动生成配置文件
-    echo   3. 运行 lanhu_mcp.exe --setup 进行配置
+    echo   1. 双击 LanhuMCP.exe 启动 GUI
+    echo   2. LanhuMCP.exe --server 启动 MCP 服务
     echo.
 ) else (
     echo.

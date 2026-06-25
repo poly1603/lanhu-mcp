@@ -53,7 +53,7 @@ a = Analysis(
     hiddenimports=[
         # === 核心入口 ===
         'lanhu_mcp_server',
-        'lanhu_mcp_all',
+        'lanhu_login_helper',
         'lanhu_mcp_gui',
 
         # === pywebview ===

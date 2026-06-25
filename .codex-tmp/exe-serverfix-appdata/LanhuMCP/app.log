@@ -1,9 +1,0 @@
-2026-06-18 23:41:09 [INFO] === LanhuMCP GUI 启动 ===
-2026-06-18 23:41:09 [INFO] APP_DIR: D:\WorkBench\lanhu-mcp\dist
-2026-06-18 23:41:09 [INFO] DATA_DIR: D:\WorkBench\lanhu-mcp\.codex-tmp\exe-serverfix-appdata\LanhuMCP
-2026-06-18 23:41:09 [INFO] LOG_FILE: D:\WorkBench\lanhu-mcp\.codex-tmp\exe-serverfix-appdata\LanhuMCP\app.log
-2026-06-18 23:41:09 [INFO] sys.executable: D:\WorkBench\lanhu-mcp\dist\LanhuMCP.exe
-2026-06-18 23:41:09 [INFO] sys.frozen: True
-2026-06-18 23:41:09 [INFO] sys.version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
-2026-06-18 23:41:09 [INFO] sys._MEIPASS: C:\Users\swiml\AppData\Local\Temp\_MEI646162
-2026-06-18 23:41:09 [INFO] MCP 内置服务分支启动
