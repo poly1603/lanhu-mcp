@@ -17,6 +17,7 @@ from ..components import (
     empty_state,
     run_in_background,
     toast,
+    show_error,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
@@ -263,7 +264,8 @@ class ProjectsPage:
         def err(exc):
             self._refreshing = False
             self._render_refresh_button()
-            self.ctx.add_log(f"项目刷新异常: {exc}")
+            show_error(self.ctx.page, exc, "项目刷新", self.ctx.palette, self.ctx.add_log)
+            self._load_cached()
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 

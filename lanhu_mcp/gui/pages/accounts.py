@@ -19,6 +19,7 @@ from ..components import (
     empty_state,
     run_in_background,
     toast,
+    show_error,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
@@ -179,8 +180,8 @@ class AccountsPage:
             try:
                 webbrowser.open(url)
                 toast(self.ctx.page, "已在浏览器打开登录页，登录后复制 Cookie 粘贴到下方", "info", self.ctx.palette)
-            except Exception:
-                toast(self.ctx.page, "无法打开浏览器", "error", self.ctx.palette)
+            except Exception as exc:
+                show_error(self.ctx.page, exc, "打开浏览器", self.ctx.palette, self.ctx.add_log)
 
     def _quick_login(self) -> None:
         """用独立进程弹出 WebView 登录窗口，登录成功后写入账号。"""
@@ -225,7 +226,10 @@ class AccountsPage:
             self.ctx.add_log("未检测到蓝湖登录，登录窗口已关闭或超时")
             toast(self.ctx.page, "未检测到登录，窗口已关闭或超时", "warn", self.ctx.palette)
 
-        run_in_background(self.ctx.page, work, on_done=done)
+        def err(exc):
+            show_error(self.ctx.page, exc, "一键登录", self.ctx.palette, self.ctx.add_log)
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     def _enrich_profile(self, cookie: str) -> None:
         def work():
@@ -240,7 +244,11 @@ class AccountsPage:
                 self.ctx.add_log(f"读取用户资料失败: {msg}")
             self.refresh()
 
-        run_in_background(self.ctx.page, work, on_done=done)
+        def err(exc):
+            show_error(self.ctx.page, exc, "读取用户资料", self.ctx.palette, self.ctx.add_log)
+            self.refresh()
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     def _save_cookie(self) -> None:
         cookie = (self._cookie_field.value or "").strip()

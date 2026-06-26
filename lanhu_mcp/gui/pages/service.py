@@ -17,6 +17,7 @@ from ..components import (
     ghost_icon_button,
     run_in_background,
     toast,
+    show_error,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
@@ -102,8 +103,12 @@ class ServicePage:
                   "ok" if ok else "error", self.ctx.palette)
             self._render_status()
 
-        run_in_background(self.ctx.page, work, on_done=done,
-                          on_error=lambda exc: (setattr(self, "_busy", False), self._render_status()))
+        def err(exc):
+            self._busy = False
+            show_error(self.ctx.page, exc, "服务启动", self.ctx.palette, self.ctx.add_log)
+            self._render_status()
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     def _stop(self) -> None:
         self._set_busy(True)
@@ -119,8 +124,12 @@ class ServicePage:
                   "ok" if ok else "error", self.ctx.palette)
             self._render_status()
 
-        run_in_background(self.ctx.page, work, on_done=done,
-                          on_error=lambda exc: (setattr(self, "_busy", False), self._render_status()))
+        def err(exc):
+            self._busy = False
+            show_error(self.ctx.page, exc, "服务停止", self.ctx.palette, self.ctx.add_log)
+            self._render_status()
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     def _health_check(self) -> None:
         url = self._mcp_url()
@@ -140,8 +149,7 @@ class ServicePage:
             toast(self.ctx.page, msg, "ok" if alive else "error", self.ctx.palette)
 
         def err(exc):
-            self.ctx.add_log(f"健康检查失败: {exc}")
-            toast(self.ctx.page, "无法连接 MCP 服务，请确认服务已启动", "error", self.ctx.palette)
+            show_error(self.ctx.page, exc, "健康检查", self.ctx.palette, self.ctx.add_log)
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
@@ -156,8 +164,8 @@ class ServicePage:
             try:
                 self.ctx.page.set_clipboard(text)
                 toast(self.ctx.page, "配置已复制", "ok", p)
-            except Exception:
-                toast(self.ctx.page, "复制失败", "error", p)
+            except Exception as exc:
+                show_error(self.ctx.page, exc, "复制配置", p, self.ctx.add_log)
 
         blocks: List[ft.Control] = []
         for label, text in snippets:

@@ -16,6 +16,7 @@ from .widgets import (
     section_title,
     field_row,
     toast,
+    show_error,
     run_in_background,
 )
 
@@ -31,5 +32,6 @@ __all__ = [
     "section_title",
     "field_row",
     "toast",
+    "show_error",
     "run_in_background",
 ]

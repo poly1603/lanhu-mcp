@@ -17,7 +17,7 @@ from typing import Dict, List, Optional
 import flet as ft
 
 from .. import theme
-from ..components import run_in_background, toast
+from ..components import run_in_background, toast, show_error
 from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...services.lanhu_api import _fetch_designs_api, _download_image_bytes
@@ -71,6 +71,7 @@ class DesignBrowser:
             if not isinstance(result, dict) or result.get("status") != "success":
                 msg = (result or {}).get("message", "未知错误") if isinstance(result, dict) else "请求失败"
                 self._status.value = f"加载失败：{msg}"
+                self.ctx.add_log(f"设计稿加载失败: {msg}")
                 self.ctx.page.update()
                 return
             self._designs = result.get("designs", []) or []
@@ -79,7 +80,11 @@ class DesignBrowser:
             self.ctx.page.update()
             self._load_thumbnails()
 
-        run_in_background(self.ctx.page, work, on_done=done)
+        def err(exc):
+            self._status.value = "加载失败，请查看日志"
+            show_error(self.ctx.page, exc, "加载设计稿", self.ctx.palette, self.ctx.add_log)
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     # -- rendering ------------------------------------------------------
     def _design_key(self, design: dict) -> str:
@@ -258,8 +263,8 @@ class DesignBrowser:
         try:
             self.ctx.page.set_clipboard(prompt)
             toast(self.ctx.page, f"已复制 {len(designs)} 张设计稿提示词到剪贴板", "ok", self.ctx.palette)
-        except Exception:
-            toast(self.ctx.page, "复制失败", "error", self.ctx.palette)
+        except Exception as exc:
+            show_error(self.ctx.page, exc, "复制提示词", self.ctx.palette, self.ctx.add_log)
 
     def _close(self) -> None:
         if self._thumb_pool is not None:

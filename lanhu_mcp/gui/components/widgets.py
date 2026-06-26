@@ -16,6 +16,7 @@ import flet as ft
 
 from .. import theme
 from ..theme import Palette
+from ...core.errors import describe_error
 
 
 # ---------------------------------------------------------------------------
@@ -294,6 +295,29 @@ def toast(page: ft.Page, message: str, kind: str = "info", palette: Optional[Pal
     page.open(bar)
 
 
+def show_error(
+    page: ft.Page,
+    exc: BaseException,
+    context: str = "",
+    palette: Optional[Palette] = None,
+    log: Optional[Callable[[str], None]] = None,
+) -> None:
+    """Render a friendly error toast and (optionally) log the raw exception.
+
+    Centralizes error UX: maps the raw exception to a short message plus an
+    actionable hint via :func:`lanhu_mcp.core.errors.describe_error`, shows it
+    as a SnackBar, and writes both the friendly line and the raw error to the
+    provided ``log`` callback (usually ``ctx.add_log``).
+    """
+    friendly = describe_error(exc, context)
+    if log is not None:
+        try:
+            log(f"{friendly.as_line()} (原始错误: {exc!r})")
+        except Exception:  # noqa: BLE001
+            pass
+    toast(page, friendly.as_line(), "error", palette)
+
+
 __all__ = [
     "run_in_background",
     "card",
@@ -307,4 +331,5 @@ __all__ = [
     "ghost_icon_button",
     "StatusBadge",
     "toast",
+    "show_error",
 ]
