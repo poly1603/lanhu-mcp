@@ -175,7 +175,6 @@ def metric_tile(
         border=ft.border.all(1, palette.border_light),
         border_radius=theme.radius("xl"),
         padding=theme.space("5"),
-        expand=True,
         shadow=ft.BoxShadow(spread_radius=0, blur_radius=3, color=palette.shadow_sm, offset=ft.Offset(0, 1)),
         animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
     )
@@ -237,8 +236,6 @@ def quick_action_tile(
         padding=theme.space("5"),
         ink=True,
         on_click=on_click,
-        expand=True,
-        shadow=ft.BoxShadow(spread_radius=0, blur_radius=3, color=palette.shadow_sm, offset=ft.Offset(0, 1)),
         animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
     )
 

@@ -57,7 +57,7 @@ class AppShell:
             content=self._switcher,
             padding=ft.padding.symmetric(horizontal=theme.space("8"), vertical=theme.space("6")),
             expand=True,
-            bgcolor=None,
+            bgcolor=self.ctx.palette.bg,
         )
 
         self._nav_buttons: Dict[str, ft.Container] = {}
@@ -304,13 +304,38 @@ class AppShell:
 
 
 def main(page: ft.Page) -> None:
-    shell = AppShell(page)
-    shell.mount()
+    try:
+        shell = AppShell(page)
+        shell.mount()
+    except Exception as e:
+        import traceback
+        print(f"AppShell mount error: {e}")
+        traceback.print_exc()
+        # 显示错误页面
+        page.controls.clear()
+        page.add(
+            ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.Icons.ERROR_OUTLINE, color="red", size=48),
+                    ft.Text(f"应用启动失败: {e}", size=16, weight=ft.FontWeight.BOLD),
+                    ft.Text(traceback.format_exc(), size=12, selectable=True),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                alignment=ft.alignment.center,
+                expand=True,
+            )
+        )
+        page.update()
 
 
 def run() -> None:
     """Launch the Flet desktop app."""
-    ft.app(target=main)
+    try:
+        ft.app(target=main)
+    except Exception as e:
+        import traceback
+        print(f"Flet app error: {e}")
+        traceback.print_exc()
+        raise
 
 
 __all__ = ["AppShell", "main", "run", "APP_TITLE", "NAV_ITEMS"]
