@@ -1,7 +1,8 @@
-"""Accounts page — login URL, manual cookie, multi-account switch/remove, profile."""
+"""Accounts page (v2) — enriched login card, avatar avatar list, detail with status."""
 
 from __future__ import annotations
 
+import hashlib
 import webbrowser
 from typing import List, Optional
 
@@ -9,22 +10,26 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title,
-    card,
-    StatusBadge,
-    primary_button,
-    secondary_button,
-    danger_button,
-    field_row,
-    empty_state,
-    run_in_background,
-    toast,
-    show_error,
+    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
+    primary_button, secondary_button, danger_button, field_row, empty_state,
+    run_in_background, toast, show_error,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...services.lanhu_api import fetch_lanhu_user_profile
 from ...services.login_helper import run_login_helper
+
+
+def _avatar_color(name: str) -> str:
+    """Stable pastel color from name for avatar circles."""
+    colors = ["#0052D9", "#00A870", "#ED7B2F", "#E34D59", "#00809A", "#F59D0A", "#7446D8", "#D9407A"]
+    h = hashlib.md5(name.encode("utf-8")).hexdigest()
+    idx = int(h[:2], 16) % len(colors)
+    return colors[idx]
+
+
+def _avatar_initial(name: str) -> str:
+    return (name or "?")[0].upper()
 
 
 class AccountsPage:
@@ -36,10 +41,9 @@ class AccountsPage:
         )
         self._account_list = ft.Column(spacing=theme.space("2"))
         self._detail_holder = ft.Column(spacing=theme.space("2"))
-        # Signature of the last rendered account view; skip rebuild when unchanged.
         self._render_sig = None
 
-    # -- data -----------------------------------------------------------
+    # ── data ──────────────────────────────────────────────────────
     def _safe(self, fn, default):
         try:
             return fn()
@@ -47,7 +51,6 @@ class AccountsPage:
             return default
 
     def _accounts_signature(self, account_list, active, active_id: str) -> str:
-        """Visible-field fingerprint covering rows + active detail + port."""
         parts: List[str] = [f"active={active_id}", f"port={self.ctx.port}"]
         for acc in account_list or []:
             acc_id = acc.get("id", "")
@@ -74,7 +77,7 @@ class AccountsPage:
 
         signature = self._accounts_signature(account_list, active, active_id)
         if signature == self._render_sig and self._account_list.controls and self._detail_holder.controls:
-            return  # nothing visible changed; avoid widget churn
+            return
         self._render_sig = signature
 
         if not account_list:
@@ -88,49 +91,50 @@ class AccountsPage:
                 is_active = acc_id == active_id
                 contact = accounts_core.account_primary_contact(acc)
                 detail = accounts_core.account_detail_line(acc)
+                avatar_color = _avatar_color(contact or acc_id)
                 actions: List[ft.Control] = []
                 if is_active:
                     actions.append(StatusBadge(p, "使用中", "ok"))
                 else:
-                    actions.append(secondary_button("切换", lambda e, i=acc_id: self._switch(i),
-                                                     icon=ft.Icons.SWAP_HORIZ))
-                actions.append(danger_button(p, "退出", lambda e, i=acc_id: self._remove(i),
-                                              icon=ft.Icons.LOGOUT))
+                    actions.append(secondary_button("切换", lambda e, i=acc_id: self._switch(i), icon=ft.Icons.SWAP_HORIZ))
+                actions.append(danger_button(p, "退出", lambda e, i=acc_id: self._remove(i), icon=ft.Icons.LOGOUT))
+
+                # Avatar circle
+                avatar = ft.Container(
+                    content=ft.Text(_avatar_initial(contact or "L"), color="#FFFFFF",
+                                    weight=theme.WEIGHT_BOLD, size=theme.font_size("lg")),
+                    width=40, height=40, bgcolor=avatar_color,
+                    border_radius=theme.radius("full"),
+                    alignment=ft.alignment.center,
+                )
+
                 rows.append(
                     ft.Container(
-                        content=ft.Row(
-                            [
-                                ft.Icon(ft.Icons.ACCOUNT_CIRCLE, color=p.primary if is_active else p.text_muted),
-                                ft.Column(
-                                    [
-                                        ft.Text(contact or "蓝湖用户", weight=theme.WEIGHT_MEDIUM,
-                                                color=p.text_primary),
-                                        ft.Text(detail, size=theme.font_size("xs"), color=p.text_muted),
-                                    ],
-                                    spacing=2, expand=True,
-                                ),
-                                ft.Row(actions, spacing=theme.space("2")),
-                            ],
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                            spacing=theme.space("3"),
-                        ),
-                        bgcolor=p.primary_light if is_active else p.surface,
-                        border=ft.border.all(1, p.border_focus if is_active else p.border_light),
-                        border_radius=theme.radius("md"),
-                        padding=theme.space("3"),
+                        content=ft.Row([
+                            avatar,
+                            ft.Column([
+                                ft.Text(contact or "蓝湖用户", weight=theme.WEIGHT_MEDIUM, color=p.text_primary),
+                                ft.Text(detail, size=theme.font_size("xs"), color=p.text_muted),
+                            ], spacing=2, expand=True),
+                            ft.Row(actions, spacing=theme.space("2")),
+                        ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=theme.space("3")),
+                        bgcolor=p.primary_light if is_active else None,
+                        border=ft.border.all(1, p.primary if is_active else p.border_light),
+                        border_radius=theme.radius("xl"),
+                        padding=theme.space("4"),
+                        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
                     )
                 )
             self._account_list.controls = rows
 
-        # Active account detail panel.
+        # Active detailed panel
         if active:
             expiry = accounts_core.account_cookie_expiry(active)
             status_kind = {"valid": "ok", "expiring": "warn", "expired": "error"}.get(
                 expiry.get("status"), "info")
             self._detail_holder.controls = [
                 ft.Row([
-                    ft.Text("账号资料", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD,
-                            color=p.text_primary),
+                    ft.Text("账号资料", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
                     ft.Container(expand=True),
                     StatusBadge(p, accounts_core.account_cookie_status_line(active), status_kind),
                 ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -151,7 +155,7 @@ class AccountsPage:
         except Exception:
             pass
 
-    # -- actions --------------------------------------------------------
+    # ── actions ───────────────────────────────────────────────────
     def _switch(self, account_id: str) -> None:
         if self.ctx.service.is_running():
             toast(self.ctx.page, "服务运行中，无法切换账号", "warn", self.ctx.palette)
@@ -184,7 +188,6 @@ class AccountsPage:
                 show_error(self.ctx.page, exc, "打开浏览器", self.ctx.palette, self.ctx.add_log)
 
     def _quick_login(self) -> None:
-        """用独立进程弹出 WebView 登录窗口，登录成功后写入账号。"""
         url = (self._login_url_field.value or "").strip() or self._safe(accounts_core.get_saved_login_url, "")
         self._save_login_url()
         toast(self.ctx.page, "正在打开蓝湖登录窗口…", "info", self.ctx.palette)
@@ -210,7 +213,6 @@ class AccountsPage:
                 self.ctx.add_log(f"[OK] 登录成功，用户: {name}")
                 toast(self.ctx.page, f"登录成功：{name}", "ok", self.ctx.palette)
                 self.refresh()
-                # Enrich profile in background.
                 self._enrich_profile(cookie)
                 return
             error = str(result.get("error") or "").strip()
@@ -262,48 +264,54 @@ class AccountsPage:
         self._cookie_field.value = ""
         toast(self.ctx.page, "账号已保存，正在读取资料…", "ok", self.ctx.palette)
         self.refresh()
-
-        # Enrich profile in background.
         self._enrich_profile(cookie)
 
-    # -- view -----------------------------------------------------------
+    # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
         self._login_url_field.value = self._safe(accounts_core.get_saved_login_url, "")
         self._render_accounts()
 
-        login_card = card(
+        # ── Login card ──
+        login_card = gradient_card(
             p,
-            ft.Column(
-                [
-                    ft.Text("登录", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                    ft.Row([self._login_url_field,
-                            secondary_button("保存", lambda e: self._save_login_url(), icon=ft.Icons.SAVE)],
-                           spacing=theme.space("2")),
-                    ft.Row([primary_button("一键登录", lambda e: self._quick_login(), icon=ft.Icons.LOGIN),
-                            secondary_button("浏览器登录", lambda e: self._open_login(), icon=ft.Icons.OPEN_IN_NEW)],
-                           spacing=theme.space("2")),
-                    ft.Divider(height=1, color=p.border_light),
-                    self._cookie_field,
-                    ft.Row([primary_button("保存 Cookie", lambda e: self._save_cookie(), icon=ft.Icons.ADD)],
-                           spacing=theme.space("2")),
-                ],
-                spacing=theme.space("3"),
-            ),
+            ft.Column([
+                ft.Text("登录", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                ft.Row([
+                    self._login_url_field,
+                    secondary_button("保存", lambda e: self._save_login_url(), icon=ft.Icons.SAVE),
+                ], spacing=theme.space("2")),
+                ft.Row([
+                    primary_button("一键登录", lambda e: self._quick_login(), icon=ft.Icons.LOGIN),
+                    secondary_button("浏览器登录", lambda e: self._open_login(), icon=ft.Icons.OPEN_IN_NEW),
+                    ft.Container(expand=True),
+                    secondary_button("清空缓存", lambda e: self._clear_cache(), icon=ft.Icons.DELETE_OUTLINE,
+                                    disabled=True),  # not yet implemented
+                ], spacing=theme.space("2")),
+                ft.Divider(height=1, color=p.border_light),
+                self._cookie_field,
+                ft.Row([primary_button("保存 Cookie", lambda e: self._save_cookie(), icon=ft.Icons.ADD),
+                        ft.Text("或粘贴已登录的 Cookie 数据", size=theme.font_size("xs"), color=p.text_muted)],
+                       spacing=theme.space("2")),
+            ], spacing=theme.space("3")),
         )
-        accounts_card = card(
-            p,
-            ft.Column(
-                [ft.Text("已登录账号", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD,
-                         color=p.text_primary), self._account_list],
-                spacing=theme.space("3"),
-            ),
-        )
+
+        # ── Account list card ──
+        n_accounts = len(self._safe(accounts_core.get_accounts, []))
+        accounts_header = ft.Row([
+            ft.Text("已登录账号", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+            ft.Container(expand=True),
+            CountBadge(p, n_accounts, "info"),
+        ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+        accounts_card = card(p, ft.Column([accounts_header, self._account_list], spacing=theme.space("3")))
+
+        # ── Detail card ──
         detail_card = card(p, self._detail_holder)
 
         return ft.Column(
             [
-                section_title(p, "账号", "登录、切换与管理蓝湖账号"),
+                section_title(p, "账号", "登录 · 切换 · 管理蓝湖账号"),
                 login_card,
                 accounts_card,
                 detail_card,
@@ -312,6 +320,9 @@ class AccountsPage:
             scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
+
+    def _clear_cache(self) -> None:
+        toast(self.ctx.page, "缓存已清空（功能待实现）", "info", self.ctx.palette)
 
 
 __all__ = ["AccountsPage"]

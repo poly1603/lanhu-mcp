@@ -1,11 +1,4 @@
-"""Design browser dialog — port of the legacy Tkinter ``open_design_browser``.
-
-Opens a modal dialog that lists a project's design images (fetched from the
-Lanhu API), lets the user multi-select them and generates a restoration prompt
-that is copied to the clipboard. Thumbnails are downloaded in the background
-(with the active account cookie) and rendered as base64 images; failures fall
-back to a placeholder icon so the dialog never blocks on a single bad image.
-"""
+"""Design browser dialog (v2) — enriched with progress bar, checkmark selection."""
 
 from __future__ import annotations
 
@@ -22,8 +15,8 @@ from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...services.lanhu_api import _fetch_designs_api, _download_image_bytes
 
-THUMB_MAX_BYTES = 2 * 1024 * 1024  # skip oversized thumbnails
-THUMB_CONCURRENCY = 4  # cap parallel thumbnail downloads
+THUMB_MAX_BYTES = 2 * 1024 * 1024
+THUMB_CONCURRENCY = 4
 
 
 class DesignBrowser:
@@ -34,17 +27,19 @@ class DesignBrowser:
                                   child_aspect_ratio=0.8, spacing=12, run_spacing=12)
         self._status = ft.Text("正在加载设计稿…", color=ctx.palette.text_muted,
                                size=theme.font_size("sm"))
+        self._progress = ft.ProgressBar(width=200, visible=False)
         self._designs: List[dict] = []
         self._selected: Dict[str, dict] = {}
         self._project_name = ""
         self._cookie = ""
-        # url -> base64 thumbnail, reused across re-opens within a session.
         self._thumb_cache: Dict[str, str] = {}
         self._thumb_pool: Optional[ThreadPoolExecutor] = None
         self._thumb_lock = threading.Lock()
         self._pending_update = False
+        self._thumb_total = 0
+        self._thumb_done = 0
 
-    # -- public ---------------------------------------------------------
+    # ── public ────────────────────────────────────────────────────
     def open_for(self, project_id: str, team_id: str, project_name: str) -> None:
         try:
             active = accounts_core.get_active_account()
@@ -57,8 +52,12 @@ class DesignBrowser:
         self._project_name = project_name or "设计稿"
         self._designs = []
         self._selected = {}
+        self._thumb_total = 0
+        self._thumb_done = 0
         self._grid.controls = []
         self._status.value = "正在加载设计稿…"
+        self._progress.visible = True
+        self._progress.value = None  # indeterminate
 
         self._dialog = self._build_dialog()
         self.ctx.page.open(self._dialog)
@@ -71,25 +70,29 @@ class DesignBrowser:
             if not isinstance(result, dict) or result.get("status") != "success":
                 msg = (result or {}).get("message", "未知错误") if isinstance(result, dict) else "请求失败"
                 self._status.value = f"加载失败：{msg}"
+                self._progress.visible = False
                 self.ctx.add_log(f"设计稿加载失败: {msg}")
                 self.ctx.page.update()
                 return
             self._designs = result.get("designs", []) or []
             self._status.value = f"共 {len(self._designs)} 张设计稿，点击卡片可多选"
+            self._progress.visible = False
             self._render_grid()
             self.ctx.page.update()
             self._load_thumbnails()
 
         def err(exc):
             self._status.value = "加载失败，请查看日志"
+            self._progress.visible = False
             show_error(self.ctx.page, exc, "加载设计稿", self.ctx.palette, self.ctx.add_log)
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
-    # -- rendering ------------------------------------------------------
+    # ── key ───────────────────────────────────────────────────────
     def _design_key(self, design: dict) -> str:
         return str(design.get("id") or design.get("index") or design.get("name"))
 
+    # ── grid ──────────────────────────────────────────────────────
     def _render_grid(self) -> None:
         p = self.ctx.palette
         controls: List[ft.Control] = []
@@ -97,19 +100,45 @@ class DesignBrowser:
             key = self._design_key(design)
             selected = key in self._selected
             dims = f"{design.get('width', '?')}×{design.get('height', '?')}"
+
+            # Thumbnail placeholder
+            thumb_content: ft.Control = ft.Icon(ft.Icons.IMAGE, color=p.text_muted, size=40)
             thumb = ft.Container(
-                content=ft.Icon(ft.Icons.IMAGE, color=p.text_muted, size=40),
+                content=thumb_content,
                 bgcolor=p.surface_alt if hasattr(p, "surface_alt") else p.surface,
                 border_radius=theme.radius("sm"),
                 alignment=ft.alignment.center,
                 height=150,
                 key=f"thumb-{key}",
             )
+
+            # Checkmark overlay
+            check_overlay = ft.Container(
+                width=28, height=28,
+                content=ft.Icon(
+                    ft.Icons.CHECK_CIRCLE if selected else ft.Icons.RADIO_BUTTON_UNCHECKED,
+                    size=22,
+                    color=p.primary if selected else p.text_muted,
+                ),
+                bgcolor="#FFFFFF" if selected else "#FFFFFFDD",
+                border=ft.border.all(2, p.primary if selected else p.border_light),
+                border_radius=theme.radius("full"),
+                alignment=ft.alignment.center,
+                opacity=1.0 if selected else 0.5,
+                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+            )
+
+            # Stack the thumbnail + checkmark
+            stacked_thumb = ft.Stack(
+                [thumb, ft.Container(check_overlay, alignment=ft.alignment.top_right, margin=8)],
+                expand=False,
+            )
+
             card = ft.Container(
                 key=f"card-{key}",
                 content=ft.Column(
                     [
-                        thumb,
+                        stacked_thumb,
                         ft.Text(design.get("name", "未命名"), size=theme.font_size("sm"),
                                 color=p.text_primary, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                         ft.Text(dims, size=theme.font_size("xs"), color=p.text_muted),
@@ -117,12 +146,13 @@ class DesignBrowser:
                     spacing=6,
                 ),
                 padding=theme.space("2"),
-                bgcolor=p.primary_light if selected else p.surface,
+                bgcolor=p.primary_light if selected else p.card,
                 border=ft.border.all(2 if selected else 1,
                                      p.primary if selected else p.border_light),
                 border_radius=theme.radius("md"),
                 on_click=lambda e, d=design: self._toggle(d),
                 ink=True,
+                animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
             )
             controls.append(card)
         self._grid.controls = controls
@@ -134,22 +164,14 @@ class DesignBrowser:
         else:
             self._selected[key] = design
         self._render_grid()
-        # Re-apply thumbnails that were already downloaded.
         self._reapply_thumbnails()
         self._status.value = (
             f"共 {len(self._designs)} 张设计稿，已选 {len(self._selected)} 张"
         )
         self.ctx.page.update()
 
+    # ── thumbnails ────────────────────────────────────────────────
     def _load_thumbnails(self) -> None:
-        """Download thumbnails with bounded concurrency, caching by URL.
-
-        Already-cached thumbnails are applied immediately; the rest are fetched
-        on a small thread pool so a project with many designs cannot spawn an
-        unbounded number of threads. UI updates are throttled into one refresh
-        per batch of completed downloads.
-        """
-        # Apply any cached thumbnails up front.
         applied_cached = False
         for design in self._designs:
             url = design.get("url")
@@ -162,7 +184,18 @@ class DesignBrowser:
 
         pending = [d for d in self._designs if d.get("url") and not d.get("_thumb_b64")]
         if not pending:
+            self._thumb_total = 0
+            self._thumb_done = 0
+            self._progress.visible = False
+            self._safe_update()
             return
+
+        self._thumb_total = len(pending)
+        self._thumb_done = 0
+        self._progress.visible = True
+        self._progress.value = 0.0
+        self._safe_update()
+
         self._thumb_pool = ThreadPoolExecutor(max_workers=THUMB_CONCURRENCY)
 
         def fetch(design: dict) -> None:
@@ -171,12 +204,15 @@ class DesignBrowser:
                 data = _download_image_bytes(url, self._cookie, max_bytes=THUMB_MAX_BYTES)
             except Exception:
                 data = b""
-            if not data:
-                return
-            b64 = base64.b64encode(data).decode("ascii")
+            if data:
+                b64 = base64.b64encode(data).decode("ascii")
+                with self._thumb_lock:
+                    self._thumb_cache[url] = b64
+                    design["_thumb_b64"] = b64
             with self._thumb_lock:
-                self._thumb_cache[url] = b64
-                design["_thumb_b64"] = b64
+                self._thumb_done += 1
+                self._progress.value = min(1.0, self._thumb_done / max(self._thumb_total, 1))
+                self._status.value = f"加载缩略图 {self._thumb_done}/{self._thumb_total} · 已选 {len(self._selected)}"
                 should_schedule = not self._pending_update
                 self._pending_update = True
             if should_schedule:
@@ -186,11 +222,13 @@ class DesignBrowser:
             self._thumb_pool.submit(fetch, design)
 
     def _schedule_thumbnail_refresh(self) -> None:
-        """Coalesce rapid thumbnail completions into a single UI refresh."""
         def flush() -> None:
             with self._thumb_lock:
                 self._pending_update = False
             self._reapply_thumbnails()
+            if self._thumb_total > 0 and self._thumb_done >= self._thumb_total:
+                self._progress.visible = False
+                self._status.value = f"共 {len(self._designs)} 张设计稿，已选 {len(self._selected)} · 缩略图已就绪"
             self._safe_update()
 
         timer = threading.Timer(0.15, flush)
@@ -211,14 +249,17 @@ class DesignBrowser:
             column = card.content
             if not isinstance(column, ft.Column) or not column.controls:
                 continue
-            thumb = column.controls[0]
+            # The first control in Column is a Stack
+            stack = column.controls[0]
+            if not isinstance(stack, ft.Stack) or not stack.controls:
+                continue
+            thumb = stack.controls[0]
             key = (card.key or "").replace("card-", "")
             design = index.get(key)
             if design and design.get("_thumb_b64") and isinstance(thumb, ft.Container):
-                thumb.content = ft.Image(src_base64=design["_thumb_b64"], fit=ft.ImageFit.CONTAIN,
-                                         height=150)
+                thumb.content = ft.Image(src_base64=design["_thumb_b64"], fit=ft.ImageFit.CONTAIN, height=150)
 
-    # -- actions --------------------------------------------------------
+    # ── prompt ────────────────────────────────────────────────────
     def _generate_prompt(self) -> None:
         if not self._selected:
             toast(self.ctx.page, "请先选择设计稿", "warn", self.ctx.palette)
@@ -274,6 +315,7 @@ class DesignBrowser:
             self.ctx.page.close(self._dialog)
             self.ctx.page.update()
 
+    # ── dialog ────────────────────────────────────────────────────
     def _build_dialog(self) -> ft.AlertDialog:
         p = self.ctx.palette
         return ft.AlertDialog(
@@ -283,10 +325,12 @@ class DesignBrowser:
                     ft.Text(f"设计稿浏览 · {self._project_name}", weight=theme.WEIGHT_SEMIBOLD,
                             color=p.text_primary, expand=True),
                     self._status,
+                    self._progress,
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                wrap=True,
             ),
-            content=ft.Container(content=self._grid, width=860, height=520),
+            content=ft.Container(content=self._grid, width=860, height=540),
             actions=[
                 ft.TextButton("关闭", on_click=lambda e: self._close()),
                 ft.FilledButton("生成提示词", icon=ft.Icons.AUTO_AWESOME,
