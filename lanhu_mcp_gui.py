@@ -1573,6 +1573,35 @@ def create_gui() -> None:
             rect((4, 7, size - 7, size - 4))
             line([size - 10, 4, size - 4, 4, size - 4, 10])
             line([size - 4, 4, size - 11, 11])
+        elif icon_name in ("rocket",):
+            # 火箭图标：主体 + 尾焰
+            line([size // 2, 2, size // 2 + 3, 8, size // 2 + 3, size - 8, size // 2, size - 3, size // 2 - 3, size - 8, size // 2 - 3, 8, size // 2, 2])
+            line([size // 2 - 5, size - 8, size // 2 - 3, size - 5])
+            line([size // 2 + 5, size - 8, size // 2 + 3, size - 5])
+            oval((size // 2 - 1, 10, size // 2 + 1, 12))
+        elif icon_name in ("gauge",):
+            # 仪表盘图标
+            arc_box = (3, 5, size - 3, size - 3)
+            canvas.create_arc(*arc_box, start=220, extent=100, style=tk.ARC, outline=color, width=stroke)
+            line([size // 2, size // 2 + 2, size // 2 + 4, size - 6])
+            oval((size // 2 - 2, size // 2 - 2, size // 2 + 2, size // 2 + 2))
+        elif icon_name in ("zap",):
+            # 闪电图标
+            line([size // 2 + 2, 2, size // 2 - 4, size // 2 + 2, size // 2 + 1, size // 2 + 2, size // 2 - 2, size - 2])
+        elif icon_name in ("puzzle",):
+            # 拼图图标
+            rect((3, 3, size - 3, size - 3))
+            line([size // 2, 3, size // 2, 7])
+            line([size // 2 - 2, 5, size // 2 + 2, 5])
+            line([3, size // 2, 7, size // 2])
+            line([5, size // 2 - 2, 5, size // 2 + 2])
+        elif icon_name in ("sparkles",):
+            # 星星闪烁图标
+            line([size // 2, 2, size // 2, size - 2])
+            line([2, size // 2, size - 2, size // 2])
+            line([5, 5, size - 5, size - 5])
+            line([size - 5, 5, 5, size - 5])
+            oval((size // 2 - 2, size // 2 - 2, size // 2 + 2, size // 2 + 2))
         else:
             oval((4, 4, size - 4, size - 4))
         return canvas
@@ -1715,11 +1744,11 @@ def create_gui() -> None:
     ) -> tk.Frame:
         """创建 TDesign 风格总览指标块。
 
-        TDesign 总览指标规范：
-        - 白底, 1px 边框
-        - 顶部: 图标 (40px) + 标签
-        - 中间: 大数字 (24px)
-        - 底部: 描述文字 (12px)
+        设计规范：
+        - 白底, 1px 边框, 顶部 3px 彩色装饰条
+        - 左侧: 图标 (40px) + 标签
+        - 中间: 大数字
+        - 底部: 描述文字
         """
         tile = tk.Frame(
             parent,
@@ -1728,14 +1757,18 @@ def create_gui() -> None:
             highlightthickness=1,
         )
 
+        # 顶部彩色装饰条
+        accent_bar = tk.Frame(tile, bg=accent, height=3)
+        accent_bar.pack(fill=tk.X)
+
         # 顶部: 图标 + 标签
         top = tk.Frame(tile, bg=COLORS['card'])
-        top.pack(fill=tk.X, padx=SPACING['4'], pady=(SPACING['4'], SPACING['2']))
+        top.pack(fill=tk.X, padx=SPACING['4'], pady=(SPACING['3'], SPACING['2']))
 
-        icon_shell = tk.Frame(top, bg=COLORS['primary_light'], width=40, height=40)
+        icon_shell = tk.Frame(top, bg=accent, width=40, height=40)
         icon_shell.pack(side=tk.LEFT)
         icon_shell.pack_propagate(False)
-        create_lucide_icon(icon_shell, icon_name, accent, 24, COLORS['primary_light']).pack(expand=True)
+        create_lucide_icon(icon_shell, icon_name, "#FFFFFF", 22, accent).pack(expand=True)
 
         tk.Label(
             top,
@@ -2036,151 +2069,306 @@ def create_gui() -> None:
     account_page = create_page("account")
     logs_page = create_page("logs")
 
-    # 总览页：作为默认入口，把常用状态和动作集中在第一屏。
-    overview_hero = tk.Frame(overview_page, bg=COLORS['primary'])
-    overview_hero.pack(fill=tk.X)
-    overview_hero_inner = tk.Frame(overview_hero, bg=COLORS['primary'])
-    overview_hero_inner.pack(fill=tk.X, padx=28, pady=28)
-    overview_hero_text = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
-    overview_hero_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
-    tk.Label(
-        overview_hero_text,
-        text="Lanhu MCP 工作台",
-        bg=COLORS['primary'],
-        fg="#FFFFFF",
-        font=(FONT['family'], FONT['sizes']['4xl'], 'bold'),
-    ).pack(anchor='w')
-    tk.Label(
-        overview_hero_text,
-        text="登录蓝湖账号后启动服务，把项目、设计稿、切图和团队消息交给 AI IDE 直接调用。",
-        bg=COLORS['primary'],
-        fg="#D0E0FF",
-        font=(FONT['family'], FONT['sizes']['lg']),
-        wraplength=760,
-        justify=tk.LEFT,
-    ).pack(anchor='w', pady=(10, 0))
-    overview_runtime = tk.Frame(overview_hero_text, bg=COLORS['primary_active'])
-    overview_runtime.pack(fill=tk.X, pady=(20, 0))
-    tk.Label(
-        overview_runtime,
-        textvariable=runtime_var,
-        bg=COLORS['primary_active'],
-        fg="#C0D8FF",
-        font=(FONT['mono'], FONT['sizes']['sm']),
-        wraplength=760,
-        justify=tk.LEFT,
-    ).pack(anchor='w', padx=14, pady=10)
-    overview_actions = tk.Frame(overview_hero_inner, bg=COLORS['primary'])
-    overview_actions.pack(side=tk.RIGHT, padx=(24, 0))
+    # ==================== 总览页：现代化设计 ====================
+    # 渐变 Hero 区域 - 使用 Canvas 实现渐变效果
+    hero_height = 220
+    hero_canvas = tk.Canvas(overview_page, height=hero_height, highlightthickness=0, bd=0)
+    hero_canvas.pack(fill=tk.X)
 
-    overview_login_btn = ttk.Button(overview_actions, text="添加账号", style='Primary.TButton', width=16)
-    overview_login_btn.pack(fill=tk.X, pady=(0, 12))
+    def _draw_hero_gradient(event=None):
+        """绘制 Hero 渐变背景。"""
+        w = hero_canvas.winfo_width()
+        h = hero_height
+        if w < 10:
+            return
+        hero_canvas.delete("hero_bg")
+        # 从深蓝到浅蓝的渐变
+        steps = min(80, h)
+        for i in range(steps):
+            ratio = i / steps
+            r = int(0 + ratio * 30)
+            g = int(50 + ratio * 40)
+            b = int(180 + ratio * 40)
+            color = f"#{r:02x}{g:02x}{b:02x}"
+            y1 = int(i * h / steps)
+            y2 = int((i + 1) * h / steps)
+            hero_canvas.create_rectangle(0, y1, w, y2, outline="", fill=color, tags="hero_bg")
+        # 装饰圆弧
+        hero_canvas.create_oval(w - 200, -60, w + 60, 200, outline="#FFFFFF", width=2, tags="hero_bg")
+        hero_canvas.create_oval(w - 160, -20, w + 20, 240, outline="#FFFFFF", width=1, tags="hero_bg")
+        # 左侧装饰线
+        hero_canvas.create_line(0, 0, 0, h, fill="#FFFFFF", width=3, tags="hero_bg")
+        hero_canvas.create_line(8, 20, 8, h - 20, fill="#FFFFFF", width=1, tags="hero_bg")
+
+    hero_canvas.bind("<Configure>", _draw_hero_gradient)
+    overview_page.after(100, _draw_hero_gradient)
+
+    # Hero 内容层
+    hero_content = tk.Frame(hero_canvas, bg="#002866")
+    hero_canvas.create_window(28, 0, anchor='nw', window=hero_content, width=1200, height=hero_height)
+
+    hero_text_frame = tk.Frame(hero_content, bg="#002866")
+    hero_text_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=32)
+
+    # 版本徽章
+    badge_frame = tk.Frame(hero_text_frame, bg="#003A99")
+    badge_frame.pack(anchor='w')
+    tk.Label(
+        badge_frame, text="v2.0 · MCP Server", bg="#003A99", fg="#8EC5FF",
+        font=(FONT['family'], FONT['sizes']['xs'], 'bold'), padx=10, pady=3,
+    ).pack()
+
+    # 主标题 - 更大更醒目
+    tk.Label(
+        hero_text_frame, text="Lanhu MCP 工作台", bg="#002866", fg="#FFFFFF",
+        font=(FONT['family'], 36, 'bold'),
+    ).pack(anchor='w', pady=(12, 0))
+
+    # 副标题
+    tk.Label(
+        hero_text_frame,
+        text="连接蓝湖设计与 AI 开发，让项目、设计稿、切图和团队消息一键直达 Codex、Claude、Cursor 等 AI IDE。",
+        bg="#002866", fg="#B8D4FF", font=(FONT['family'], FONT['sizes']['lg']),
+        wraplength=680, justify=tk.LEFT,
+    ).pack(anchor='w', pady=(8, 0))
+
+    # 运行状态条
+    runtime_bar = tk.Frame(hero_text_frame, bg="#003A99")
+    runtime_bar.pack(fill=tk.X, pady=(16, 0))
+    runtime_dot = tk.Canvas(runtime_bar, width=8, height=8, bg="#003A99", highlightthickness=0)
+    runtime_dot.pack(side=tk.LEFT, padx=(12, 8), pady=12)
+    runtime_dot.create_oval(2, 2, 7, 7, fill="#00E68A", outline="")
+    tk.Label(
+        runtime_bar, textvariable=runtime_var, bg="#003A99", fg="#A0C8FF",
+        font=(FONT['mono'], FONT['sizes']['sm']),
+    ).pack(side=tk.LEFT, pady=12)
+
+    # 右侧操作按钮组
+    hero_actions = tk.Frame(hero_content, bg="#002866")
+    hero_actions.pack(side=tk.RIGHT, anchor='ne', pady=32, padx=(16, 8))
+
+    # 大号主操作按钮
+    overview_login_btn = ttk.Button(hero_actions, text="＋ 添加账号", style='Primary.TButton', width=18)
+    overview_login_btn.pack(fill=tk.X, pady=(0, 10))
     add_button_hover_effect(overview_login_btn)
 
-    overview_start_btn = ttk.Button(overview_actions, text="启动服务", style='Success.TButton', width=16)
-    overview_start_btn.pack(fill=tk.X, pady=(0, 12))
+    overview_start_btn = ttk.Button(hero_actions, text="▶ 启动服务", style='Success.TButton', width=18)
+    overview_start_btn.pack(fill=tk.X, pady=(0, 10))
     add_button_hover_effect(overview_start_btn)
 
-    overview_config_btn = ttk.Button(overview_actions, text="配置 AI 工具", style='Ghost.TButton', width=16)
+    overview_config_btn = ttk.Button(hero_actions, text="⚙ 配置 AI 工具", style='Ghost.TButton', width=18)
     overview_config_btn.pack(fill=tk.X)
     add_button_hover_effect(overview_config_btn)
 
+    # ==================== 核心指标卡片区 ====================
     overview_metrics = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_metrics.pack(fill=tk.X, pady=(20, 0))
+    overview_metrics.pack(fill=tk.X, padx=28, pady=(24, 0))
     metric_specs = (
-        ("账号", overview_account_var, "多账号可切换，服务启动前会强制检查登录态。", "user", COLORS['primary']),
-        ("服务", overview_service_var, "HTTP MCP 服务启动后可被 Codex、Claude、Mimo 等工具调用。", "activity", COLORS['success']),
-        ("项目", overview_project_var, "自动接口、登录缓存和手动链接三路合并项目。", "folder-kanban", COLORS['accent_warm']),
-        ("方法", overview_tools_var, "动态扫描当前服务注册的全部 MCP 方法。", "list-checks", COLORS['accent']),
+        ("账号", overview_account_var, "多账号可切换，服务启动前会强制检查登录态", "user", COLORS['primary']),
+        ("服务", overview_service_var, "HTTP MCP 服务，供 AI IDE 直接调用", "activity", COLORS['success']),
+        ("项目", overview_project_var, "接口、缓存和手动链接三路合并", "folder-kanban", COLORS['accent_warm']),
+        ("方法", overview_tools_var, "动态扫描全部已注册 MCP 工具", "list-checks", COLORS['accent']),
     )
     for index, (title, value_var, detail, icon_name, accent) in enumerate(metric_specs):
         tile = make_overview_tile(overview_metrics, title, value_var, detail, icon_name, accent)
         tile.grid(row=0, column=index, sticky='nsew', padx=(0 if index == 0 else 12, 0))
         overview_metrics.columnconfigure(index, weight=1)
 
+    # ==================== 功能特色横幅 ====================
+    features_banner = tk.Frame(overview_page, bg=COLORS['bg'])
+    features_banner.pack(fill=tk.X, padx=28, pady=(20, 0))
+    feature_items = [
+        ("shield-check", "安全登录", "WebView2 + Cookie 双模式", COLORS['primary']),
+        ("zap", "极速响应", "本地 MCP 服务毫秒级", COLORS['success']),
+        ("puzzle", "多端兼容", "覆盖 15+ AI 开发工具", COLORS['accent_warm']),
+        ("layers", "设计还原", "高还原开发全链路支持", COLORS['accent']),
+    ]
+    for idx, (icon, title, desc, color) in enumerate(feature_items):
+        feat_card = tk.Frame(features_banner, bg=COLORS['card'],
+                            highlightbackground=COLORS['border_light'], highlightthickness=1)
+        feat_card.pack(side=tk.LEFT, fill=tk.X, expand=True,
+                      padx=(0 if idx == 0 else 8, 0))
+        feat_inner = tk.Frame(feat_card, bg=COLORS['card'])
+        feat_inner.pack(fill=tk.X, padx=14, pady=14)
+        icon_bg_frame = tk.Frame(feat_inner, bg=color, width=36, height=36)
+        icon_bg_frame.pack(side=tk.LEFT)
+        icon_bg_frame.pack_propagate(False)
+        create_lucide_icon(icon_bg_frame, icon, "#FFFFFF", 20, color).pack(expand=True)
+        feat_text = tk.Frame(feat_inner, bg=COLORS['card'])
+        feat_text.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=(12, 0))
+        tk.Label(feat_text, text=title, bg=COLORS['card'], fg=COLORS['text_primary'],
+                 font=(FONT['family'], FONT['sizes']['sm'], 'bold')).pack(anchor='w')
+        tk.Label(feat_text, text=desc, bg=COLORS['card'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['xs'])).pack(anchor='w')
+        # hover 效果
+        def _feat_hover(f, c=color):
+            def on_enter(e):
+                f.config(highlightbackground=c, highlightthickness=2)
+            def on_leave(e):
+                f.config(highlightbackground=COLORS['border_light'], highlightthickness=1)
+            f.bind("<Enter>", on_enter)
+            f.bind("<Leave>", on_leave)
+        _feat_hover(feat_card)
+
+    # ==================== 主内容双栏区 ====================
     overview_main = tk.Frame(overview_page, bg=COLORS['bg'])
-    overview_main.pack(fill=tk.BOTH, expand=True, pady=(20, 0))
-    overview_left = make_card(overview_main, "下一步操作", "wand-sparkles")
-    overview_right = make_card(overview_main, "诊断与能力", "database")
+    overview_main.pack(fill=tk.BOTH, expand=True, padx=28, pady=(20, 0))
+
+    # 左栏：快速上手
+    overview_left = make_card(overview_main, "快速上手", "rocket")
+    overview_right = make_card(overview_main, "系统状态", "gauge")
     pack_responsive_pair(overview_main, overview_left, overview_right)
     overview_left_body = card_body(overview_left)
     overview_right_body = card_body(overview_right)
-    quick_rows = [
-        ("完成蓝湖登录", "添加或切换蓝湖账号，登录成功后才能启动服务。", "account"),
-        ("刷新项目列表", "项目页会尝试接口、登录缓存和本地手动链接三种来源。", "projects"),
-        ("写入 AI 工具配置", "检测 Codex、Claude、Mimo、Cursor、Trae、Windsurf 等常见开发工具。", "tools"),
-        ("查看服务日志", "启动失败、登录诊断和配置结果都会写到日志页。", "logs"),
-    ]
-    for row_index, (title, detail, target_page) in enumerate(quick_rows):
-        row = tk.Frame(overview_left_body, bg=COLORS['surface'], highlightbackground=COLORS['border_light'], highlightthickness=1)
-        row.pack(fill=tk.X, pady=(0 if row_index == 0 else 10, 0))
-        row_inner = tk.Frame(row, bg=COLORS['surface'])
-        row_inner.pack(fill=tk.X, padx=14, pady=12)
-        tk.Label(row_inner, text=title, bg=COLORS['surface'], fg=COLORS['text_primary'],
-                 font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(anchor='w')
-        tk.Label(row_inner, text=detail, bg=COLORS['surface'], fg=COLORS['text_muted'],
-                 font=(FONT['family'], FONT['sizes']['sm']), wraplength=520, justify=tk.LEFT).pack(anchor='w', pady=(4, 0))
-        def _make_row_hover(row_frame, inner_frame):
-            def on_enter(e):
-                row_frame.config(bg=COLORS['primary_light'], highlightbackground=COLORS['primary'])
-                inner_frame.config(bg=COLORS['primary_light'])
-                for c in inner_frame.winfo_children():
-                    if isinstance(c, tk.Label):
-                        bg_c = COLORS['primary_light']
-                        fg_c = COLORS['primary'] if c.cget('font').split()[-1] == 'bold' else COLORS['text_primary']
-                        c.config(bg=bg_c, fg=fg_c)
-            def on_leave(e):
-                row_frame.config(bg=COLORS['surface'], highlightbackground=COLORS['border_light'])
-                inner_frame.config(bg=COLORS['surface'])
-                for c in inner_frame.winfo_children():
-                    if isinstance(c, tk.Label):
-                        c.config(bg=COLORS['surface'], fg=COLORS['text_primary'] if c.cget('font').split()[-1] == 'bold' else COLORS['text_muted'])
-            row_frame.bind("<Enter>", on_enter)
-            row_frame.bind("<Leave>", on_leave)
-        _make_row_hover(row, row_inner)
-        row.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
-        row_inner.bind("<Button-1>", lambda event, page_key=target_page: show_page(page_key))
 
-    tk.Label(
-        overview_right_body,
-        textvariable=package_status_var,
-        bg=COLORS['card'],
-        fg=COLORS['warning'] if "注意" in package_status_var.get() else COLORS['text_secondary'],
-        font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
-        wraplength=520,
-        justify=tk.LEFT,
-    ).pack(anchor='w')
-    tk.Label(
-        overview_right_body,
-        textvariable=overview_ide_var,
-        bg=COLORS['card'],
-        fg=COLORS['text_primary'],
-        font=(FONT['family'], FONT['sizes']['2xl'], 'bold'),
-    ).pack(anchor='w', pady=(14, 4))
-    tk.Label(
-        overview_right_body,
-        text="已识别 AI 开发工具数量。点击 AI 工具页可查看每个工具的安装路径、配置路径和写入结果。",
-        bg=COLORS['card'],
-        fg=COLORS['text_muted'],
-        font=(FONT['family'], FONT['sizes']['sm']),
-        wraplength=520,
-        justify=tk.LEFT,
-    ).pack(anchor='w')
+    quick_steps = [
+        ("1", "完成蓝湖登录", "添加或切换蓝湖账号，登录成功后才能启动 MCP 服务。", "account", COLORS['primary']),
+        ("2", "启动 MCP 服务", "一键启动本地 HTTP 服务，自动监听可用端口。", "service", COLORS['success']),
+        ("3", "配置 AI 工具", "检测并写入 Codex、Claude、Cursor、Trae 等工具的 MCP 配置。", "tools", COLORS['accent_warm']),
+        ("4", "查看日志诊断", "启动失败、登录异常和配置结果都会写到日志页。", "logs", COLORS['accent']),
+    ]
+    for row_index, (step_num, title, detail, target_page, color) in enumerate(quick_steps):
+        step_card = tk.Frame(overview_left_body, bg=COLORS['card'],
+                            highlightbackground=COLORS['border_light'], highlightthickness=1)
+        step_card.pack(fill=tk.X, pady=(0 if row_index == 0 else 8, 0))
+        step_inner = tk.Frame(step_card, bg=COLORS['card'])
+        step_inner.pack(fill=tk.X, padx=14, pady=12)
+        # 步骤编号圆圈
+        num_circle = tk.Canvas(step_inner, width=32, height=32, bg=COLORS['card'], highlightthickness=0)
+        num_circle.pack(side=tk.LEFT, padx=(0, 14))
+        num_circle.create_oval(2, 2, 30, 30, fill=color, outline="")
+        num_circle.create_text(16, 16, text=step_num, fill="#FFFFFF",
+                              font=(FONT['family'], FONT['sizes']['sm'], 'bold'))
+        step_text = tk.Frame(step_inner, bg=COLORS['card'])
+        step_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        tk.Label(step_text, text=title, bg=COLORS['card'], fg=COLORS['text_primary'],
+                 font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(anchor='w')
+        tk.Label(step_text, text=detail, bg=COLORS['card'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['sm']), wraplength=440, justify=tk.LEFT).pack(anchor='w', pady=(2, 0))
+        # 右侧箭头
+        arrow = tk.Label(step_inner, text="›", bg=COLORS['card'], fg=COLORS['text_disabled'],
+                        font=(FONT['family'], 20, 'bold'))
+        arrow.pack(side=tk.RIGHT)
+        # hover 效果
+        def _step_hover(card, inner, arrow_lbl, c=color):
+            def on_enter(e):
+                card.config(highlightbackground=c)
+                inner.config(bg=COLORS['primary_light'])
+                for w in inner.winfo_children():
+                    if isinstance(w, tk.Frame):
+                        w.config(bg=COLORS['primary_light'])
+                    elif isinstance(w, tk.Label):
+                        w.config(bg=COLORS['primary_light'])
+                arrow_lbl.config(fg=c, bg=COLORS['primary_light'])
+            def on_leave(e):
+                card.config(highlightbackground=COLORS['border_light'])
+                inner.config(bg=COLORS['card'])
+                for w in inner.winfo_children():
+                    if isinstance(w, tk.Frame):
+                        w.config(bg=COLORS['card'])
+                    elif isinstance(w, tk.Label):
+                        w.config(bg=COLORS['card'])
+                arrow_lbl.config(fg=COLORS['text_disabled'], bg=COLORS['card'])
+            card.bind("<Enter>", on_enter)
+            card.bind("<Leave>", on_leave)
+        _step_hover(step_card, step_inner, arrow)
+        step_card.bind("<Button-1>", lambda e, p=target_page: show_page(p))
+        step_inner.bind("<Button-1>", lambda e, p=target_page: show_page(p))
+
+    # 右栏：系统状态
+    # 路径诊断
+    diag_section = tk.Frame(overview_right_body, bg=COLORS['card'])
+    diag_section.pack(fill=tk.X, pady=(0, 16))
+    tk.Label(diag_section, text="运行路径", bg=COLORS['card'], fg=COLORS['text_secondary'],
+             font=(FONT['family'], FONT['sizes']['xs'], 'bold')).pack(anchor='w')
+    tk.Label(diag_section, textvariable=package_status_var, bg=COLORS['card'],
+             fg=COLORS['warning'] if "注意" in package_status_var.get() else COLORS['text_secondary'],
+             font=(FONT['family'], FONT['sizes']['sm']), wraplength=520, justify=tk.LEFT
+    ).pack(anchor='w', pady=(4, 0))
+
+    # 分隔线
+    tk.Frame(overview_right_body, bg=COLORS['border_light'], height=1).pack(fill=tk.X, pady=12)
+
+    # AI 工具识别数
+    tools_stat_frame = tk.Frame(overview_right_body, bg=COLORS['card'])
+    tools_stat_frame.pack(fill=tk.X, pady=(0, 12))
+    tk.Label(tools_stat_frame, text="已识别 AI 工具", bg=COLORS['card'], fg=COLORS['text_secondary'],
+             font=(FONT['family'], FONT['sizes']['xs'], 'bold')).pack(anchor='w')
+    tk.Label(tools_stat_frame, textvariable=overview_ide_var, bg=COLORS['card'],
+             fg=COLORS['text_primary'], font=(FONT['family'], FONT['sizes']['3xl'], 'bold')
+    ).pack(anchor='w', pady=(4, 0))
+    tk.Label(tools_stat_frame, text="点击 AI 工具页查看每个工具的配置路径和写入结果",
+             bg=COLORS['card'], fg=COLORS['text_muted'],
+             font=(FONT['family'], FONT['sizes']['xs']), wraplength=400
+    ).pack(anchor='w', pady=(4, 0))
+
+    # 分隔线
+    tk.Frame(overview_right_body, bg=COLORS['border_light'], height=1).pack(fill=tk.X, pady=12)
+
+    # 方法分组标签
+    tk.Label(overview_right_body, text="MCP 方法分组", bg=COLORS['card'], fg=COLORS['text_secondary'],
+             font=(FONT['family'], FONT['sizes']['xs'], 'bold')).pack(anchor='w', pady=(0, 8))
     method_groups_frame = tk.Frame(overview_right_body, bg=COLORS['card'])
-    method_groups_frame.pack(fill=tk.X, pady=(16, 0))
+    method_groups_frame.pack(fill=tk.X)
+    group_colors = [COLORS['primary'], COLORS['success'], COLORS['accent_warm'], COLORS['accent']]
     for group_index, (group_name, group_tools) in enumerate(group_mcp_tools(MCP_TOOL_NAMES).items()):
-        group_chip = tk.Frame(method_groups_frame, bg=COLORS['primary_light'])
-        group_chip.pack(side=tk.LEFT, padx=(0 if group_index == 0 else 10, 0), pady=(0, 10))
+        gc = group_colors[group_index % len(group_colors)]
+        group_chip = tk.Frame(method_groups_frame, bg=gc)
+        group_chip.pack(side=tk.LEFT, padx=(0 if group_index == 0 else 8, 0), pady=(0, 10))
         tk.Label(
             group_chip,
-            text=f"{group_name} {len(group_tools)}",
-            bg=COLORS['primary_light'],
-            fg=COLORS['primary'],
+            text=f" {group_name}  {len(group_tools)} ",
+            bg=gc, fg="#FFFFFF",
             font=(FONT['family'], FONT['sizes']['sm'], 'bold'),
-            padx=10,
-            pady=5,
+            padx=12, pady=6,
         ).pack()
 
+    # ==================== 底部亮点区 ====================
+    overview_bottom = tk.Frame(overview_page, bg=COLORS['bg'])
+    overview_bottom.pack(fill=tk.X, padx=28, pady=(20, 28))
+    bottom_card = tk.Frame(overview_bottom, bg=COLORS['card'],
+                          highlightbackground=COLORS['border_light'], highlightthickness=1)
+    bottom_card.pack(fill=tk.X)
+    bottom_header = tk.Frame(bottom_card, bg=COLORS['card'])
+    bottom_header.pack(fill=tk.X, padx=20, pady=(16, 12))
+    icon_shell_b = tk.Frame(bottom_header, bg=COLORS['accent_light'], width=28, height=28)
+    icon_shell_b.pack(side=tk.LEFT)
+    icon_shell_b.pack_propagate(False)
+    create_lucide_icon(icon_shell_b, "sparkles", COLORS['accent'], 16, COLORS['accent_light']).pack(expand=True)
+    tk.Label(bottom_header, text="  核心能力一览", bg=COLORS['card'], fg=COLORS['text_primary'],
+             font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(side=tk.LEFT)
+    tk.Frame(bottom_card, bg=COLORS['border_light'], height=1).pack(fill=tk.X, padx=20)
+    capabilities_grid = tk.Frame(bottom_card, bg=COLORS['card'])
+    capabilities_grid.pack(fill=tk.X, padx=20, pady=(12, 16))
+    capabilities = [
+        ("需求与原型", "需求文档解析、原型截图、交互标注", COLORS['primary']),
+        ("UI 设计", "设计稿浏览、图层信息、样式提取", COLORS['success']),
+        ("高还原开发", "设计系统、布局规格、组件代码生成、动效描述", COLORS['accent_warm']),
+        ("团队协作", "评论同步、消息通知、版本对比、变更历史", COLORS['accent']),
+    ]
+    for idx, (cap_title, cap_desc, cap_color) in enumerate(capabilities):
+        cap_frame = tk.Frame(capabilities_grid, bg=COLORS['card'],
+                            highlightbackground=COLORS['border_light'], highlightthickness=1)
+        cap_frame.grid(row=0, column=idx, sticky='nsew', padx=(0 if idx == 0 else 8, 0))
+        capabilities_grid.columnconfigure(idx, weight=1)
+        cap_top_bar = tk.Frame(cap_frame, bg=cap_color, height=4)
+        cap_top_bar.pack(fill=tk.X)
+        cap_body = tk.Frame(cap_frame, bg=COLORS['card'])
+        cap_body.pack(fill=tk.X, padx=14, pady=12)
+        tk.Label(cap_body, text=cap_title, bg=COLORS['card'], fg=COLORS['text_primary'],
+                 font=(FONT['family'], FONT['sizes']['base'], 'bold')).pack(anchor='w')
+        tk.Label(cap_body, text=cap_desc, bg=COLORS['card'], fg=COLORS['text_muted'],
+                 font=(FONT['family'], FONT['sizes']['xs']), wraplength=220, justify=tk.LEFT).pack(anchor='w', pady=(6, 0))
+        def _cap_hover(f, c=cap_color):
+            def on_enter(e):
+                f.config(highlightbackground=c, highlightthickness=2)
+            def on_leave(e):
+                f.config(highlightbackground=COLORS['border_light'], highlightthickness=1)
+            f.bind("<Enter>", on_enter)
+            f.bind("<Leave>", on_leave)
+        _cap_hover(cap_frame)
+
+    # 指标卡响应式布局
     overview_metric_layout = {"mode": ""}
 
     def layout_overview_metrics(event: object = None) -> None:
@@ -3530,7 +3718,24 @@ def launch_gui() -> None:
                 flog(f"Flet 运行时缺少 {flet_missing}，回退到旧界面", 'warning')
             except Exception as flet_error:
                 flog(f"Flet 启动失败: {flet_error}，回退到旧界面", 'warning')
-    create_gui()
+    flog("启动 Tkinter 旧界面")
+    try:
+        create_gui()
+    except Exception as gui_error:
+        flog(f"Tkinter 界面启动失败: {gui_error}", 'error')
+        import traceback
+        flog(traceback.format_exc(), 'error')
+        # 尝试显示错误对话框
+        try:
+            if should_show_native_error_dialog():
+                ctypes.windll.user32.MessageBoxW(
+                    0,
+                    f"GUI 启动失败:\n{gui_error}\n\n请检查日志: {LOG_FILE}",
+                    "LanhuMCP 错误",
+                    0x10  # MB_ICONERROR
+                )
+        except Exception:
+            pass
 
 
 def run_login_helper_from_gui_args() -> int:
