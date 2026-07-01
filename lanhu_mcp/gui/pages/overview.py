@@ -383,7 +383,6 @@ class OverviewPage:
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
             padding=theme.space("5"),
-            expand=True,
             shadow=ft.BoxShadow(
                 spread_radius=0, blur_radius=4, color=p.shadow_sm,
                 offset=ft.Offset(0, 2),
