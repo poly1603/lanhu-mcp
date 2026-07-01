@@ -15,8 +15,8 @@ if errorlevel 1 (
 )
 
 echo [1/4] Installing dependencies...
-pip install -r requirements.txt -q 2>nul
-pip install pyinstaller -q 2>nul
+python -m pip install --upgrade pip
+python -m pip install -e ".[build,gui]" -q
 
 echo [2/4] Cleaning old build...
 if exist dist rmdir /s /q dist

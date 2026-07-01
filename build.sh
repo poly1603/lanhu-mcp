@@ -17,9 +17,8 @@ fi
 
 # 安装依赖
 echo "[1/4] 安装依赖..."
-pip3 install -r requirements.txt -q
-pip3 install pyinstaller -q
-pip3 install pystray Pillow -q
+python3 -m pip install --upgrade pip
+python3 -m pip install -e ".[build,gui]" -q
 
 # 清理旧的构建
 echo "[2/4] 清理旧构建..."
@@ -27,26 +26,20 @@ rm -rf dist build
 
 # 打包
 echo "[3/4] 开始打包..."
-pyinstaller lanhu_mcp.spec --clean --noconfirm
+python3 -m PyInstaller LanhuMCP-onefile.spec --clean --noconfirm
 
 # 检查结果
-if [ -f dist/lanhu_mcp/lanhu_mcp ]; then
+if [ -f dist/LanhuMCP ]; then
     echo ""
     echo "========================================"
     echo "  打包成功！"
     echo "========================================"
     echo ""
-    echo "输出目录: dist/lanhu_mcp/"
-    echo "可执行文件: dist/lanhu_mcp/lanhu_mcp"
+    echo "输出文件: dist/LanhuMCP"
     echo ""
     echo "使用方法:"
-    echo "  1. 进入 dist/lanhu_mcp/ 目录"
-    echo "  2. 双击 lanhu_mcp 或在终端运行 ./lanhu_mcp"
-    echo "  3. 首次运行会自动生成配置文件"
-    echo "  4. 运行 ./lanhu_mcp --setup 进行配置"
-    echo ""
-    echo "创建 .app 包装（可选）:"
-    echo "  使用 create_app.sh 脚本"
+    echo "  1. 运行 ./dist/LanhuMCP 启动 GUI"
+    echo "  2. 运行 ./dist/LanhuMCP --server 启动 MCP 服务"
     echo ""
 else
     echo ""

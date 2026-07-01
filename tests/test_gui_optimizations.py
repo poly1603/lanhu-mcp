@@ -9,14 +9,16 @@ if TYPE_CHECKING:
 import pytest
 
 import lanhu_mcp_gui as gui
+import lanhu_mcp.core.avatar as avatar_core
+import lanhu_mcp.services.tools_registry as tools_registry
 
 
 @pytest.fixture(autouse=True)
 def reset_mcp_tool_cache() -> Generator[None, None, None]:
     """每个用例后恢复工具缓存，避免影响同进程后续测试。"""
-    gui._MCP_TOOLS_CACHE = None
+    tools_registry._MCP_TOOLS_CACHE = None
     yield
-    gui._MCP_TOOLS_CACHE = None
+    tools_registry._MCP_TOOLS_CACHE = None
 
 
 def test_discover_mcp_tools_reuses_cache_until_refresh(monkeypatch: "MonkeyPatch", tmp_path: Path) -> None:
@@ -34,8 +36,8 @@ def test_discover_mcp_tools_reuses_cache_until_refresh(monkeypatch: "MonkeyPatch
         calls.append(path)
         return [("lanhu_get_pages", "获取页面")]
 
-    monkeypatch.setattr(gui, "tool_source_candidates", fake_candidates)
-    monkeypatch.setattr(gui, "scan_mcp_tools_from_file", fake_scan)
+    monkeypatch.setattr(tools_registry, "tool_source_candidates", fake_candidates)
+    monkeypatch.setattr(tools_registry, "scan_mcp_tools_from_file", fake_scan)
 
     first_result = gui.discover_mcp_tools(refresh=True)
     second_result = gui.discover_mcp_tools()
@@ -51,14 +53,14 @@ def test_discover_mcp_tools_refresh_rescans_sources(monkeypatch: "MonkeyPatch", 
     source_path.write_text("placeholder", encoding="utf-8")
     calls: list[Path] = []
 
-    monkeypatch.setattr(gui, "tool_source_candidates", lambda: [source_path])
+    monkeypatch.setattr(tools_registry, "tool_source_candidates", lambda: [source_path])
 
     def fake_scan(path: Path) -> list[tuple[str, str]]:
         """每次扫描都返回同一个工具，同时记录调用次数。"""
         calls.append(path)
         return [("lanhu_get_designs", "获取设计图")]
 
-    monkeypatch.setattr(gui, "scan_mcp_tools_from_file", fake_scan)
+    monkeypatch.setattr(tools_registry, "scan_mcp_tools_from_file", fake_scan)
 
     assert gui.discover_mcp_tools(refresh=True) == [("lanhu_get_designs", "获取设计图")]
     assert gui.discover_mcp_tools(refresh=True) == [("lanhu_get_designs", "获取设计图")]
@@ -115,7 +117,7 @@ def test_download_avatar_skips_response_larger_than_limit(monkeypatch: "MonkeyPa
             """大文件不应被读取。"""
             raise AssertionError("oversized avatar should not be read")
 
-    monkeypatch.setattr(gui, "AVATAR_CACHE_DIR", tmp_path)
+    monkeypatch.setattr(avatar_core, "AVATAR_CACHE_DIR", tmp_path)
     monkeypatch.setattr(gui.urllib.request, "urlopen", lambda request, timeout=0: TooLargeResponse())
 
     assert gui.download_avatar(account) is None

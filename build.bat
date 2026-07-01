@@ -19,8 +19,8 @@ if errorlevel 1 (
 
 REM 安装依赖
 echo [1/4] 安装依赖...
-pip install -r requirements.txt -q
-pip install pyinstaller -q
+python -m pip install --upgrade pip
+python -m pip install -e ".[build,gui]" -q
 
 REM 清理旧的构建
 echo [2/4] 清理旧构建...

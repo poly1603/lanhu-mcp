@@ -1,116 +1,182 @@
 # Lanhu MCP Server - 打包指南
 
-> 打包统一使用唯一权威配置 `LanhuMCP-onefile.spec`（GUI + Server 合并为单个 exe）。
+> 打包统一使用唯一权威配置 `LanhuMCP-onefile.spec`（Flet GUI + MCP Server + 登录辅助进程合并为单个 exe）。
+
+## 环境要求
+
+- Windows 10/11
+- Python 3.10+
+- 可访问 PyPI 的网络环境
+- 推荐使用干净虚拟环境，避免旧版 Flet / PyInstaller 缓存污染构建
 
 ## 快速打包
 
-```bash
-# 1. 安装所有依赖（含 pyinstaller）
-pip install -e ".[build]"
-# 或
-pip install -r requirements.txt pyinstaller
+```powershell
+# 1. 安装运行与打包依赖
+python -m pip install --upgrade pip
+python -m pip install -e ".[build,gui]"
 
-# 2. 打包
-pyinstaller LanhuMCP-onefile.spec --clean --noconfirm
+# 2. 清理旧产物
+Remove-Item -Recurse -Force dist, build -ErrorAction SilentlyContinue
+
+# 3. 打包 onefile
+python -m PyInstaller LanhuMCP-onefile.spec --clean --noconfirm
 ```
 
-输出位于 `dist/LanhuMCP.exe`。
+也可以直接执行：
 
-## 打包后的使用
-
-### 命令行模式（默认）
-```bash
-# Windows
-dist\lanhu_mcp\lanhu_mcp.exe
-
-# macOS/Linux
-./dist/lanhu_mcp/lanhu_mcp
+```bat
+build.bat
 ```
 
-### 配置向导
-```bash
-# 首次运行，配置蓝湖Cookie等信息
-lanhu_mcp --setup
+输出位于：
+
+```text
+dist\LanhuMCP.exe
 ```
 
-### 系统托盘模式（可选）
-```bash
-# 需要安装 pystray: pip install pystray Pillow
-lanhu_mcp --tray
+## 打包后三分支验证
+
+> 当前自动化环境缺少 Flet / PyInstaller，无法代替本机验证。发布前必须在 Windows 本机执行以下检查。
+
+### 1. 默认 GUI
+
+```powershell
+$env:LANHU_GUI_SMOKE_CLOSE = "1"
+Start-Process -FilePath .\dist\LanhuMCP.exe -Wait
+Remove-Item Env:\LANHU_GUI_SMOKE_CLOSE -ErrorAction SilentlyContinue
 ```
 
-### 查看配置
-```bash
-lanhu_mcp --config
+检查点：
+
+- 进程能启动并正常退出 smoke 模式。
+- 非 smoke 模式双击 `LanhuMCP.exe` 可打开 Flet 桌面工作台。
+- 账号页、项目页、服务页、设计稿浏览入口可正常切换。
+
+### 2. MCP Server 分支
+
+```powershell
+$env:LANHU_MCP_PORT = "8898"
+$p = Start-Process -FilePath .\dist\LanhuMCP.exe -ArgumentList "--server" -PassThru
+Start-Sleep -Seconds 5
+Invoke-WebRequest http://127.0.0.1:8898/mcp -UseBasicParsing
+Stop-Process -Id $p.Id -Force
+Remove-Item Env:\LANHU_MCP_PORT -ErrorAction SilentlyContinue
+```
+
+检查点：
+
+- 服务监听 `/mcp`。
+- 内置基础工具与高还原设计扩展工具均已注册。
+- 停止进程后端口释放。
+
+### 3. 登录辅助分支
+
+```powershell
+$tmp = Join-Path $env:TEMP "lanhu-login-result.json"
+Remove-Item $tmp -ErrorAction SilentlyContinue
+$env:LANHU_LOGIN_HELPER_SMOKE = "1"
+Start-Process -FilePath .\dist\LanhuMCP.exe -ArgumentList "--login-helper", $tmp, "https://lanhuapp.com/web/" -Wait
+Get-Content $tmp -Raw
+Remove-Item Env:\LANHU_LOGIN_HELPER_SMOKE -ErrorAction SilentlyContinue
+```
+
+检查点：
+
+- 能写出 JSON 结果文件。
+- 非 smoke 模式能打开 WebView2 登录窗口。
+- 匿名 Cookie 不会被误判为登录成功。
+
+## 运行方式
+
+```powershell
+# 默认打开 Flet GUI
+.\dist\LanhuMCP.exe
+
+# 启动 MCP HTTP 服务
+.\dist\LanhuMCP.exe --server
+
+# 登录辅助子进程（通常由 GUI 自动调用）
+.\dist\LanhuMCP.exe --login-helper <result-json-path> [login-url]
 ```
 
 ## 配置文件
 
-配置文件自动保存在：
-- **Windows**: `%APPDATA%\LanhuMCP\.env`
-- **macOS**: `~/Library/Application Support/LanhuMCP/.env`
-- **Linux**: `~/.config/lanhu-mcp/.env`
+配置文件和运行数据自动保存在：
 
-也可以在程序目录下创建 `.env` 文件。
+- Windows: `%APPDATA%\LanhuMCP\`
+- macOS: `~/Library/Application Support/LanhuMCP/`
+- Linux: `~/.config/lanhu-mcp/`
+
+常见文件：
+
+| 文件 | 说明 |
+|------|------|
+| `accounts.json` | 多账号 Cookie 与用户资料 |
+| `projects.json` | 手动保存项目与最近项目 |
+| `messages_*.json` | 团队留言板项目数据 |
 
 ## MCP 客户端配置
 
-### Cursor / Windsurf
+### Cursor / Windsurf / Cline / Roo Code / Continue
+
 ```json
 {
   "mcpServers": {
     "lanhu": {
-      "url": "http://localhost:8000/mcp"
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
 ```
 
-### Claude Desktop
+### Claude Code / Claude Desktop HTTP MCP
+
 ```json
 {
   "mcpServers": {
     "lanhu": {
-      "url": "http://localhost:8000/mcp"
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
 ```
 
-### stdio 模式
-```json
-{
-  "mcpServers": {
-    "lanhu": {
-      "command": "path/to/lanhu_mcp",
-      "args": []
-    }
-  }
-}
+### Codex TOML
+
+```toml
+[mcp_servers.lanhu]
+url = "http://127.0.0.1:8000/mcp"
 ```
-需要设置 `MCP_TRANSPORT=stdio` 环境变量。
 
 ## 文件说明
 
 | 文件 | 说明 |
 |------|------|
-| `lanhu_mcp_gui.py` | GUI 主入口（亦分发 `--server` / `--login-helper` 子进程） |
-| `lanhu_mcp_app.py` | CLI 入口，支持 `--setup` / `--tray` / `--config` |
+| `lanhu_mcp_gui.py` | onefile 主入口，负责默认 GUI、`--server`、`--login-helper` 分发 |
+| `lanhu_mcp_app.py` | 兼容 CLI 入口 |
+| `lanhu_mcp_server.py` | MCP 服务入口 |
 | `LanhuMCP-onefile.spec` | PyInstaller 唯一打包配置 |
+| `build.bat` / `build_onefile.bat` | Windows 本地打包脚本 |
 
 ## 故障排除
 
 ### 打包失败
-1. 确保安装了所有依赖：`pip install -r requirements.txt`
-2. 确保安装了 PyInstaller：`pip install pyinstaller`
-3. 检查 Python 版本 >= 3.10
 
-### 运行时错误
-1. 首次运行需要配置：`lanhu_mcp --setup`
-2. 检查 `.env` 文件中的 Cookie 是否正确
-3. 确保端口 8000 未被占用
+1. 确认 Python 版本为 3.10+。
+2. 使用干净虚拟环境重新安装：`python -m pip install -e ".[build,gui]"`。
+3. 删除 `dist/`、`build/` 后重新执行 PyInstaller。
+4. 如果 Flet 运行时缺失，优先在本机补充执行 `flet pack` 路径验证，再同步调整 `LanhuMCP-onefile.spec` 的 `collect_submodules('flet')` / `collect_data_files('flet')`。
 
-### macOS 安全提示
-如果遇到 "无法验证开发者" 提示：
-1. 系统偏好设置 → 安全性与隐私
-2. 点击 "仍要打开"
+### GUI 启动失败
+
+1. 先用 `LANHU_GUI_SMOKE_CLOSE=1` 验证入口是否能启动。
+2. 检查系统是否安装 WebView2 Runtime。
+3. 检查 `%APPDATA%\LanhuMCP\` 下账号或项目配置是否损坏，可临时备份后重试。
+
+### 服务不可访问
+
+1. 确认端口未被占用。
+2. 确认 MCP 客户端 URL 与 GUI 服务页展示一致。
+3. 检查日志页或终端输出中的 Cookie 过期、网络失败、蓝湖接口变更提示。

@@ -1893,7 +1893,8 @@ async def send_feishu_notification(
             try:
                 parsed = json.loads(obj)
                 return extract_text(parsed)
-            except:
+            except (json.JSONDecodeError, TypeError, ValueError):
+                # 不是合法 JSON，直接按原始字符串返回
                 return obj
         elif isinstance(obj, list):
             texts = []
@@ -1992,7 +1993,7 @@ async def send_feishu_notification(
 # 消息存储类
 # ============================================
 
-class MessageStore:
+class _LegacyMessageStore:
     """消息存储管理类 - 支持团队留言板功能"""
     
     def __init__(self, project_id: str = None):
@@ -2331,7 +2332,7 @@ def get_user_info(ctx: Context) -> tuple:
     return os.getenv('LANHU_USER_NAME', '匿名'), os.getenv('LANHU_USER_ROLE', '未知')
 
 
-def _clean_message_dict(msg: dict, current_user_name: str = None) -> dict:
+def _legacy_clean_message_dict(msg: dict, current_user_name: str = None) -> dict:
     """
     清理消息字典，移除null值的更新字段，并添加快捷标志
     
@@ -2356,6 +2357,13 @@ def _clean_message_dict(msg: dict, current_user_name: str = None) -> dict:
         cleaned['is_mine'] = (cleaned.get('author_name') == current_user_name)
     
     return cleaned
+
+
+from lanhu_mcp.core.messages import (
+    MessageStore,
+    clean_message_dict as _clean_message_dict,
+    normalize_role,
+)
 
 
 def get_project_id_from_url(url: str) -> str:

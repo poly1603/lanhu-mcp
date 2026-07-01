@@ -411,7 +411,7 @@ def write_result(result_file: Path, result: dict[str, object]) -> None:
     """把登录结果写入 GUI 约定的 JSON 文件。"""
     result_file.parent.mkdir(parents=True, exist_ok=True)
     result_file.write_text(
-        json.dumps(result, ensure_ascii=False, indent=2),
+        json.dumps(result, ensure_ascii=True, indent=2),
         encoding="utf-8",
     )
 
@@ -470,6 +470,12 @@ def main() -> int:
         "diagnostics": [],
         "storage_dir": str(storage_dir),
     }
+
+    if smoke_mode:
+        result["status"] = "success"
+        result["url"] = "about:blank"
+        write_result(result_file, result)
+        return 0
 
     try:
         import webview

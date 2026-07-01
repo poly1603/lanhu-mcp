@@ -46,6 +46,15 @@ mcp_hiddenimports = collect_submodules('mcp')
 try:
     flet_hiddenimports = collect_submodules('flet')
     flet_datas = collect_data_files('flet')
+    # flet.utils.pip 在 frozen EXE 里会调用 `python -m pip install`，
+    # 触发 ModuleNotFoundError 后又调用 `exit(1)`，但 frozen 下 exit 不存在
+    # 会抛 NameError 杀掉进程。运行时由 hook_flet_no_pip.py 替换为 no-op，
+    # 这里把 ensure_* 三个名字保留（hook 里要 monkey-patch 它们），
+    # 其余子模块保留。
+    flet_hiddenimports = [
+        m for m in flet_hiddenimports
+        if not m.startswith('flet.utils.pip')
+    ] + ['flet.utils.pip']
 except Exception:
     flet_hiddenimports = []
     flet_datas = []
@@ -208,7 +217,11 @@ a = Analysis(
     ] + fastmcp_hiddenimports + mcp_hiddenimports + flet_hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['hook_tcl_find_executable.py', 'hook_fastmcp_metadata.py'],
+    runtime_hooks=[
+        'hook_tcl_find_executable.py',
+        'hook_fastmcp_metadata.py',
+        'hook_flet_no_pip.py',
+    ],
     excludes=[
         'tkinter.test',
         'unittest',

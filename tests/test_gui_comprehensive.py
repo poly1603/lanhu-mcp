@@ -13,6 +13,10 @@ if str(project_root) not in sys.path:
     sys.path.insert(0, str(project_root))
 
 import lanhu_mcp_gui as gui
+import lanhu_mcp.core.accounts as accounts_core
+import lanhu_mcp.core.avatar as avatar_core
+import lanhu_mcp.core.projects as projects_core
+import lanhu_mcp.services.tools_registry as tools_registry
 
 
 # ============================================================
@@ -201,7 +205,7 @@ class TestMCPToolDiscovery:
             assert isinstance(name, str) and len(name) > 0
 
     def test_discover_caches(self):
-        gui._MCP_TOOLS_CACHE = None
+        tools_registry._MCP_TOOLS_CACHE = None
         tools1 = gui.discover_mcp_tools()
         tools2 = gui.discover_mcp_tools()
         assert tools1 == tools2
@@ -242,14 +246,14 @@ class TestUserPayloadParsing:
 
 class TestProjectManager:
     def test_read_empty(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(gui, 'PROJECTS_FILE', tmp_path / 'none.json')
+        monkeypatch.setattr(projects_core, 'PROJECTS_FILE', tmp_path / 'none.json')
         data = gui.read_projects_data()
         assert data == {"projects": []}
 
     def test_write_and_read(self, tmp_path, monkeypatch):
         pf = tmp_path / 'projects.json'
-        monkeypatch.setattr(gui, 'PROJECTS_FILE', pf)
-        monkeypatch.setattr(gui, 'DATA_DIR', tmp_path)
+        monkeypatch.setattr(projects_core, 'PROJECTS_FILE', pf)
+        monkeypatch.setattr(projects_core, 'DATA_DIR', tmp_path)
         gui.write_projects_data({"projects": [{"id": "p1"}]})
         data = gui.read_projects_data()
         assert len(data["projects"]) == 1
@@ -257,7 +261,7 @@ class TestProjectManager:
     def test_read_corrupted(self, tmp_path, monkeypatch):
         pf = tmp_path / 'bad.json'
         pf.write_text("not json", encoding='utf-8')
-        monkeypatch.setattr(gui, 'PROJECTS_FILE', pf)
+        monkeypatch.setattr(projects_core, 'PROJECTS_FILE', pf)
         assert gui.read_projects_data() == {"projects": []}
 
 
@@ -267,22 +271,22 @@ class TestProjectManager:
 
 class TestAccountManager:
     def test_get_accounts_empty(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(gui, 'ACCOUNTS_FILE', tmp_path / 'none.json')
-        monkeypatch.setattr(gui, 'COOKIE_FILE', tmp_path / 'none_cookie.txt')
+        monkeypatch.setattr(accounts_core, 'ACCOUNTS_FILE', tmp_path / 'none.json')
+        monkeypatch.setattr(accounts_core, 'COOKIE_FILE', tmp_path / 'none_cookie.txt')
         assert gui.get_accounts() == []
 
     def test_write_and_get_accounts(self, tmp_path, monkeypatch):
         af = tmp_path / 'accounts.json'
-        monkeypatch.setattr(gui, 'ACCOUNTS_FILE', af)
-        monkeypatch.setattr(gui, 'DATA_DIR', tmp_path)
+        monkeypatch.setattr(accounts_core, 'ACCOUNTS_FILE', af)
+        monkeypatch.setattr(accounts_core, 'DATA_DIR', tmp_path)
         gui.write_accounts_data({"accounts": [{"id": "a1", "name": "U1", "cookie": "c1"}], "active_id": "a1"})
         loaded = gui.get_accounts()
         assert len(loaded) == 1
 
     def test_get_active_account(self, tmp_path, monkeypatch):
         af = tmp_path / 'accounts.json'
-        monkeypatch.setattr(gui, 'ACCOUNTS_FILE', af)
-        monkeypatch.setattr(gui, 'DATA_DIR', tmp_path)
+        monkeypatch.setattr(accounts_core, 'ACCOUNTS_FILE', af)
+        monkeypatch.setattr(accounts_core, 'DATA_DIR', tmp_path)
         gui.write_accounts_data({
             "accounts": [
                 {"id": "a1", "name": "U1", "cookie": "c1"},
@@ -295,8 +299,8 @@ class TestAccountManager:
 
     def test_remove_account(self, tmp_path, monkeypatch):
         af = tmp_path / 'accounts.json'
-        monkeypatch.setattr(gui, 'ACCOUNTS_FILE', af)
-        monkeypatch.setattr(gui, 'DATA_DIR', tmp_path)
+        monkeypatch.setattr(accounts_core, 'ACCOUNTS_FILE', af)
+        monkeypatch.setattr(accounts_core, 'DATA_DIR', tmp_path)
         gui.write_accounts_data({
             "accounts": [
                 {"id": "a1", "name": "U1", "cookie": "c1"},
@@ -429,7 +433,7 @@ class TestApiHeaders:
 
 class TestAvatar:
     def test_cache_path(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(gui, 'AVATAR_CACHE_DIR', tmp_path)
+        monkeypatch.setattr(avatar_core, 'AVATAR_CACHE_DIR', tmp_path)
         account = {"id": "user1", "avatar": "http://example.com/a.png"}
         path = gui.avatar_cache_path(account)
         assert path.parent == tmp_path

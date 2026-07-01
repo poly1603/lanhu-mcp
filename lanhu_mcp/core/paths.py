@@ -9,6 +9,23 @@ import logging
 import os
 import socket
 import sys
+
+# ============================================
+# Windows GBK stdout 修复
+# ============================================
+# Windows 下 print() 使用 GBK 编解码，遇到中文/特殊字符会报
+# 'gbk codec can't encode character'。frozen EXE 中该问题更明显。
+# 重新包装 stdout/stderr 为 UTF-8，使所有 print() / 错误输出都安全。
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        if hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    except Exception:
+        # 如果 reconfigure 不可用（旧版 Python），跳过即可
+        pass
+
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -103,7 +120,11 @@ if not _logger.handlers:
 
 
 def flog(msg: str, level: str = "info") -> None:
-    """写日志到文件 + 控制台。"""
+    """写日志到文件 + 控制台。
+
+    Windows 下 stdout 已被 reconfigure 为 UTF-8（见本文件顶部），所以 print 不再会
+    被 GBK 击穿。日志文件本来也是 UTF-8，可以安全写中文/特殊字符。
+    """
     getattr(_logger, level, _logger.info)(msg)
     print(f"[{level.upper()}] {msg}")
 

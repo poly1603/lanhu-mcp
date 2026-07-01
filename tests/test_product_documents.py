@@ -65,6 +65,9 @@ def test_parse_url_extracts_tid_and_pid_for_product_documents_call():
 class _FakeResponse:
     def __init__(self, payload):
         self._payload = payload
+        self.status_code = 200
+        self.headers = {}
+        self.request = SimpleNamespace(url="https://lanhuapp.com/api/project/product_documents")
 
     def raise_for_status(self):
         return None

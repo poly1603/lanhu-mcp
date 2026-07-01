@@ -1377,7 +1377,7 @@ async def lanhu_get_responsive_variants(
 # ============================================
 try:
     from lanhu_mcp.codegen.mcp_tools import register_codegen_tools
-    register_codegen_tools(mcp)
+    register_codegen_tools(mcp, LanhuExtractor, BASE_URL)
 except ImportError as _codegen_err:
     import warnings
     warnings.warn(f"Codegen tools not loaded: {_codegen_err}", ImportWarning)

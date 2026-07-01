@@ -1,0 +1,230 @@
+81 INFO: PyInstaller: 6.21.0, contrib hooks: 2026.6
+85 INFO: Python: 3.11.10
+98 INFO: Platform: Windows-10-10.0.26200-SP0
+102 INFO: Python environment: D:\Program Files\QClaw\v0.2.30.594\resources\python
+105 INFO: Removing temporary files and cleaning cache in C:\Users\swiml\AppData\Local\pyinstaller
+D:\Program Files\QClaw\v0.2.30.594\resources\python\Lib\site-packages\PyInstaller\utils\hooks\__init__.py:665: FastMCPDeprecationWarning: fastmcp.server.openapi is deprecated. Import from fastmcp.server.providers.openapi instead.
+  __import__(name)
+1114 WARNING: Failed to collect submodules for 'fastmcp.experimental.sampling.handlers' because importing 'fastmcp.experimental.sampling.handlers' raised: ImportError: The `openai` package is not installed. Please install `fastmcp-slim[openai]` or add `openai` to your dependencies manually.
+359 WARNING: Failed to collect submodules for 'flet.map' because importing 'flet.map' raised: ImportError: cannot import name 'MapPointerDeviceType' from 'flet.core.map.map' (D:\Program Files\QClaw\v0.2.30.594\resources\python\Lib\site-packages\flet\core\map\map.py)
+3121 INFO: Module search paths (PYTHONPATH):
+['D:\\WorkBench\\lanhu-mcp',
+ 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\python311.zip',
+ 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\DLLs',
+ 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib',
+ 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python',
+ 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages',
+ '__editable__.lanhu_mcp_server-1.0.0.finder.__path_hook__',
+ 'D:\\Program '
+ 'Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\win32',
+ 'D:\\Program '
+ 'Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\win32\\lib',
+ 'D:\\Program '
+ 'Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\pythonwin',
+ 'D:\\WorkBench\\lanhu-mcp']
+3341 INFO: Appending 'binaries' from .spec
+3344 INFO: Appending 'datas' from .spec
+3444 INFO: checking Analysis
+3446 INFO: Building Analysis because Analysis-00.toc is non existent
+3446 INFO: Looking for Python shared library...
+3446 INFO: Using Python shared library: D:\Program Files\QClaw\v0.2.30.594\resources\python\python311.dll
+3446 INFO: Running Analysis Analysis-00.toc
+3446 INFO: Target bytecode optimization level: 0
+3447 INFO: Initializing module dependency graph...
+3447 INFO: Initializing module graph hook caches...
+3457 INFO: Analyzing modules for base_library.zip ...
+4052 INFO: Processing standard module hook 'hook-heapq.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+4106 INFO: Processing standard module hook 'hook-encodings.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+5015 INFO: Processing standard module hook 'hook-math.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+5074 INFO: Processing standard module hook 'hook-pickle.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+6247 INFO: Caching module dependency graph...
+6276 INFO: Analyzing D:\WorkBench\lanhu-mcp\lanhu_mcp_gui.py
+6402 INFO: Processing standard module hook 'hook-webbrowser.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+6424 INFO: Processing standard module hook 'hook-_ctypes.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+6613 INFO: Processing pre-find-module-path hook 'hook-tkinter.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+6614 INFO: TclTkInfo: initializing cached Tcl/Tk info...
+6940 INFO: Processing standard module hook 'hook-_tkinter.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7143 INFO: Processing standard module hook 'hook-PIL.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7205 INFO: Processing standard module hook 'hook-PIL.Image.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7428 INFO: Processing standard module hook 'hook-xml.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7439 INFO: Processing standard module hook 'hook-xml.etree.cElementTree.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7567 INFO: Processing standard module hook 'hook-PIL.ImageFilter.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+7843 INFO: Processing standard module hook 'hook-multiprocessing.util.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+8328 INFO: Processing standard module hook 'hook-platform.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+8421 INFO: Processing standard module hook 'hook-difflib.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+8626 INFO: Processing pre-safe-import-module hook 'hook-typing_extensions.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+8629 INFO: SetuptoolsInfo: initializing cached setuptools info...
+9339 INFO: Processing standard module hook 'hook-certifi.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+9408 INFO: Processing standard module hook 'hook-anyio.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+10201 INFO: Processing standard module hook 'hook-pygments.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+10969 INFO: Processing standard module hook 'hook-rich.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+11746 INFO: Processing standard module hook 'hook-sysconfig.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+12032 INFO: Processing standard module hook 'hook-cryptography.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+13306 INFO: hook-cryptography: cryptography does not seem to be using dynamically linked OpenSSL.
+14035 INFO: Processing pre-safe-import-module hook 'hook-six.moves.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14210 INFO: Processing standard module hook 'hook-webview.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\webview\\__pyinstaller'
+14552 INFO: Processing pre-safe-import-module hook 'hook-gi.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14629 INFO: Processing standard module hook 'hook-clr.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\pythonnet\\_pyinstaller'
+14677 INFO: Processing standard module hook 'hook-clr_loader.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14743 INFO: Processing standard module hook 'hook-pycparser.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+14878 INFO: Processing standard module hook 'hook-setuptools.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+14886 INFO: Processing pre-safe-import-module hook 'hook-distutils.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+14887 INFO: Processing pre-find-module-path hook 'hook-distutils.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_find_module_path'
+15158 INFO: Processing standard module hook 'hook-distutils.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+15213 INFO: Processing standard module hook 'hook-distutils.util.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+15233 INFO: Processing standard module hook 'hook-_osx_support.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+15402 INFO: Processing pre-safe-import-module hook 'hook-importlib_metadata.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15416 INFO: Processing standard module hook 'hook-importlib_metadata.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+15433 INFO: Processing pre-safe-import-module hook 'hook-zipp.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15532 INFO: Processing pre-safe-import-module hook 'hook-packaging.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+15962 INFO: Processing standard module hook 'hook-pkg_resources.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+17092 INFO: Processing pre-safe-import-module hook 'hook-platformdirs.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+17100 INFO: Processing standard module hook 'hook-platformdirs.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+17135 INFO: Processing standard module hook 'hook-pydantic.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+17743 INFO: Processing standard module hook 'hook-zoneinfo.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18149 INFO: Processing standard module hook 'hook-dns.rdata.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18658 INFO: Processing standard module hook 'hook-pythoncom.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+18726 INFO: Processing standard module hook 'hook-pywintypes.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19281 INFO: Processing pre-safe-import-module hook 'hook-tomli.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+19383 INFO: Processing standard module hook 'hook-jsonschema.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19506 INFO: Processing standard module hook 'hook-jsonschema_specifications.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+19536 INFO: Processing pre-safe-import-module hook 'hook-importlib_resources.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\pre_safe_import_module'
+20150 INFO: Processing standard module hook 'hook-uvicorn.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+20727 INFO: Processing standard module hook 'hook-websockets.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+22849 INFO: Processing standard module hook 'hook-opentelemetry.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+25623 INFO: Processing standard module hook 'hook-lxml.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+25832 INFO: Processing standard module hook 'hook-lxml.etree.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+25839 INFO: Processing standard module hook 'hook-playwright.async_api.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\playwright\\_impl\\__pyinstaller'
+26623 INFO: Analyzing hidden import 'lanhu_mcp_gui'
+26705 INFO: Analyzing hidden import 'lanhu_mcp.server'
+26962 INFO: Analyzing hidden import 'lanhu_mcp.converters'
+26963 INFO: Analyzing hidden import 'lanhu_mcp.utils'
+26965 INFO: Analyzing hidden import 'lanhu_mcp.prompts'
+26965 INFO: Analyzing hidden import 'lxml._elementpath'
+26971 INFO: Analyzing hidden import 'uvicorn.loops'
+26972 INFO: Analyzing hidden import 'uvicorn.loops.auto'
+26974 INFO: Analyzing hidden import 'uvicorn.protocols.http.auto'
+26976 INFO: Analyzing hidden import 'uvicorn.protocols.websockets.auto'
+26978 INFO: Analyzing hidden import 'uvicorn.lifespan'
+26979 INFO: Analyzing hidden import 'uvicorn.lifespan.on'
+26984 INFO: Analyzing hidden import 'fastmcp.apps.approval'
+26987 INFO: Analyzing hidden import 'fastmcp.apps.choice'
+26988 INFO: Analyzing hidden import 'fastmcp.apps.file_upload'
+26993 INFO: Analyzing hidden import 'fastmcp.apps.form'
+26997 INFO: Analyzing hidden import 'fastmcp.apps.generative'
+27000 INFO: Analyzing hidden import 'fastmcp.cli'
+27594 INFO: Processing standard module hook 'hook-xml.dom.domreg.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+28219 INFO: Analyzing hidden import 'fastmcp.cli.__main__'
+28220 INFO: Analyzing hidden import 'fastmcp.client.sampling.handlers'
+28220 INFO: Analyzing hidden import 'fastmcp.client.sampling.handlers.anthropic'
+28226 INFO: Analyzing hidden import 'fastmcp.client.sampling.handlers.google_genai'
+28231 INFO: Analyzing hidden import 'fastmcp.client.sampling.handlers.openai'
+28237 INFO: Analyzing hidden import 'fastmcp.dependencies'
+28239 INFO: Analyzing hidden import 'fastmcp.experimental'
+28239 INFO: Analyzing hidden import 'fastmcp.experimental.sampling'
+28240 INFO: Analyzing hidden import 'fastmcp.experimental.transforms'
+28241 INFO: Analyzing hidden import 'fastmcp.experimental.transforms.code_mode'
+28261 INFO: Analyzing hidden import 'fastmcp.server.app'
+28264 INFO: Analyzing hidden import 'fastmcp.server.apps'
+28264 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.auth0'
+28266 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.aws'
+28269 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.azure'
+28278 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.clerk'
+28283 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.descope'
+28287 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.discord'
+28292 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.github'
+28298 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.google'
+28301 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.in_memory'
+28307 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.introspection'
+28312 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.keycloak'
+28313 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.oci'
+28316 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.propelauth'
+28321 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.scalekit'
+28323 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.supabase'
+28327 INFO: Analyzing hidden import 'fastmcp.server.auth.providers.workos'
+28331 INFO: Analyzing hidden import 'fastmcp.server.middleware.caching'
+28349 INFO: Analyzing hidden import 'fastmcp.server.middleware.error_handling'
+28354 INFO: Analyzing hidden import 'fastmcp.server.middleware.logging'
+28358 INFO: Analyzing hidden import 'fastmcp.server.middleware.rate_limiting'
+28364 INFO: Analyzing hidden import 'fastmcp.server.middleware.response_limiting'
+28369 INFO: Analyzing hidden import 'fastmcp.server.middleware.timing'
+28372 INFO: Analyzing hidden import 'fastmcp.server.middleware.tool_injection'
+28376 INFO: Analyzing hidden import 'fastmcp.server.openapi'
+28379 INFO: Analyzing hidden import 'fastmcp.server.openapi.components'
+28383 INFO: Analyzing hidden import 'fastmcp.server.openapi.routing'
+28384 INFO: Analyzing hidden import 'fastmcp.server.proxy'
+28384 INFO: Analyzing hidden import 'fastmcp.types'
+28387 INFO: Analyzing hidden import 'fastmcp.utilities.lifespan'
+28388 INFO: Analyzing hidden import 'fastmcp.utilities.skills'
+28391 INFO: Analyzing hidden import 'fastmcp.utilities.tests'
+28396 INFO: Analyzing hidden import 'mcp.cli'
+28654 INFO: Analyzing hidden import 'mcp.client.__main__'
+28658 INFO: Analyzing hidden import 'mcp.client.auth.extensions'
+28658 INFO: Analyzing hidden import 'mcp.client.auth.extensions.client_credentials'
+28664 INFO: Analyzing hidden import 'mcp.client.websocket'
+28668 INFO: Analyzing hidden import 'mcp.server.__main__'
+28669 INFO: Analyzing hidden import 'mcp.server.websocket'
+28671 INFO: Analyzing hidden import 'mcp.shared.metadata_utils'
+28673 INFO: Analyzing hidden import 'mcp.shared.progress'
+28674 INFO: Analyzing hidden import 'flet.ads'
+28682 INFO: Analyzing hidden import 'flet.auth.providers'
+28689 INFO: Analyzing hidden import 'flet.canvas'
+28714 INFO: Analyzing hidden import 'flet.cli'
+28716 INFO: Analyzing hidden import 'flet.matplotlib_chart'
+28719 INFO: Analyzing hidden import 'flet.plotly_chart'
+28724 INFO: Analyzing hidden import 'flet.security'
+28727 INFO: Processing module hooks (post-graph stage)...
+29199 INFO: Processing standard module hook 'hook-lxml.isoschematron.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+29214 WARNING: Hidden import "pycparser.lextab" not found!
+29217 WARNING: Hidden import "pycparser.yacctab" not found!
+29458 WARNING: Hidden import "tzdata" not found!
+29768 INFO: Processing standard module hook 'hook-PIL.SpiderImagePlugin.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+32573 INFO: Processing standard module hook 'hook-setuptools._vendor.importlib_metadata.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+32640 INFO: Processing standard module hook 'hook-setuptools._vendor.jaraco.text.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+33374 INFO: Processing standard module hook 'hook-_tkinter.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks'
+33378 INFO: Processing standard module hook 'hook-lxml.objectify.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\stdhooks'
+33439 INFO: Performing binary vs. data reclassification (1323 entries)
+33724 INFO: Looking for ctypes DLLs
+34032 INFO: Analyzing run-time hooks ...
+34034 INFO: Including custom run-time hook 'hook_tcl_find_executable.py'
+34036 INFO: Including custom run-time hook 'hook_fastmcp_metadata.py'
+34053 INFO: Including run-time hook 'pyi_rth_inspect.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34058 INFO: Including run-time hook 'pyi_rth_pkgutil.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34061 INFO: Including run-time hook 'pyi_rth_multiprocessing.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34063 INFO: Including run-time hook 'pyi_rth_cryptography_openssl.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+34065 INFO: Including run-time hook 'pyi_rth_pythoncom.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+34066 INFO: Including run-time hook 'pyi_rth_pywintypes.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\_pyinstaller_hooks_contrib\\rthooks'
+34068 INFO: Including run-time hook 'pyi_rth_setuptools.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34069 INFO: Including run-time hook 'pyi_rth_pkgres.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34072 INFO: Including run-time hook 'pyi_rth__tkinter.py' from 'D:\\Program Files\\QClaw\\v0.2.30.594\\resources\\python\\Lib\\site-packages\\PyInstaller\\hooks\\rthooks'
+34146 INFO: Creating base_library.zip...
+34167 INFO: Looking for dynamic libraries
+D:\Program Files\QClaw\v0.2.30.594\resources\python\Lib\site-packages\PyInstaller\building\build_main.py:227: FastMCPDeprecationWarning: fastmcp.server.openapi is deprecated. Import from fastmcp.server.providers.openapi instead.
+  __import__(package)
+D:\Program Files\QClaw\v0.2.30.594\resources\python\Lib\site-packages\PyInstaller\building\build_main.py:227: AuthlibDeprecationWarning: authlib.jose module is deprecated, please use joserfc instead.
+It will be compatible before version 2.0.0.
+  __import__(package)
+36853 INFO: Extra DLL search directories (AddDllDirectory): []
+36856 INFO: Extra DLL search directories (PATH): []
+38558 INFO: Warnings written to D:\WorkBench\lanhu-mcp\build\LanhuMCP-onefile\warn-LanhuMCP-onefile.txt
+38830 INFO: Graph cross-reference written to D:\WorkBench\lanhu-mcp\build\LanhuMCP-onefile\xref-LanhuMCP-onefile.html
+38928 INFO: checking PYZ
+38929 INFO: Building PYZ because PYZ-00.toc is non existent
+38929 INFO: Building PYZ (ZlibArchive) D:\WorkBench\lanhu-mcp\build\LanhuMCP-onefile\PYZ-00.pyz
+40815 INFO: Building PYZ (ZlibArchive) D:\WorkBench\lanhu-mcp\build\LanhuMCP-onefile\PYZ-00.pyz completed successfully.
+40878 INFO: checking PKG
+40880 INFO: Building PKG because PKG-00.toc is non existent
+40880 INFO: Building PKG (CArchive) LanhuMCP.pkg
+58745 INFO: Building PKG (CArchive) LanhuMCP.pkg completed successfully.
+58767 INFO: Bootloader D:\Program Files\QClaw\v0.2.30.594\resources\python\Lib\site-packages\PyInstaller\bootloader\Windows-64bit-intel\runw.exe
+58767 INFO: checking EXE
+58768 INFO: Building EXE because EXE-00.toc is non existent
+58768 INFO: Building EXE from EXE-00.toc
+58768 INFO: Copying bootloader EXE to D:\WorkBench\lanhu-mcp\dist\LanhuMCP.exe
+58832 INFO: Copying icon to EXE
+58894 INFO: Copying 0 resources to EXE
+58894 INFO: Embedding manifest in EXE
+58959 INFO: Appending PKG archive to EXE
+59030 INFO: Fixing EXE headers
+59552 INFO: Building EXE from EXE-00.toc completed successfully.
+59571 INFO: Build complete! The results are available in: D:\WorkBench\lanhu-mcp\dist

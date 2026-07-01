@@ -1,4 +1,4 @@
-﻿"""
+"""
 Lanhu MCP Server - 管理面板 v5 (优化版)
 
 优化内容：
@@ -14,24 +14,17 @@ Lanhu MCP Server - 管理面板 v5 (优化版)
 import os
 import sys
 import json
-import ast
-import base64
-import time
-import socket
 import threading
 import subprocess
 import webbrowser
 import traceback
-import hashlib
 import shutil
-import re
 import ctypes
 import urllib.error
 import urllib.request
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
-from urllib.parse import quote, unquote, urlencode, urlparse
 
 # ============================================
 # DPI 感知（高分屏适配）
@@ -1904,7 +1897,8 @@ def create_gui() -> None:
                     # Canvas图标需要特殊处理
                     try:
                         child.config(bg=bg_color)
-                    except:
+                    except (tk.TclError, AttributeError):
+                        # 子控件可能已被销毁或不支持 bg 参数，跳过即可
                         pass
 
     def start_page_transition() -> None:
@@ -3529,8 +3523,13 @@ def launch_gui() -> None:
             flog(f"Flet 界面不可用，回退到旧界面: {import_error}", 'warning')
         else:
             flog("启动 Flet 界面")
-            run_flet()
-            return
+            try:
+                run_flet()
+                return
+            except ModuleNotFoundError as flet_missing:
+                flog(f"Flet 运行时缺少 {flet_missing}，回退到旧界面", 'warning')
+            except Exception as flet_error:
+                flog(f"Flet 启动失败: {flet_error}，回退到旧界面", 'warning')
     create_gui()
 
 
@@ -3558,7 +3557,7 @@ def run_login_helper_from_gui_args() -> int:
                         "url": "",
                         "error": f"登录助手启动失败: {error}",
                     },
-                    ensure_ascii=False,
+                    ensure_ascii=True,
                     indent=2,
                 ),
                 encoding='utf-8',
