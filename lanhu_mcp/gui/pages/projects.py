@@ -309,7 +309,7 @@ class ProjectsPage:
             controls=[
                 ft.Container(
                     content=section_title(p, "项目", "浏览管理关联项目 · 分页加载"),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
                 ),
                 ft.Container(
                     content=ft.Column([
@@ -318,7 +318,7 @@ class ProjectsPage:
                         self._grid,
                         pagination_bar,
                     ], spacing=theme.space("4")),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
                 ),
             ],
             spacing=0,

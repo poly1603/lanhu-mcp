@@ -363,11 +363,11 @@ class IdeToolsPage:
             controls=[
                 ft.Container(
                     content=section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
                 ),
                 ft.Container(
                     content=ft.Column([toolbar, stats_card, self._grid, history_card], spacing=theme.space("4")),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
                 ),
             ],
             spacing=0,

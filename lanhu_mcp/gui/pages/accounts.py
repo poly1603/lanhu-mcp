@@ -300,11 +300,11 @@ class AccountsPage:
             controls=[
                 ft.Container(
                     content=section_title(p, "账号", "登录管理 · 资料查看 · 账号切换"),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
                 ),
                 ft.Container(
                     content=ft.Column([stats_bar, profile_card], spacing=theme.space("4")),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
                 ),
             ],
             spacing=0,

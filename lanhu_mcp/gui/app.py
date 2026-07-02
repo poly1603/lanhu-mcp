@@ -55,7 +55,7 @@ class AppShell:
         )
         self._content_container = ft.Container(
             content=self._switcher,
-            padding=ft.padding.symmetric(horizontal=theme.space("8"), vertical=theme.space("6")),
+            padding=ft.padding.all(0),
             expand=True,
             bgcolor=self.ctx.palette.bg,
         )

@@ -466,11 +466,11 @@ class ServicePage:
             controls=[
                 ft.Container(
                     content=section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试"),
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
                 ),
                 ft.Container(
                     content=body,
-                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
                 ),
             ],
             spacing=0,

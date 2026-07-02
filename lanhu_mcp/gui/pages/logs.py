@@ -57,7 +57,7 @@ class LogsPage:
         )
         self._filter_level: str = "all"
         self._log_unsub: Optional[Callable] = None
-        self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
+        self._stat_bar = ft.Row(spacing=theme.space("3"), wrap=True)
         self._all_lines_cache: List[str] = []
         self._expanded_index: Optional[int] = None
         self._time_range: str = "all"
@@ -262,7 +262,7 @@ class LogsPage:
                             ft.Divider(height=1, color=p.border_light),
                             ft.Text("  ".join(meta_parts), size=theme.font_size("xs"), color=p.text_muted, font_family=theme.FONT_MONO),
                         ], spacing=theme.space("1")),
-                        padding=ft.padding.only(left=theme.space("6"), top=theme.space("1")),
+                        padding=ft.padding.only(left=theme.space("4"), top=theme.space("1")),
                     )
 
                 clickable = ft.Container(
@@ -386,16 +386,21 @@ class LogsPage:
             bgcolor=p.surface,
         )
 
-        return ft.Column(
-            [
-                section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
-                gradient_card(p, self._stat_bar, padding=theme.space("4")),
-                toolbar,
-                log_viewer,
+        scroll = ft.ListView(
+            controls=[
+                ft.Container(
+                    content=section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
+                ),
+                ft.Container(
+                    content=ft.Column([gradient_card(p, self._stat_bar, padding=theme.space("4")), toolbar, log_viewer], spacing=theme.space("3")),
+                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
+                ),
             ],
-            spacing=theme.space("4"),
+            spacing=0,
             expand=True,
         )
+        return scroll
 
 
 __all__ = ["LogsPage"]
