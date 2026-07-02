@@ -46,6 +46,9 @@ class AppContext:
         # Page navigation hook (set by the app shell).
         self.navigate: Optional[Callable[[str], None]] = None
 
+        # Active account id (set by accounts page refresh).
+        self.active_account_id: str = ""
+
     # -- theme ----------------------------------------------------------
     def set_mode(self, mode: str) -> None:
         self.mode = mode

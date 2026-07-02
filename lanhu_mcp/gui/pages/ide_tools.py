@@ -189,16 +189,23 @@ class IdeToolsPage:
 
         history_card = card(p, self._history)
 
-        return ft.Column(
-            [
-                section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
-                toolbar,
-                stats_card,
-                self._tiles,
-                history_card,
+        return ft.ListView(
+            controls=[
+                ft.Container(
+                    content=section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
+                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
+                ),
+                ft.Container(
+                    content=ft.Column([
+                        toolbar,
+                        stats_card,
+                        self._tiles,
+                        history_card,
+                    ], spacing=theme.space("5")),
+                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
+                ),
             ],
-            spacing=theme.space("5"),
-            scroll=ft.ScrollMode.AUTO,
+            spacing=0,
             expand=True,
         )
 

@@ -1,4 +1,4 @@
-"""Service page (v2) — enriched start/stop panel, health bar, method tabs."""
+"""Service page — MCP service control, health monitoring, method catalog."""
 
 from __future__ import annotations
 
@@ -34,7 +34,6 @@ class ServicePage:
         self._busy = False
         self._started_at: Optional[float] = None
 
-    # ── helpers ───────────────────────────────────────────────────
     def _mcp_url(self) -> str:
         try:
             cached = MCP_URL_MAP.get(self.ctx.port)
@@ -56,7 +55,6 @@ class ServicePage:
         m = (elapsed % 3600) // 60
         return f"{h}h {m}m"
 
-    # ── status ────────────────────────────────────────────────────
     def _render_status(self) -> None:
         p = self.ctx.palette
         running = self.ctx.service.is_running()
@@ -67,7 +65,6 @@ class ServicePage:
         self._url_text.value = self._mcp_url()
         self._url_text.color = p.text_primary
 
-        # Health stats
         uptime = self._uptime()
         chips: List[ft.Control] = [
             stat_chip(p, "运行时长", uptime, icon=ft.Icons.TIMER, accent=p.accent),
@@ -76,7 +73,6 @@ class ServicePage:
         ]
         self._health_section.controls = chips
 
-        # Action buttons
         if self._busy:
             self._action_holder.controls = [
                 ft.Row([ft.ProgressRing(width=16, height=16),
@@ -102,7 +98,6 @@ class ServicePage:
         except Exception:
             pass
 
-    # ── actions ───────────────────────────────────────────────────
     def _start(self) -> None:
         active = None
         try:
@@ -247,7 +242,6 @@ class ServicePage:
         except Exception:
             pass
 
-    # ── methods list (grouped expansion tiles) ────────────────────
     def _build_methods(self) -> None:
         p = self.ctx.palette
         try:
@@ -295,49 +289,85 @@ class ServicePage:
 
         self._methods_container.controls = [header] + group_controls
 
-    # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
         self._render_status()
 
-        # ── Control section (split into left/right) ──
-        left_col = ft.Column([
-            ft.Text("MCP 服务", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-            ft.Row([ft.Text("服务地址", size=theme.font_size("sm"), color=p.text_secondary, width=72),
-                    self._url_text], spacing=theme.space("3")),
-            self._action_holder,
-        ], spacing=theme.space("4"))
+        running = self.ctx.service.is_running()
 
-        right_col = ft.Column([
-            ft.Text("服务信息", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-            self._health_section,
-        ], spacing=theme.space("4"))
-
+        # ── Service control card ──────────────────────────────────
         control_card = gradient_card(
             p,
-            ft.Row([
-                ft.Container(content=left_col, expand=1),
-                ft.VerticalDivider(width=1, color=p.border_light),
-                ft.Container(content=right_col, expand=2, padding=ft.padding.only(left=theme.space("6"))),
-            ], vertical_alignment=ft.CrossAxisAlignment.START),
+            ft.Column([
+                ft.Row([
+                    ft.Container(
+                        content=ft.Icon(
+                            ft.Icons.DNS if running else ft.Icons.HOURGLASS_EMPTY,
+                            color="#FFFFFF", size=28,
+                        ),
+                        gradient=ft.LinearGradient(
+                            begin=ft.alignment.top_left, end=ft.alignment.bottom_right,
+                            colors=[p.success, p.primary] if running else [p.text_muted, p.surface_hover],
+                        ),
+                        border_radius=theme.radius("lg"),
+                        padding=theme.space("3"),
+                        width=52, height=52,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Column([
+                        ft.Text("MCP 服务控制", size=theme.font_size("xl"),
+                                weight=theme.WEIGHT_BOLD, color=p.text_primary),
+                        ft.Text(self._url_text.value or "", size=theme.font_size("sm"),
+                                color=p.text_muted, selectable=True),
+                    ], spacing=theme.space("1"), expand=True),
+                    ft.Column([
+                        self._status_holder,
+                    ], horizontal_alignment=ft.CrossAxisAlignment.END),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=theme.space("4")),
+                ft.Divider(height=1, color=p.border_light),
+                self._action_holder,
+            ], spacing=theme.space("4")),
         )
 
-        self._build_methods()
-        methods_card = card(p, ft.Column(self._methods_container.controls + [ft.Container(height=theme.space("2"))],
-                                         spacing=theme.space("3"), tight=True))
+        # ── Health info card ──────────────────────────────────────
+        info_card = gradient_card(
+            p,
+            ft.Column([
+                ft.Text("服务信息", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                self._health_section,
+            ], spacing=theme.space("3")),
+        )
 
-        return ft.Column(
-            [
-                ft.Row([
-                    section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单"),
-                    ft.Container(expand=True),
-                    self._status_holder,
-                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                control_card,
-                methods_card,
+        # ── Methods card ──────────────────────────────────────────
+        self._build_methods()
+        methods_card = card(p, ft.Column(
+            self._methods_container.controls + [ft.Container(height=theme.space("2"))],
+            spacing=theme.space("3"), tight=True,
+        ))
+
+        body_row = ft.Row(
+            [control_card, info_card],
+            spacing=theme.space("4"),
+            vertical_alignment=ft.CrossAxisAlignment.START,
+        )
+        body = ft.Column([body_row, methods_card], spacing=theme.space("5"))
+
+        return ft.ListView(
+            controls=[
+                ft.Container(
+                    content=section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单"),
+                    padding=ft.padding.symmetric(
+                        horizontal=theme.space("6"), vertical=theme.space("4"),
+                    ),
+                ),
+                ft.Container(
+                    content=body,
+                    padding=ft.padding.symmetric(
+                        horizontal=theme.space("6"), vertical=theme.space("2"),
+                    ),
+                ),
             ],
-            spacing=theme.space("6"),
-            scroll=ft.ScrollMode.AUTO,
+            spacing=0,
             expand=True,
         )
 

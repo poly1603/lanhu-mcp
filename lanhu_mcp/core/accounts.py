@@ -818,3 +818,89 @@ def account_cookie_status_line(account: dict) -> str:
     if status == "expiring":
         return f"登录即将过期：{when}（剩余 {days} 天 {hours} 小时），建议尽快重新登录"
     return f"登录有效，到期 {when}（剩余 {days} 天 {hours} 小时）"
+
+
+# ════════════════════════════════════════════════════════════════
+# Flet GUI helpers (thin wrappers)
+# ════════════════════════════════════════════════════════════════
+
+def switch_account(account_id: str) -> bool:
+    """切换当前蓝湖账号（Flet 页面调用别名）。"""
+    return set_active_account(account_id)
+
+
+def add_manual_account(cookie: str, display_name: str = "手动账号") -> Optional[dict]:
+    """手动添加一个 Cookie 账号。"""
+    return upsert_account(cookie, user_info={"name": display_name})
+
+
+def get_login_url() -> str:
+    """返回蓝湖登录地址。"""
+    return get_saved_login_url()
+
+
+def avatar_url(account: dict) -> str:
+    """从账号字典中提取最佳头像 URL。"""
+    if not account:
+        return ""
+    return (
+        str(account.get("avatar") or "")
+        or str(account.get("picture") or "")
+        or str(account.get("avatar_url") or "")
+    )
+
+
+def launch_login_helper(
+    login_port: int = 0,
+    on_output=None,
+    on_error=None,
+) -> Optional[dict]:
+    """启动蓝湖登录 helper 子进程，等待结果 JSON。"""
+    import subprocess
+    import sys
+    import os
+
+    result_file = DATA_DIR / "login_result.json"
+    try:
+        if result_file.exists():
+            result_file.unlink()
+    except OSError:
+        pass
+
+    env = dict(os.environ)
+    if login_port:
+        env["LANHU_LOGIN_PORT"] = str(login_port)
+
+    # 优先使用打包后的 exe
+    exe_path = os.path.join(os.path.dirname(sys.executable), "LanhuMCP.exe")
+    if not os.path.exists(exe_path):
+        exe_path = sys.executable
+
+    try:
+        proc = subprocess.Popen(
+            [exe_path, "--login-helper"],
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        proc.wait(timeout=120)
+    except subprocess.TimeoutExpired:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        if on_error:
+            on_error("登录超时（120秒）")
+        return None
+    except Exception as exc:
+        if on_error:
+            on_error(str(exc))
+        return None
+
+    try:
+        if result_file.exists():
+            data = json.loads(result_file.read_text(encoding="utf-8"))
+            return data
+    except (json.JSONDecodeError, OSError):
+        pass
+    return None

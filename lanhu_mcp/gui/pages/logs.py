@@ -1,11 +1,12 @@
-"""Logs page (v2) — enriched with level filter chips, search highlight, export."""
+"""Logs page — full-featured log viewer with level filter, search, time range, detail expand."""
 
 from __future__ import annotations
 
-import io
 import re
+import time
 import threading
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Optional, Callable
 
 import flet as ft
 
@@ -26,19 +27,30 @@ LEVEL_STYLES = {
     "debug": ("#999999", "#F3F3F3"),
 }
 
+LEVEL_ICONS = {
+    "error": ft.Icons.ERROR,
+    "warn": ft.Icons.WARNING,
+    "ok": ft.Icons.CHECK_CIRCLE,
+    "info": ft.Icons.INFO,
+    "debug": ft.Icons.FIBER_MANUAL_RECORD,
+}
+
 
 class LogsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._list = ft.ListView(expand=True, spacing=2, auto_scroll=True, padding=12)
         self._search_field = ft.TextField(
-            label="搜索日志", dense=True, expand=True, prefix_icon=ft.Icons.SEARCH,
+            label="搜索日志关键词", dense=True, expand=True, prefix_icon=ft.Icons.SEARCH,
             on_change=lambda e: self._apply_filter(do_update=True),
         )
-        self._filter_level: str = "all"  # "all" | "info" | "warn" | "error" | "ok"
+        self._filter_level: str = "all"
         self._log_unsub: Optional[Callable] = None
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
         self._all_lines_cache: List[str] = []
+        self._expanded_index: Optional[int] = None
+        self._time_range: str = "all"  # "all" | "1h" | "24h" | "7d"
+        self._count_text = ft.Text("", size=theme.font_size("xs"), color=lambda: self.ctx.palette.text_muted)
 
     # ── filter chips ──────────────────────────────────────────────
     def _level_chips(self) -> ft.Control:
@@ -49,6 +61,7 @@ class LogsPage:
             ("warn", "警告"),
             ("error", "错误"),
             ("ok", "成功"),
+            ("debug", "调试"),
         ]
         chips = []
         for k, label in kinds:
@@ -72,11 +85,41 @@ class LogsPage:
         self._filter_level = level if self._filter_level != level else "all"
         self._apply_filter(do_update=True)
 
+    # ── time range chips ──────────────────────────────────────────
+    def _time_chips(self) -> ft.Control:
+        p = self.ctx.palette
+        kinds = [
+            ("all", "全部时间"),
+            ("1h", "最近 1 小时"),
+            ("24h", "最近 24 小时"),
+            ("7d", "最近 7 天"),
+        ]
+        chips = []
+        for k, label in kinds:
+            active = self._time_range == k
+            chips.append(
+                ft.Container(
+                    content=ft.Text(label, size=theme.font_size("xs"),
+                                    color=p.text_on_primary if active else p.text_secondary),
+                    bgcolor=p.primary if active else p.surface,
+                    border_radius=theme.radius("full"),
+                    padding=ft.padding.symmetric(horizontal=12, vertical=4),
+                    on_click=lambda e, kind=k: self._set_time_range(kind),
+                    ink=True,
+                    animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                )
+            )
+        return ft.Row(chips, spacing=theme.space("2"))
+
+    def _set_time_range(self, r: str) -> None:
+        self._time_range = r if self._time_range != r else "all"
+        self._apply_filter(do_update=True)
+
     # ── stats ─────────────────────────────────────────────────────
     def _render_stat_bar(self) -> None:
         p = self.ctx.palette
         lines = self.ctx.get_logs()
-        info_count = sum(1 for l in lines if "[INFO]" in l or "=== " in l and not "[ERR]" in l)
+        info_count = sum(1 for l in lines if "[INFO]" in l or "=== " in l and "[ERR]" not in l)
         warn_count = sum(1 for l in lines if "[WARN]" in l)
         err_count = sum(1 for l in lines if "[ERR]" in l or "[FAIL]" in l)
         ok_count = sum(1 for l in lines if "[OK]" in l)
@@ -88,12 +131,63 @@ class LogsPage:
             stat_chip(p, "信息", str(info_count), icon=ft.Icons.INFO, accent=p.accent),
         ]
 
+    # ── classify a log line ───────────────────────────────────────
+    @staticmethod
+    def _classify(line: str) -> str:
+        if "[ERR]" in line or "[FAIL]" in line:
+            return "error"
+        if "[WARN]" in line:
+            return "warn"
+        if "[OK]" in line:
+            return "ok"
+        if "[DEBUG]" in line:
+            return "debug"
+        return "info"
+
+    # ── highlight search matches ──────────────────────────────────
+    @staticmethod
+    def _highlight(line: str, query: str) -> ft.Control:
+        if not query:
+            return ft.Text(line, size=theme.font_size("sm"), font_family=theme.FONT_MONO,
+                           color="#1A1A1A", selectable=True, expand=True)
+        # Simple highlight: split and wrap matches
+        parts = re.split(f"({re.escape(query)})", line, flags=re.IGNORECASE)
+        spans = []
+        for part in parts:
+            if part.lower() == query.lower():
+                spans.append(ft.TextSpan(part, bgcolor="#FFEB3B", color="#000000",
+                                        weight=theme.WEIGHT_BOLD))
+            else:
+                spans.append(ft.TextSpan(part))
+        return ft.Text(
+            spans=spans,
+            size=theme.font_size("sm"),
+            font_family=theme.FONT_MONO,
+            selectable=True,
+            expand=True,
+        )
+
     # ── render ────────────────────────────────────────────────────
     def _render(self) -> None:
         p = self.ctx.palette
         query = (self._search_field.value or "").strip().lower()
         lines = self.ctx.get_logs()
         self._all_lines_cache = list(lines)
+
+        # Time range filter
+        if self._time_range != "all":
+            now = time.time()
+            cutoff = {"1h": 3600, "24h": 86400, "7d": 604800}.get(self._time_range, 0)
+            if cutoff:
+                filtered = []
+                for l in lines:
+                    # Try to extract time from log line
+                    ts = self._extract_timestamp(l)
+                    if ts and ts > now - cutoff:
+                        filtered.append(l)
+                    elif not ts:
+                        filtered.append(l)  # keep lines without timestamps
+                lines = filtered
 
         # Level filter
         if self._filter_level != "all":
@@ -102,6 +196,7 @@ class LogsPage:
                 "warn": lambda x: "[WARN]" in x,
                 "error": lambda x: "[ERR]" in x or "[FAIL]" in x,
                 "ok": lambda x: "[OK]" in x,
+                "debug": lambda x: "[DEBUG]" in x,
             }
             check = level_map.get(self._filter_level)
             if check:
@@ -111,6 +206,10 @@ class LogsPage:
         if query:
             lines = [l for l in lines if query in l.lower()]
 
+        # Update count
+        self._count_text.value = f"共 {len(lines)} 条"
+        self._count_text.color = p.text_muted
+
         if not lines:
             self._list.controls = [
                 empty_state(p, "没有匹配的日志项",
@@ -118,34 +217,83 @@ class LogsPage:
             ]
         else:
             items: List[ft.Control] = []
-            for line in lines:
-                level = "info"
-                if "[ERR]" in line or "[FAIL]" in line:
-                    level = "error"
-                elif "[WARN]" in line:
-                    level = "warn"
-                elif "[OK]" in line:
-                    level = "ok"
-                elif "=== " in line:
-                    level = "info"
+            for idx, line in enumerate(lines):
+                level = self._classify(line)
+                fg, bg = LEVEL_STYLES.get(level, (p.text_secondary, p.surface))
+                icon = LEVEL_ICONS.get(level, ft.Icons.FIBER_MANUAL_RECORD)
+                is_expanded = self._expanded_index == idx
 
-                fg, _bg = LEVEL_STYLES.get(level, (p.text_secondary, p.surface))
-                items.append(
-                    ft.Row([
-                        ft.Icon({
-                            "error": ft.Icons.ERROR,
-                            "warn": ft.Icons.WARNING,
-                            "ok": ft.Icons.CHECK_CIRCLE,
-                            "info": ft.Icons.INFO,
-                        }.get(level, ft.Icons.FIBER_MANUAL_RECORD), size=12, color=fg),
-                        ft.Text(line, selectable=True, size=theme.font_size("sm"),
-                                color=p.log_text if hasattr(p, "log_text") else p.text_primary,
-                                font_family=theme.FONT_MONO, expand=True),
-                    ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.START)
+                # Build the log line with expandable detail
+                content_row = ft.Row([
+                    ft.Icon(icon, size=14, color=fg),
+                    ft.Container(
+                        content=self._highlight(line, query),
+                        expand=True,
+                    ),
+                ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.START)
+
+                detail_content = None
+                if is_expanded:
+                    # Show full detail with metadata
+                    meta_parts = []
+                    if "[" in line:
+                        # Extract level tag
+                        tag_match = re.search(r"\[(ERR|FAIL|WARN|OK|INFO|DEBUG)\]", line)
+                        if tag_match:
+                            meta_parts.append(f"级别: {tag_match.group(1)}")
+                    # Show timestamp if present
+                    ts = self._extract_timestamp(line)
+                    if ts:
+                        meta_parts.append(f"时间: {datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')}")
+                    meta_parts.append(f"长度: {len(line)} 字符")
+                    meta_parts.append(f"序号: #{idx + 1}")
+
+                    detail_content = ft.Container(
+                        content=ft.Column([
+                            ft.Divider(height=1, color=p.border_light),
+                            ft.Text("  ".join(meta_parts), size=theme.font_size("xs"), color=p.text_muted,
+                                    font_family=theme.FONT_MONO),
+                        ], spacing=theme.space("1")),
+                        padding=ft.padding.only(left=theme.space("6"), top=theme.space("1")),
+                    )
+
+                clickable = ft.Container(
+                    content=ft.Column(
+                        [content_row] + ([detail_content] if detail_content else []),
+                        spacing=0,
+                        data=idx,
+                    ),
+                    bgcolor=bg if is_expanded else None,
+                    border_radius=theme.radius("sm"),
+                    padding=theme.space("1"),
+                    on_click=lambda e, i=idx: self._toggle_detail(i),
+                    ink=True,
                 )
+
+                items.append(clickable)
+
             self._list.controls = items
 
         self._render_stat_bar()
+
+    def _extract_timestamp(self, line: str) -> Optional[float]:
+        """Try to extract a Unix timestamp from a log line."""
+        # Common pattern: HH:MM:SS or YYYY-MM-DD HH:MM:SS
+        m = re.search(r"(\d{2}:\d{2}:\d{2})", line)
+        if m:
+            try:
+                now = datetime.now()
+                parts = m.group(1).split(":")
+                h, mi, s = int(parts[0]), int(parts[1]), int(parts[2])
+                dt = now.replace(hour=h, minute=mi, second=s, microsecond=0)
+                return dt.timestamp()
+            except Exception:
+                pass
+        return None
+
+    def _toggle_detail(self, idx: int) -> None:
+        self._expanded_index = idx if self._expanded_index != idx else None
+        self._apply_filter(do_update=True)
 
     def _apply_filter(self, do_update: bool = False) -> None:
         self._render()
@@ -164,7 +312,6 @@ class LogsPage:
             pass
 
     def _on_mount(self) -> None:
-        """Called when page is first displayed; sub to log updates."""
         def on_log(line: str) -> None:
             self.refresh()
 
@@ -187,6 +334,7 @@ class LogsPage:
     # ── actions ───────────────────────────────────────────────────
     def _clear(self) -> None:
         self.ctx.clear_logs()
+        self._expanded_index = None
         self.refresh()
 
     def _export(self) -> None:
@@ -204,45 +352,48 @@ class LogsPage:
         p = self.ctx.palette
         self._render()
 
-        # 一行 toolbar：级别 chips + 搜索 + 按钮
+        # Toolbar row 1: level chips
+        toolbar_row1 = ft.Row([
+            self._level_chips(),
+            ft.Container(expand=True),
+            self._count_text,
+        ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+        # Toolbar row 2: time range + search + actions
+        toolbar_row2 = ft.Row([
+            self._time_chips(),
+            ft.Container(width=theme.space("2")),
+            ft.Container(content=self._search_field, expand=True),
+            ft.Container(width=theme.space("2")),
+            ghost_icon_button(ft.Icons.DELETE_OUTLINE, lambda e: self._clear(), tooltip="清空"),
+            primary_button("导出", lambda e: self._export(), icon=ft.Icons.SAVE),
+        ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
         toolbar = ft.Container(
-            content=ft.Row(
-                [
-                    self._level_chips(),
-                    ft.Container(width=theme.space("3")),
-                    ft.Container(
-                        content=self._search_field,
-                        expand=True,
-                    ),
-                    ft.Container(width=theme.space("2")),
-                    ghost_icon_button(ft.Icons.DELETE_OUTLINE, lambda e: self._clear(), tooltip="清空"),
-                    primary_button("导出", lambda e: self._export(), icon=ft.Icons.SAVE),
-                ],
-                spacing=theme.space("3"),
-                vertical_alignment=ft.CrossAxisAlignment.CENTER,
-            ),
+            content=ft.Column([toolbar_row1, toolbar_row2], spacing=theme.space("3")),
             padding=theme.space("4"),
             bgcolor=p.card,
             border_radius=theme.radius("lg"),
             border=ft.border.all(1, p.border_light),
         )
 
+        log_viewer = ft.Container(
+            content=self._list,
+            expand=True,
+            border_radius=theme.radius("lg"),
+            border=ft.border.all(1, p.border_light),
+            padding=theme.space("2"),
+            bgcolor=p.surface,
+        )
+
         return ft.Column(
             [
-                section_title(p, "日志", "实时输出 · 级别筛选 · 搜索"),
+                section_title(p, "日志", "实时输出 · 分类筛选 · 搜索 · 时间范围"),
                 gradient_card(p, self._stat_bar, padding=theme.space("4")),
                 toolbar,
-                ft.Container(
-                    content=self._list,
-                    expand=True,
-                    border_radius=theme.radius("lg"),
-                    border=ft.border.all(1, p.border_light),
-                    padding=theme.space("2"),
-                    bgcolor=p.surface,
-                ),
+                log_viewer,
             ],
             spacing=theme.space("4"),
-            scroll=ft.ScrollMode.AUTO,
             expand=True,
         )
 

@@ -24,6 +24,7 @@ from .widgets import (
     run_in_background,
     timeline_item,
     tab_bar,
+    avatar,
 )
 
 __all__ = [
@@ -46,4 +47,5 @@ __all__ = [
     "run_in_background",
     "timeline_item",
     "tab_bar",
+    "avatar",
 ]

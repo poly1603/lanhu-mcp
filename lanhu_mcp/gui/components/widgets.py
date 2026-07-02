@@ -267,6 +267,25 @@ def empty_state(
 
 
 # ════════════════════════════════════════════════════════════════
+# Avatar
+# ════════════════════════════════════════════════════════════════
+def avatar(url: str, palette: Palette, size: int = 40) -> ft.Control:
+    """Simple circular avatar: use network image if URL provided, else initials."""
+    if url:
+        return ft.Container(
+            content=ft.Image(src=url, width=size, height=size, fit=ft.ImageFit.COVER),
+            width=size, height=size,
+            border_radius=theme.radius("full"),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        )
+    return ft.Container(
+        content=ft.Icon(ft.Icons.ACCOUNT_CIRCLE, size=size, color=palette.text_muted),
+        width=size, height=size,
+        border_radius=theme.radius("full"),
+    )
+
+
+# ════════════════════════════════════════════════════════════════
 # Field row (detail)
 # ════════════════════════════════════════════════════════════════
 def field_row(palette: Palette, label: str, value: str) -> ft.Control:
