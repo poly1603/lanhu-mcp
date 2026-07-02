@@ -1,9 +1,10 @@
-"""Projects page — browse and manage Lanhu projects for the active account."""
+"""Projects page — paginated grid with rich project cards."""
 
 from __future__ import annotations
 
+import math
 import time
-from typing import List
+from typing import List, Optional
 
 import flet as ft
 
@@ -17,108 +18,182 @@ from ..state import AppContext
 from ...core import accounts as accounts_core
 from ...core import projects as projects_core
 
+PAGE_SIZE = 10
+
 
 class ProjectsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
-        self._projects_grid = ft.Column(spacing=theme.space("3"))
+        self._grid = ft.GridView(
+            runs_count=2, max_extent=480, child_aspect_ratio=2.0,
+            spacing=theme.space("4"), run_spacing=theme.space("4"),
+        )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
+        self._page_text = ft.Text("", size=theme.font_size("sm"), color=lambda: self.ctx.palette.text_muted)
         self._busy = False
+        self._all_projects: list[dict] = []
+        self._current_page = 1
 
     # ── stats ─────────────────────────────────────────────────────
     def _render_stats(self, projects: list[dict]) -> None:
         p = self.ctx.palette
         team_ids = set(pr.get("team_id", "") for pr in projects if pr.get("team_id"))
-        total = len(projects)
+        api_count = sum(1 for pr in projects if pr.get("source", "").lower() in ("api", "蓝湖接口"))
         self._stat_bar.controls = [
-            stat_chip(p, "项目总数", str(total), icon=ft.Icons.FOLDER, accent=p.accent),
+            stat_chip(p, "项目总数", str(len(projects)), icon=ft.Icons.FOLDER, accent=p.accent),
             stat_chip(p, "关联团队", str(len(team_ids)), icon=ft.Icons.GROUPS, accent=p.primary),
-            stat_chip(p, "数据来源", "API" if total else "—", icon=ft.Icons.CLOUD, accent=p.success),
+            stat_chip(p, "API 数据", str(api_count), icon=ft.Icons.CLOUD, accent=p.success),
         ]
 
-    # ── project grid ─────────────────────────────────────────────
-    def _render_grid(self, projects: list[dict], show_empty: bool = False) -> None:
+    # ── pagination ────────────────────────────────────────────────
+    def _total_pages(self) -> int:
+        return max(1, math.ceil(len(self._all_projects) / PAGE_SIZE))
+
+    def _page_projects(self) -> list[dict]:
+        start = (self._current_page - 1) * PAGE_SIZE
+        return self._all_projects[start: start + PAGE_SIZE]
+
+    def _render_page_controls(self) -> None:
         p = self.ctx.palette
-        if not projects and show_empty:
-            self._projects_grid.controls = [
+        total = self._total_pages()
+        self._page_text.value = f"第 {self._current_page} / {total} 页"
+
+    def _prev_page(self) -> None:
+        if self._current_page > 1:
+            self._current_page -= 1
+            self._render_grid()
+            self._render_page_controls()
+            try:
+                self.ctx.page.update()
+            except Exception:
+                pass
+
+    def _next_page(self) -> None:
+        if self._current_page < self._total_pages():
+            self._current_page += 1
+            self._render_grid()
+            self._render_page_controls()
+            try:
+                self.ctx.page.update()
+            except Exception:
+                pass
+
+    # ── project grid ─────────────────────────────────────────────
+    def _render_grid(self) -> None:
+        p = self.ctx.palette
+        page_projects = self._page_projects()
+
+        if not page_projects:
+            self._grid.controls = [
                 card(p, ft.Container(
                     content=ft.Column([
                         ft.Icon(ft.Icons.FOLDER_OPEN, size=48, color=p.text_muted),
                         ft.Text("暂无项目", size=theme.font_size("lg"), weight=theme.WEIGHT_MEDIUM, color=p.text_secondary),
-                        ft.Text("登录蓝湖账号后可查看关联项目", size=theme.font_size("sm"), color=p.text_muted),
+                        ft.Text("登录蓝湖账号后刷新项目列表", size=theme.font_size("sm"), color=p.text_muted),
                     ], spacing=theme.space("2"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=theme.space("8"),
                 )),
             ]
             return
 
-        if not projects:
-            return
-
         cards: List[ft.Control] = []
-        for proj in projects:
-            source = proj.get("source", "")
-            badge = StatusBadge(p, source, "ok" if source == "api" else "idle")
-            name = proj.get("name", "未命名项目")
-            avatar_widget = ft.Container(
-                content=ft.Text(
-                    name[:1].upper() or "P",
-                    color="#FFFFFF",
-                    size=theme.font_size("base"),
-                    weight=theme.WEIGHT_BOLD,
-                ),
-                width=40, height=40,
-                bgcolor=proj.get("color") or p.primary,
-                border_radius=theme.radius("lg"),
-                alignment=ft.alignment.center,
-            )
+        for proj in page_projects:
+            cards.append(self._project_card(p, proj))
+        self._grid.controls = cards
 
-            meta_items: List[ft.Control] = []
-            team_id = proj.get("team_id", "")
-            if team_id:
-                meta_items.append(ft.Row([
-                    ft.Icon(ft.Icons.GROUPS, size=14, color=p.text_muted),
-                    ft.Text(team_id, size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=theme.space("1")))
-            updated_at = proj.get("updated_at", "")
-            if updated_at:
-                meta_items.append(ft.Row([
-                    ft.Icon(ft.Icons.SCHEDULE, size=14, color=p.text_muted),
-                    ft.Text(updated_at, size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=theme.space("1")))
-            proj_type = proj.get("type", "")
-            if proj_type:
-                meta_items.append(ft.Row([
-                    ft.Icon(ft.Icons.TYPE_SPECIMEN, size=14, color=p.text_muted),
-                    ft.Text(proj_type, size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=theme.space("1")))
+    def _project_card(self, p, proj: dict) -> ft.Container:
+        name = proj.get("name", "未命名项目")
+        source = proj.get("source", "")
+        proj_type = proj.get("type", "项目")
+        team_id = proj.get("team_id", "")
+        team_name = proj.get("team_name", "")
+        owner_name = proj.get("owner_name", "")
+        updated_at = proj.get("updated_at", "")
+        created_at = proj.get("created_at", "")
+        proj_url = proj.get("url", "")
+        proj_id = proj.get("id", "")
+        proj_color = proj.get("color") or self._color_for(name)
 
-            proj_url = proj.get("url", "")
-            proj_id = proj.get("id", "")
-            actions = ft.Row([
-                ghost_icon_button(ft.Icons.OPEN_IN_NEW,
-                                  lambda e, u=proj_url: self._open_url(u) if u else None,
-                                  tooltip="打开项目"),
-                ghost_icon_button(ft.Icons.CONTENT_COPY,
-                                  lambda e, tid=team_id, pid=proj_id: self._copy_links(tid, pid),
-                                  tooltip="复制链接"),
-            ], spacing=theme.space("1"))
+        # Cover area with gradient
+        cover = ft.Container(
+            content=ft.Text(name[:1].upper() or "P", color="#FFFFFF", size=28, weight=theme.WEIGHT_BOLD),
+            height=64,
+            gradient=ft.LinearGradient(
+                begin=ft.alignment.top_left, end=ft.alignment.bottom_right,
+                colors=[proj_color, proj_color + "AA"],
+            ),
+            alignment=ft.alignment.center,
+            border_radius=theme.radius("xl"),
+        )
 
-            card_content = ft.Row([
-                avatar_widget,
-                ft.Column([
+        # Source badge
+        badge = StatusBadge(p, source, "ok" if source in ("api", "蓝湖接口") else "idle")
+
+        # Meta info
+        meta_items: List[ft.Control] = []
+        if team_name or team_id:
+            meta_items.append(ft.Row([
+                ft.Icon(ft.Icons.GROUPS, size=12, color=p.text_muted),
+                ft.Text(team_name or team_id, size=theme.font_size("xs"), color=p.text_muted),
+            ], spacing=theme.space("1")))
+        if owner_name:
+            meta_items.append(ft.Row([
+                ft.Icon(ft.Icons.PERSON, size=12, color=p.text_muted),
+                ft.Text(owner_name, size=theme.font_size("xs"), color=p.text_muted),
+            ], spacing=theme.space("1")))
+        if updated_at:
+            meta_items.append(ft.Row([
+                ft.Icon(ft.Icons.UPDATE, size=12, color=p.text_muted),
+                ft.Text(f"更新: {updated_at[:10]}", size=theme.font_size("xs"), color=p.text_muted),
+            ], spacing=theme.space("1")))
+        if created_at:
+            meta_items.append(ft.Row([
+                ft.Icon(ft.Icons.CALENDAR_TODAY, size=12, color=p.text_muted),
+                ft.Text(f"创建: {created_at[:10]}", size=theme.font_size("xs"), color=p.text_muted),
+            ], spacing=theme.space("1")))
+
+        # Actions
+        actions = ft.Row([
+            ghost_icon_button(ft.Icons.OPEN_IN_NEW,
+                              lambda e, u=proj_url: self._open_url(u) if u else None,
+                              tooltip="打开项目"),
+            ghost_icon_button(ft.Icons.CONTENT_COPY,
+                              lambda e, tid=team_id, pid=proj_id: self._copy_links(tid, pid),
+                              tooltip="复制链接"),
+        ], spacing=theme.space("1"))
+
+        content = ft.Column([
+            cover,
+            ft.Container(
+                content=ft.Column([
                     ft.Row([
-                        ft.Text(name, weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary, expand=True),
+                        ft.Text(name, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD,
+                                color=p.text_primary, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
                         badge,
                     ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    ft.Text(proj_type, size=theme.font_size("xs"), color=p.accent),
                     ft.Column(meta_items, spacing=theme.space("1")) if meta_items else ft.Container(),
-                ], spacing=theme.space("2"), expand=True),
-                actions,
-            ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
+                    ft.Divider(height=1, color=p.border_light),
+                    ft.Row([ft.Container(expand=True), actions], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ], spacing=theme.space("2")),
+                padding=ft.padding.only(left=theme.space("4"), right=theme.space("4"), bottom=theme.space("4")),
+            ),
+        ], spacing=0)
 
-            cards.append(card(p, card_content))
+        return ft.Container(
+            content=content,
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=4, color=p.shadow_sm, offset=ft.Offset(0, 2)),
+            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        )
 
-        self._projects_grid.controls = cards
+    @staticmethod
+    def _color_for(name: str) -> str:
+        colors = ["#0052D9", "#00A870", "#ED7B2F", "#E34D59", "#7B61FF", "#00809A", "#F59D0A", "#4A8DF7"]
+        return colors[hash(name) % len(colors)]
 
     # ── lifecycle ─────────────────────────────────────────────────
     def refresh(self) -> None:
@@ -129,12 +204,14 @@ class ProjectsPage:
         active_id = (active or {}).get("id", "") if active else ""
 
         if not active_id:
-            self._render_stats([])
-            self._render_grid([], show_empty=True)
+            self._all_projects = []
         else:
-            projects = projects_core.cached_projects_for_account(active_id)
-            self._render_stats(projects)
-            self._render_grid(projects, show_empty=True)
+            self._all_projects = projects_core.cached_projects_for_account(active_id)
+
+        self._current_page = 1
+        self._render_stats(self._all_projects)
+        self._render_grid()
+        self._render_page_controls()
         try:
             self.ctx.page.update()
         except Exception:
@@ -154,16 +231,17 @@ class ProjectsPage:
             except Exception:
                 active = None
             active_id = (active or {}).get("id", "") if active else ""
-            # Re-read from cache (network refresh handled by server)
             time.sleep(0.3)
             return active_id
 
         def done(active_id: str):
             self._busy = False
-            projects = projects_core.cached_projects_for_account(active_id or "")
-            self._render_stats(projects)
-            self._render_grid(projects, show_empty=True)
-            self.ctx.add_log(f"[OK] [PROJECTS] 获取到 {len(projects)} 个项目")
+            self._all_projects = projects_core.cached_projects_for_account(active_id or "")
+            self._current_page = 1
+            self._render_stats(self._all_projects)
+            self._render_grid()
+            self._render_page_controls()
+            self.ctx.add_log(f"[OK] [PROJECTS] 获取到 {len(self._all_projects)} 个项目")
             self.ctx.page.update()
 
         def err(exc):
@@ -192,38 +270,6 @@ class ProjectsPage:
         except Exception:
             toast(self.ctx.page, "复制失败", "error", p)
 
-    def _copy_project_url(self) -> None:
-        p = self.ctx.palette
-        try:
-            active = accounts_core.get_active_account()
-            active_id = (active or {}).get("id", "") if active else ""
-            projects = projects_core.cached_projects_for_account(active_id or "")
-            if not projects:
-                toast(self.ctx.page, "暂无项目可复制", "warn", p)
-                return
-            links = []
-            for proj in projects:
-                url = proj.get("url", "")
-                name = proj.get("name", "未命名")
-                team_id = proj.get("team_id", "")
-                proj_id = proj.get("id", "")
-                if url:
-                    links.append(f"{name}: {url}")
-                elif team_id or proj_id:
-                    parts = []
-                    if team_id:
-                        parts.append(f"https://lanhuapp.com/web/#/team/{team_id}")
-                    if proj_id:
-                        parts.append(f"https://lanhuapp.com/web/#/project/{proj_id}")
-                    links.append(f"{name}: {' → '.join(parts)}")
-            if links:
-                self.ctx.page.set_clipboard("\n".join(links))
-                toast(self.ctx.page, "项目链接已复制", "ok", p)
-            else:
-                toast(self.ctx.page, "暂无项目可复制", "warn", p)
-        except Exception:
-            toast(self.ctx.page, "复制失败", "error", p)
-
     # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
@@ -233,35 +279,44 @@ class ProjectsPage:
         except Exception:
             active = None
         active_id = (active or {}).get("id", "") if active else ""
-        projects = projects_core.cached_projects_for_account(active_id)
-        self._render_stats(projects)
-        self._render_grid(projects, show_empty=True)
+        self._all_projects = projects_core.cached_projects_for_account(active_id)
+        self._current_page = 1
+        self._render_stats(self._all_projects)
+        self._render_grid()
+        self._render_page_controls()
 
         header_card = gradient_card(
             p,
             ft.Row([
                 ft.Column([
                     ft.Text("项目管理", size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
-                    ft.Text(f"共 {len(projects)} 个项目", size=theme.font_size("sm"), color=p.text_muted),
+                    ft.Text(f"共 {len(self._all_projects)} 个项目", size=theme.font_size("sm"), color=p.text_muted),
                 ], spacing=theme.space("1"), expand=True),
                 ft.Row([
                     primary_button("刷新项目", lambda e: self._refresh_projects(), icon=ft.Icons.REFRESH),
-                    secondary_button("复制项目链接", lambda e: self._copy_project_url(), icon=ft.Icons.CONTENT_COPY),
                 ], spacing=theme.space("3")),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
         )
 
+        # Pagination bar
+        pagination_bar = ft.Row([
+            secondary_button("上一页", lambda e: self._prev_page(), icon=ft.Icons.CHEVRON_LEFT),
+            self._page_text,
+            secondary_button("下一页", lambda e: self._next_page(), icon=ft.Icons.CHEVRON_RIGHT),
+        ], spacing=theme.space("3"), alignment=ft.MainAxisAlignment.CENTER)
+
         return ft.ListView(
             controls=[
                 ft.Container(
-                    content=section_title(p, "项目", "浏览管理关联项目 · API 与本地链接聚合"),
+                    content=section_title(p, "项目", "浏览管理关联项目 · 分页加载"),
                     padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
                 ),
                 ft.Container(
                     content=ft.Column([
                         header_card,
                         gradient_card(p, self._stat_bar, padding=theme.space("4")),
-                        self._projects_grid,
+                        self._grid,
+                        pagination_bar,
                     ], spacing=theme.space("4")),
                     padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
                 ),

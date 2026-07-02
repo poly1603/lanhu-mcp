@@ -1,4 +1,4 @@
-"""Logs page — full-featured log viewer with level filter, search, time range, detail expand."""
+"""Logs page — full-featured log viewer with MCP method call tracking."""
 
 from __future__ import annotations
 
@@ -25,6 +25,7 @@ LEVEL_STYLES = {
     "error": ("#E34D59", "#FDECEE"),
     "ok": ("#00A870", "#E8F8F2"),
     "debug": ("#999999", "#F3F3F3"),
+    "mcp": ("#7B61FF", "#F0ECFF"),
 }
 
 LEVEL_ICONS = {
@@ -33,7 +34,17 @@ LEVEL_ICONS = {
     "ok": ft.Icons.CHECK_CIRCLE,
     "info": ft.Icons.INFO,
     "debug": ft.Icons.FIBER_MANUAL_RECORD,
+    "mcp": ft.Icons.CALL_MADE,
 }
+
+MCP_PATTERNS = [
+    re.compile(r"\[MCP\]", re.IGNORECASE),
+    re.compile(r"\[TEST\]", re.IGNORECASE),
+    re.compile(r"tools/call", re.IGNORECASE),
+    re.compile(r"method.*call", re.IGNORECASE),
+    re.compile(r"mcp.*method", re.IGNORECASE),
+    re.compile(r"jsonrpc", re.IGNORECASE),
+]
 
 
 class LogsPage:
@@ -49,23 +60,24 @@ class LogsPage:
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
         self._all_lines_cache: List[str] = []
         self._expanded_index: Optional[int] = None
-        self._time_range: str = "all"  # "all" | "1h" | "24h" | "7d"
-        self._count_text = ft.Text("", size=theme.font_size("xs"), color=lambda: self.ctx.palette.text_muted)
+        self._time_range: str = "all"
+        self._count_text = ft.Text("", size=theme.font_size("xs"))
+        self._show_mcp_only: bool = False
 
     # ── filter chips ──────────────────────────────────────────────
     def _level_chips(self) -> ft.Control:
         p = self.ctx.palette
         kinds = [
             ("all", "全部"),
+            ("mcp", "MCP 调用"),
             ("info", "信息"),
             ("warn", "警告"),
             ("error", "错误"),
             ("ok", "成功"),
-            ("debug", "调试"),
         ]
         chips = []
         for k, label in kinds:
-            active = self._filter_level == k
+            active = (k == "mcp" and self._show_mcp_only) or (k == self._filter_level and not self._show_mcp_only)
             fg, bg = LEVEL_STYLES.get(k, (p.text_secondary, p.surface))
             chips.append(
                 ft.Container(
@@ -82,7 +94,12 @@ class LogsPage:
         return ft.Row(chips, spacing=theme.space("2"))
 
     def _set_level(self, level: str) -> None:
-        self._filter_level = level if self._filter_level != level else "all"
+        if level == "mcp":
+            self._show_mcp_only = not self._show_mcp_only
+            self._filter_level = "all"
+        else:
+            self._show_mcp_only = False
+            self._filter_level = level if self._filter_level != level else "all"
         self._apply_filter(do_update=True)
 
     # ── time range chips ──────────────────────────────────────────
@@ -116,24 +133,31 @@ class LogsPage:
         self._apply_filter(do_update=True)
 
     # ── stats ─────────────────────────────────────────────────────
-    def _render_stat_bar(self) -> None:
+    def _render_stat_bar(self, lines: list) -> None:
         p = self.ctx.palette
-        lines = self.ctx.get_logs()
-        info_count = sum(1 for l in lines if "[INFO]" in l or "=== " in l and "[ERR]" not in l)
-        warn_count = sum(1 for l in lines if "[WARN]" in l)
         err_count = sum(1 for l in lines if "[ERR]" in l or "[FAIL]" in l)
+        warn_count = sum(1 for l in lines if "[WARN]" in l)
         ok_count = sum(1 for l in lines if "[OK]" in l)
+        mcp_count = sum(1 for l in lines if self._is_mcp_log(l))
+        info_count = len(lines) - err_count - warn_count - ok_count - mcp_count
         self._stat_bar.controls = [
             stat_chip(p, "全部", str(len(lines)), icon=ft.Icons.ARTICLE, accent=p.primary),
+            stat_chip(p, "MCP 调用", str(mcp_count), icon=ft.Icons.CALL_MADE, accent=p.accent),
             stat_chip(p, "错误", str(err_count), icon=ft.Icons.ERROR, accent=p.danger),
             stat_chip(p, "警告", str(warn_count), icon=ft.Icons.WARNING, accent=p.warning),
             stat_chip(p, "成功", str(ok_count), icon=ft.Icons.CHECK_CIRCLE, accent=p.success),
-            stat_chip(p, "信息", str(info_count), icon=ft.Icons.INFO, accent=p.accent),
         ]
+
+    # ── MCP log detection ─────────────────────────────────────────
+    @staticmethod
+    def _is_mcp_log(line: str) -> bool:
+        return any(p.search(line) for p in MCP_PATTERNS)
 
     # ── classify a log line ───────────────────────────────────────
     @staticmethod
     def _classify(line: str) -> str:
+        if any(p.search(line) for p in MCP_PATTERNS):
+            return "mcp"
         if "[ERR]" in line or "[FAIL]" in line:
             return "error"
         if "[WARN]" in line:
@@ -150,22 +174,14 @@ class LogsPage:
         if not query:
             return ft.Text(line, size=theme.font_size("sm"), font_family=theme.FONT_MONO,
                            color="#1A1A1A", selectable=True, expand=True)
-        # Simple highlight: split and wrap matches
         parts = re.split(f"({re.escape(query)})", line, flags=re.IGNORECASE)
         spans = []
         for part in parts:
             if part.lower() == query.lower():
-                spans.append(ft.TextSpan(part, bgcolor="#FFEB3B", color="#000000",
-                                        weight=theme.WEIGHT_BOLD))
+                spans.append(ft.TextSpan(part, bgcolor="#FFEB3B", color="#000000", weight=theme.WEIGHT_BOLD))
             else:
                 spans.append(ft.TextSpan(part))
-        return ft.Text(
-            spans=spans,
-            size=theme.font_size("sm"),
-            font_family=theme.FONT_MONO,
-            selectable=True,
-            expand=True,
-        )
+        return ft.Text(spans=spans, size=theme.font_size("sm"), font_family=theme.FONT_MONO, selectable=True, expand=True)
 
     # ── render ────────────────────────────────────────────────────
     def _render(self) -> None:
@@ -181,22 +197,22 @@ class LogsPage:
             if cutoff:
                 filtered = []
                 for l in lines:
-                    # Try to extract time from log line
                     ts = self._extract_timestamp(l)
                     if ts and ts > now - cutoff:
                         filtered.append(l)
                     elif not ts:
-                        filtered.append(l)  # keep lines without timestamps
+                        filtered.append(l)
                 lines = filtered
 
-        # Level filter
-        if self._filter_level != "all":
+        # MCP only filter
+        if self._show_mcp_only:
+            lines = [l for l in lines if self._is_mcp_log(l)]
+        elif self._filter_level != "all":
             level_map = {
-                "info": lambda x: "[INFO]" in x or ("=== " in x and "[ERR]" not in x),
+                "info": lambda x: "[INFO]" in x or ("=== " in x and "[ERR]" not in x and not self._is_mcp_log(x)),
                 "warn": lambda x: "[WARN]" in x,
                 "error": lambda x: "[ERR]" in x or "[FAIL]" in x,
                 "ok": lambda x: "[OK]" in x,
-                "debug": lambda x: "[DEBUG]" in x,
             }
             check = level_map.get(self._filter_level)
             if check:
@@ -206,7 +222,6 @@ class LogsPage:
         if query:
             lines = [l for l in lines if query in l.lower()]
 
-        # Update count
         self._count_text.value = f"共 {len(lines)} 条"
         self._count_text.color = p.text_muted
 
@@ -223,36 +238,29 @@ class LogsPage:
                 icon = LEVEL_ICONS.get(level, ft.Icons.FIBER_MANUAL_RECORD)
                 is_expanded = self._expanded_index == idx
 
-                # Build the log line with expandable detail
                 content_row = ft.Row([
                     ft.Icon(icon, size=14, color=fg),
-                    ft.Container(
-                        content=self._highlight(line, query),
-                        expand=True,
-                    ),
+                    ft.Container(content=self._highlight(line, query), expand=True),
                 ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.START)
 
                 detail_content = None
                 if is_expanded:
-                    # Show full detail with metadata
                     meta_parts = []
-                    if "[" in line:
-                        # Extract level tag
-                        tag_match = re.search(r"\[(ERR|FAIL|WARN|OK|INFO|DEBUG)\]", line)
-                        if tag_match:
-                            meta_parts.append(f"级别: {tag_match.group(1)}")
-                    # Show timestamp if present
+                    tag_match = re.search(r"\[(ERR|FAIL|WARN|OK|INFO|DEBUG|MCP|TEST)\]", line)
+                    if tag_match:
+                        meta_parts.append(f"级别: {tag_match.group(1)}")
                     ts = self._extract_timestamp(line)
                     if ts:
                         meta_parts.append(f"时间: {datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')}")
                     meta_parts.append(f"长度: {len(line)} 字符")
                     meta_parts.append(f"序号: #{idx + 1}")
+                    if level == "mcp":
+                        meta_parts.append("类型: MCP 方法调用")
 
                     detail_content = ft.Container(
                         content=ft.Column([
                             ft.Divider(height=1, color=p.border_light),
-                            ft.Text("  ".join(meta_parts), size=theme.font_size("xs"), color=p.text_muted,
-                                    font_family=theme.FONT_MONO),
+                            ft.Text("  ".join(meta_parts), size=theme.font_size("xs"), color=p.text_muted, font_family=theme.FONT_MONO),
                         ], spacing=theme.space("1")),
                         padding=ft.padding.only(left=theme.space("6"), top=theme.space("1")),
                     )
@@ -260,25 +268,20 @@ class LogsPage:
                 clickable = ft.Container(
                     content=ft.Column(
                         [content_row] + ([detail_content] if detail_content else []),
-                        spacing=0,
-                        data=idx,
+                        spacing=0, data=idx,
                     ),
-                    bgcolor=bg if is_expanded else None,
+                    bgcolor=bg if is_expanded or level == "mcp" else None,
                     border_radius=theme.radius("sm"),
                     padding=theme.space("1"),
                     on_click=lambda e, i=idx: self._toggle_detail(i),
                     ink=True,
                 )
-
                 items.append(clickable)
-
             self._list.controls = items
 
-        self._render_stat_bar()
+        self._render_stat_bar(self._all_lines_cache)
 
     def _extract_timestamp(self, line: str) -> Optional[float]:
-        """Try to extract a Unix timestamp from a log line."""
-        # Common pattern: HH:MM:SS or YYYY-MM-DD HH:MM:SS
         m = re.search(r"(\d{2}:\d{2}:\d{2})", line)
         if m:
             try:
@@ -314,7 +317,6 @@ class LogsPage:
     def _on_mount(self) -> None:
         def on_log(line: str) -> None:
             self.refresh()
-
         if self._log_unsub is not None:
             try:
                 self._log_unsub()
@@ -352,14 +354,12 @@ class LogsPage:
         p = self.ctx.palette
         self._render()
 
-        # Toolbar row 1: level chips
         toolbar_row1 = ft.Row([
             self._level_chips(),
             ft.Container(expand=True),
             self._count_text,
         ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
-        # Toolbar row 2: time range + search + actions
         toolbar_row2 = ft.Row([
             self._time_chips(),
             ft.Container(width=theme.space("2")),
@@ -388,7 +388,7 @@ class LogsPage:
 
         return ft.Column(
             [
-                section_title(p, "日志", "实时输出 · 分类筛选 · 搜索 · 时间范围"),
+                section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
                 gradient_card(p, self._stat_bar, padding=theme.space("4")),
                 toolbar,
                 log_viewer,

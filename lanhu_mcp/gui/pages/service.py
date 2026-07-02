@@ -1,7 +1,8 @@
-"""Service page — MCP service control, health monitoring, method catalog."""
+"""Service page — MCP service control with method cards and inline testing."""
 
 from __future__ import annotations
 
+import json
 import time
 from typing import List, Optional
 
@@ -30,9 +31,10 @@ class ServicePage:
         self._health_section = ft.Row(spacing=theme.space("4"), wrap=True)
         self._action_holder = ft.Row(spacing=theme.space("3"))
         self._url_text = ft.Text(selectable=True, size=theme.font_size("sm"))
-        self._methods_container = ft.Column(spacing=theme.space("2"))
+        self._methods_container = ft.Column(spacing=theme.space("3"))
         self._busy = False
         self._started_at: Optional[float] = None
+        self._test_results: dict = {}
 
     def _mcp_url(self) -> str:
         try:
@@ -66,12 +68,11 @@ class ServicePage:
         self._url_text.color = p.text_primary
 
         uptime = self._uptime()
-        chips: List[ft.Control] = [
+        self._health_section.controls = [
             stat_chip(p, "运行时长", uptime, icon=ft.Icons.TIMER, accent=p.accent),
             stat_chip(p, "MCP 端点", "/mcp", icon=ft.Icons.LINK, accent=p.primary),
             stat_chip(p, "地址", f"localhost:{self.ctx.port}", icon=ft.Icons.ROUTER, accent=p.warning),
         ]
-        self._health_section.controls = chips
 
         if self._busy:
             self._action_holder.controls = [
@@ -98,6 +99,7 @@ class ServicePage:
         except Exception:
             pass
 
+    # ── start / stop ──────────────────────────────────────────────
     def _start(self) -> None:
         active = None
         try:
@@ -154,6 +156,7 @@ class ServicePage:
             toast(self.ctx.page, msg or ("服务已停止" if ok else "停止失败"),
                   "ok" if ok else "error", self.ctx.palette)
             self._render_status()
+            self._build_methods()
             self.ctx.page.update()
 
         def err(exc):
@@ -163,6 +166,7 @@ class ServicePage:
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
+    # ── health check ──────────────────────────────────────────────
     def _health_check(self) -> None:
         url = self._mcp_url()
         self.ctx.add_log(f"健康检查: {url}")
@@ -184,6 +188,53 @@ class ServicePage:
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
+    # ── test a single method ──────────────────────────────────────
+    def _test_method(self, method_name: str) -> None:
+        url = self._mcp_url()
+        p = self.ctx.palette
+        self.ctx.add_log(f"[TEST] 调用方法: {method_name}")
+
+        # Update the test button to show loading
+        self._test_results[method_name] = {"status": "loading"}
+        self._build_methods()
+        self.ctx.page.update()
+
+        def work():
+            import httpx
+            payload = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": method_name, "arguments": {}},
+            }
+            headers = {"Content-Type": "application/json", "Accept": "application/json"}
+            resp = httpx.post(url, json=payload, headers=headers, timeout=15.0)
+            return resp.status_code, resp.text[:500]
+
+        def done(result):
+            status_code, body = result
+            ok = isinstance(status_code, int) and status_code < 400
+            self._test_results[method_name] = {
+                "status": "ok" if ok else "error",
+                "code": status_code,
+                "body": body,
+            }
+            self.ctx.add_log(f"[TEST] {method_name}: HTTP {status_code}")
+            self._build_methods()
+            self.ctx.page.update()
+
+        def err(exc):
+            self._test_results[method_name] = {
+                "status": "error",
+                "body": str(exc)[:200],
+            }
+            self.ctx.add_log(f"[TEST] {method_name}: {exc}")
+            self._build_methods()
+            self.ctx.page.update()
+
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
+
+    # ── config dialog ─────────────────────────────────────────────
     def _show_config(self) -> None:
         p = self.ctx.palette
         try:
@@ -200,20 +251,19 @@ class ServicePage:
 
         blocks: List[ft.Control] = []
         for label, text in snippets:
-            blocks.append(
-                ft.Column([
-                    ft.Row([
-                        ft.Text(label, weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary, expand=True),
-                        ghost_icon_button(ft.Icons.CONTENT_COPY, lambda e, t=text: copy(t), tooltip="复制"),
-                    ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    ft.Container(
-                        content=ft.Text(text, selectable=True, size=theme.font_size("xs"),
-                                        color=p.text_secondary, font_family=theme.FONT_MONO),
-                        bgcolor=p.surface, border=ft.border.all(1, p.border_light),
-                        border_radius=theme.radius("sm"), padding=theme.space("3"),
-                    ),
-                ], spacing=theme.space("2")),
-            )
+            blocks.append(ft.Column([
+                ft.Row([
+                    ft.Text(label, weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary, expand=True),
+                    ghost_icon_button(ft.Icons.CONTENT_COPY, lambda e, t=text: copy(t), tooltip="复制"),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Container(
+                    content=ft.Text(text, selectable=True, size=theme.font_size("xs"),
+                                    color=p.text_secondary, font_family=theme.FONT_MONO),
+                    bgcolor=p.surface, border=ft.border.all(1, p.border_light),
+                    border_radius=theme.radius("sm"), padding=theme.space("3"),
+                ),
+            ], spacing=theme.space("2")))
+
         dlg = ft.AlertDialog(
             title=ft.Text("MCP 接入配置", color=p.text_primary),
             content=ft.Container(
@@ -234,6 +284,7 @@ class ServicePage:
             except Exception:
                 pass
 
+    # ── lifecycle ─────────────────────────────────────────────────
     def refresh(self) -> None:
         self._render_status()
         self._build_methods()
@@ -244,6 +295,22 @@ class ServicePage:
 
     def _build_methods(self) -> None:
         p = self.ctx.palette
+        running = self.ctx.service.is_running()
+
+        # Only show methods when service is running
+        if not running:
+            self._methods_container.controls = [
+                ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=48, color=p.text_muted),
+                        ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_MEDIUM, color=p.text_secondary),
+                        ft.Text("启动 MCP 服务后可查看和测试支持的方法", size=theme.font_size("sm"), color=p.text_muted),
+                    ], spacing=theme.space("2"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=theme.space("8"),
+                ),
+            ]
+            return
+
         try:
             tools = discover_mcp_tools()
             groups = group_mcp_tools(tools)
@@ -254,41 +321,91 @@ class ServicePage:
         for group_name, items in groups.items():
             if not items:
                 continue
-            rows = [
-                ft.Container(
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=14, color=p.success),
-                        ft.Text(name, size=theme.font_size("sm"), weight=theme.WEIGHT_MEDIUM, color=p.text_primary),
-                        ft.Text(summary, size=theme.font_size("xs"), color=p.text_muted, expand=True),
-                    ], spacing=theme.space("2")),
-                    bgcolor=p.surface if group_controls.__len__() % 2 == 0 else None,
-                    border_radius=theme.radius("sm"),
-                    padding=theme.space("1"),
-                )
-                for name, summary in items
-            ]
+            method_cards: List[ft.Control] = []
+            for name, summary in items:
+                test_info = self._test_results.get(name, {})
+                test_status = test_info.get("status", "")
+                method_cards.append(self._method_card(p, name, summary, test_status, test_info))
             badge = CountBadge(p, len(items), "info")
             group_controls.append(
-                ft.ExpansionTile(
-                    title=ft.Row([
-                        ft.Text(group_name, weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                        badge,
-                    ], spacing=theme.space("2"), tight=True),
-                    controls=[ft.Container(ft.Column(rows, spacing=theme.space("1")),
-                                           padding=ft.padding.only(left=12, bottom=8))],
-                    initially_expanded=len(items) <= 6,
+                ft.Container(
+                    content=ft.Column([
+                        ft.Row([
+                            ft.Text(group_name, size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                            badge,
+                        ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Divider(height=1, color=p.border_light),
+                        ft.Column(method_cards, spacing=theme.space("2")),
+                    ], spacing=theme.space("3")),
+                    bgcolor=p.card,
+                    border=ft.border.all(1, p.border_light),
+                    border_radius=theme.radius("xl"),
+                    padding=theme.space("5"),
+                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=4, color=p.shadow_sm, offset=ft.Offset(0, 2)),
                 )
             )
 
         header = ft.Row([
-            ft.Text(f"支持的 MCP 方法", size=theme.font_size("lg"),
-                    weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+            ft.Text("支持的 MCP 方法", size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
             ft.Container(expand=True),
             CountBadge(p, len(tools), "info"),
         ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
         self._methods_container.controls = [header] + group_controls
 
+    def _method_card(self, p, name: str, summary: str, test_status: str, test_info: dict) -> ft.Container:
+        # Status indicator
+        if test_status == "loading":
+            status_widget = ft.ProgressRing(width=16, height=16, stroke_width=2)
+        elif test_status == "ok":
+            status_widget = ft.Icon(ft.Icons.CHECK_CIRCLE, size=16, color=p.success)
+        elif test_status == "error":
+            status_widget = ft.Icon(ft.Icons.ERROR_OUTLINE, size=16, color=p.danger)
+        else:
+            status_widget = ft.Container(width=16, height=16)
+
+        # Short display name
+        display_name = name.replace("lanhu_", "").replace("_", " ")
+
+        test_btn = ghost_icon_button(
+            ft.Icons.PLAY_CIRCLE_OUTLINE,
+            lambda e, n=name: self._test_method(n),
+            tooltip="测试调用",
+        )
+
+        result_text = None
+        if test_info.get("body"):
+            body = test_info["body"][:120]
+            code = test_info.get("code", "")
+            result_text = ft.Text(
+                f"HTTP {code}: {body}" if code else body,
+                size=theme.font_size("xs"),
+                color=p.success if test_status == "ok" else p.danger,
+                font_family=theme.FONT_MONO,
+                max_lines=2,
+                overflow=ft.TextOverflow.ELLIPSIS,
+            )
+
+        content_items = [
+            ft.Row([
+                status_widget,
+                ft.Text(display_name, size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary, expand=True),
+                test_btn,
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Text(summary, size=theme.font_size("xs"), color=p.text_muted, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+        ]
+        if result_text:
+            content_items.append(result_text)
+
+        return ft.Container(
+            content=ft.Column(content_items, spacing=theme.space("1")),
+            padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+            border_radius=theme.radius("md"),
+            bgcolor=p.surface if test_status == "ok" else (p.danger_light if test_status == "error" else None),
+            animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+        )
+
+    # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
         self._render_status()
@@ -320,9 +437,7 @@ class ServicePage:
                         ft.Text(self._url_text.value or "", size=theme.font_size("sm"),
                                 color=p.text_muted, selectable=True),
                     ], spacing=theme.space("1"), expand=True),
-                    ft.Column([
-                        self._status_holder,
-                    ], horizontal_alignment=ft.CrossAxisAlignment.END),
+                    ft.Column([self._status_holder], horizontal_alignment=ft.CrossAxisAlignment.END),
                 ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=theme.space("4")),
                 ft.Divider(height=1, color=p.border_light),
                 self._action_holder,
@@ -338,33 +453,24 @@ class ServicePage:
             ], spacing=theme.space("3")),
         )
 
-        # ── Methods card ──────────────────────────────────────────
+        # ── Methods section ───────────────────────────────────────
         self._build_methods()
-        methods_card = card(p, ft.Column(
-            self._methods_container.controls + [ft.Container(height=theme.space("2"))],
-            spacing=theme.space("3"), tight=True,
-        ))
 
-        body_row = ft.Row(
-            [control_card, info_card],
-            spacing=theme.space("4"),
-            vertical_alignment=ft.CrossAxisAlignment.START,
-        )
-        body = ft.Column([body_row, methods_card], spacing=theme.space("5"))
+        body = ft.Column([
+            ft.Row([control_card, info_card], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.START),
+            ft.Container(height=theme.space("2")),
+            self._methods_container,
+        ], spacing=theme.space("4"))
 
         return ft.ListView(
             controls=[
                 ft.Container(
-                    content=section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单"),
-                    padding=ft.padding.symmetric(
-                        horizontal=theme.space("6"), vertical=theme.space("4"),
-                    ),
+                    content=section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试"),
+                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("4")),
                 ),
                 ft.Container(
                     content=body,
-                    padding=ft.padding.symmetric(
-                        horizontal=theme.space("6"), vertical=theme.space("2"),
-                    ),
+                    padding=ft.padding.symmetric(horizontal=theme.space("6"), vertical=theme.space("2")),
                 ),
             ],
             spacing=0,
