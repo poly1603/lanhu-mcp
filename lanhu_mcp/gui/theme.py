@@ -68,6 +68,13 @@ def font_size(key: str) -> int:
     return FONT_SIZES.get(str(key), 14)
 
 
+def alpha(hex_color: str, opacity: int) -> str:
+    c = hex_color.lstrip("#")
+    if len(c) == 6:
+        return f"#{max(0, min(opacity, 255)):02X}{c}"
+    return hex_color
+
+
 WEIGHT_NORMAL = ft.FontWeight.NORMAL
 WEIGHT_MEDIUM = ft.FontWeight.W_500
 WEIGHT_SEMIBOLD = ft.FontWeight.W_600
@@ -304,5 +311,5 @@ __all__ = [
     "FONT_FAMILY", "FONT_MONO", "FONT_SIZES",
     "WEIGHT_NORMAL", "WEIGHT_MEDIUM", "WEIGHT_SEMIBOLD", "WEIGHT_BOLD",
     "Palette", "LIGHT", "DARK",
-    "space", "radius", "font_size", "get_palette", "build_theme",
+    "space", "radius", "font_size", "alpha", "get_palette", "build_theme",
 ]

@@ -508,11 +508,7 @@ def show_error(
 # Helpers
 # ════════════════════════════════════════════════════════════════
 def _alpha20(hex_color: str) -> str:
-    """Return hex_color with ~20% opacity in ARGB format."""
-    c = hex_color.lstrip("#")
-    if len(c) == 6:
-        return f"#33{c}"
-    return hex_color
+    return theme.alpha(hex_color, 0x33)
 
 
 __all__ = [

@@ -120,7 +120,7 @@ class DesignBrowser:
                     size=22,
                     color=p.primary if selected else p.text_muted,
                 ),
-                bgcolor="#FFFFFF" if selected else "#FFFFFFDD",
+                bgcolor="#FFFFFF" if selected else theme.alpha("#FFFFFF", 0xDD),
                 border=ft.border.all(2, p.primary if selected else p.border_light),
                 border_radius=theme.radius("full"),
                 alignment=ft.alignment.center,

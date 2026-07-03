@@ -104,7 +104,7 @@ class ProjectsPage:
         self._grid.controls = cards
 
     def _project_card(self, p, proj: dict) -> ft.Container:
-        name = proj.get("name", "未命名项目")
+        name = proj.get("name") or "未命名项目"
         source = proj.get("source", "")
         proj_type = proj.get("type", "项目")
         team_id = proj.get("team_id", "")
@@ -116,16 +116,13 @@ class ProjectsPage:
         proj_id = proj.get("id", "")
         proj_color = proj.get("color") or self._color_for(name)
 
-        # Cover area with gradient
-        cover = ft.Container(
-            content=ft.Text(name[:1].upper() or "P", color="#FFFFFF", size=28, weight=theme.WEIGHT_BOLD),
-            height=64,
-            gradient=ft.LinearGradient(
-                begin=ft.alignment.top_left, end=ft.alignment.bottom_right,
-                colors=[proj_color, proj_color + "AA"],
-            ),
+        project_icon = ft.Container(
+            content=ft.Icon(ft.Icons.FOLDER_OUTLINED, color=proj_color, size=22),
+            bgcolor=theme.alpha(proj_color, 0x16),
+            border_radius=theme.radius("lg"),
+            width=44,
+            height=44,
             alignment=ft.alignment.center,
-            border_radius=theme.radius("xl"),
         )
 
         # Source badge
@@ -175,30 +172,28 @@ class ProjectsPage:
         actions = ft.Row(action_controls, spacing=theme.space("1"))
 
         content = ft.Column([
-            cover,
-            ft.Container(
-                content=ft.Column([
-                    ft.Row([
-                        ft.Text(name, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD,
-                                color=p.text_primary, expand=True, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                        badge,
-                    ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    ft.Text(proj_type, size=theme.font_size("xs"), color=p.accent),
-                    ft.Column(meta_items, spacing=theme.space("1")) if meta_items else ft.Container(),
-                    ft.Divider(height=1, color=p.border_light),
-                    ft.Row([ft.Container(expand=True), actions], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                ], spacing=theme.space("2")),
-                padding=ft.padding.only(left=theme.space("4"), right=theme.space("4"), bottom=theme.space("4")),
-            ),
-        ], spacing=0)
+            ft.Row([
+                project_icon,
+                ft.Column([
+                    ft.Text(name, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD,
+                            color=p.text_primary, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(proj_type, size=theme.font_size("xs"), color=p.text_muted),
+                ], spacing=theme.space("1"), expand=True),
+                badge,
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Divider(height=1, color=p.border_light),
+            ft.Column(meta_items, spacing=theme.space("1")) if meta_items else ft.Text("暂无团队或更新时间信息", size=theme.font_size("xs"), color=p.text_muted),
+            ft.Row([ft.Container(expand=True), actions], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        ], spacing=theme.space("3"))
 
         return ft.Container(
             content=content,
             bgcolor=p.card,
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
-            shadow=ft.BoxShadow(spread_radius=0, blur_radius=4, color=p.shadow_sm, offset=ft.Offset(0, 2)),
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
             animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
         )
 

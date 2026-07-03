@@ -103,24 +103,26 @@ class OverviewPage:
     @staticmethod
     def _metric(p, label: str, value: str, icon: str, accent: str, sub: str) -> ft.Container:
         return ft.Container(
-            content=ft.Row([
-                ft.Container(
-                    content=ft.Icon(icon, color=accent, size=22),
-                    bgcolor=accent + "18",
-                    border_radius=theme.radius("md"),
-                    width=44, height=44,
-                    alignment=ft.alignment.center,
-                ),
-                ft.Column([
-                    ft.Text(value, size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
-                    ft.Text(label, size=theme.font_size("xs"), color=p.text_secondary),
-                    ft.Text(sub, size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=0, expand=True, alignment=ft.MainAxisAlignment.CENTER),
-            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            content=ft.Column([
+                ft.Row([
+                    ft.Container(
+                        content=ft.Icon(icon, color=accent, size=18),
+                        bgcolor=theme.alpha(accent, 0x16),
+                        border_radius=theme.radius("md"),
+                        width=36, height=36,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Container(expand=True),
+                    ft.Text(label, size=theme.font_size("xs"), color=p.text_muted),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Text(value, size=theme.font_size("2xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
+                ft.Text(sub, size=theme.font_size("xs"), color=p.text_muted, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            ], spacing=theme.space("2")),
             bgcolor=p.card,
             border=ft.border.all(1, p.border_light),
-            border_radius=theme.radius("lg"),
+            border_radius=theme.radius("xl"),
             padding=theme.space("4"),
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
         )
 
     # ── timeline ──────────────────────────────────────────────────
@@ -311,7 +313,7 @@ class OverviewPage:
             content=ft.Column([
                 ft.Container(
                     content=ft.Icon(icon, color=accent, size=20),
-                    bgcolor=accent + "15", border_radius=theme.radius("md"),
+                    bgcolor=theme.alpha(accent, 0x18), border_radius=theme.radius("md"),
                     width=36, height=36, alignment=ft.alignment.center,
                 ),
                 ft.Text(title, size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),

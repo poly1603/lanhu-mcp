@@ -47,7 +47,7 @@ class IdeToolsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._grid = ft.GridView(
-            runs_count=2, max_extent=500, child_aspect_ratio=1.65,
+            runs_count=2, max_extent=520, child_aspect_ratio=1.9,
             spacing=theme.space("4"), run_spacing=theme.space("4"),
         )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
@@ -141,23 +141,27 @@ class IdeToolsPage:
                                               lambda e, d=os.path.dirname(exe_path): self._open_dir(d),
                                               tooltip="打开安装目录"))
 
+        visible_paths = path_rows[:2]
+        if len(path_rows) > 2:
+            visible_paths.append(ft.Text(f"还有 {len(path_rows) - 2} 项配置路径", size=theme.font_size("xs"), color=p.text_muted))
+
         content = ft.Column([
             ft.Row([
                 ft.Container(
-                    content=ft.Icon(icon, color=p.primary if installed else p.text_muted, size=24),
-                    bgcolor=(p.primary if installed else p.text_muted) + "18",
+                    content=ft.Icon(icon, color=p.primary if installed else p.text_muted, size=22),
+                    bgcolor=theme.alpha(p.primary if installed else p.text_muted, 0x18),
                     border_radius=theme.radius("lg"),
-                    width=44, height=44, alignment=ft.alignment.center,
+                    width=42, height=42, alignment=ft.alignment.center,
                 ),
                 ft.Column([
-                    ft.Text(name, size=theme.font_size("lg"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
+                    ft.Text(name, size=theme.font_size("base"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
                     ft.Text("AI 开发工具", size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=theme.space("1"), expand=True),
+                ], spacing=0, expand=True),
                 badge,
             ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Divider(height=1, color=p.border_light),
-            ft.Column(path_rows, spacing=theme.space("2")),
-            ft.Divider(height=1, color=p.border_light),
+            ft.Column(visible_paths, spacing=theme.space("2")),
+            ft.Container(expand=True),
             ft.Row(actions, spacing=theme.space("2"), wrap=True),
         ], spacing=theme.space("3"))
 
@@ -180,10 +184,10 @@ class IdeToolsPage:
         ) if can_open and path else ft.Container()
 
         return ft.Row([
-            ft.Icon(icon, size=14, color=p.text_muted),
+            ft.Icon(icon, size=13, color=p.text_disabled),
             ft.Column([
                 ft.Text(label, size=theme.font_size("xs"), color=p.text_muted),
-                ft.Text(path, size=theme.font_size("xs"), color=p.text_primary, font_family=theme.FONT_MONO,
+                ft.Text(path, size=theme.font_size("xs"), color=p.text_secondary, font_family=theme.FONT_MONO,
                         max_lines=1, overflow=ft.TextOverflow.ELLIPSIS, selectable=True, expand=True),
             ], spacing=0, expand=True),
             open_btn,

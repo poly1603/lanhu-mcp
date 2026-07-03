@@ -97,6 +97,19 @@ class AccountsPage:
         if info_items:
             controls.append(ft.Divider(height=1, color=p.border_light))
             controls.append(ft.Column(info_items, spacing=theme.space("2")))
+        else:
+            controls.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=p.primary),
+                        ft.Text("当前账号资料较少，可通过重新登录或手动 Cookie 补全。",
+                                size=theme.font_size("xs"), color=p.text_muted, expand=True),
+                    ], spacing=theme.space("2")),
+                    bgcolor=p.primary_light,
+                    border_radius=theme.radius("md"),
+                    padding=theme.space("3"),
+                )
+            )
         controls.append(ft.Divider(height=1, color=p.border_light))
         controls.append(
             ft.Row(action_buttons, spacing=theme.space("3"), wrap=True),

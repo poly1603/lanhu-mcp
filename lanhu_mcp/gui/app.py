@@ -101,6 +101,7 @@ class AppShell:
         self._switcher.duration = 180 if now - self._last_nav_time < 1.0 else 300
         self._sync_nav_styles()
         self._update_badges()
+        self._topbar.content = self._build_topbar().content
         try:
             self.page.update()
         except Exception:
@@ -216,13 +217,24 @@ class AppShell:
             ),
             padding=ft.padding.symmetric(horizontal=theme.space("4"), vertical=theme.space("3")),
             border_radius=theme.radius("lg"),
-            bgcolor="#FFFFFF10",
+            bgcolor=theme.alpha("#FFFFFF", 0x10),
             on_click=self._toggle_theme,
             ink=True,
             animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
         )
 
-        service_state = StatusBadge(p, "运行中" if self.ctx.service.is_running() else "未启动", "ok" if self.ctx.service.is_running() else "idle")
+        running = self.ctx.service.is_running()
+        service_state = ft.Container(
+            content=ft.Row([
+                ft.Container(width=7, height=7, bgcolor=p.success if running else p.text_disabled,
+                             border_radius=theme.radius("full")),
+                ft.Text("服务运行中" if running else "服务未启动", size=theme.font_size("xs"), color=p.sidebar_text),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=theme.alpha("#FFFFFF", 0x08),
+            border=ft.border.all(1, theme.alpha("#FFFFFF", 0x12)),
+            border_radius=theme.radius("full"),
+            padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+        )
         bottom = ft.Column([service_state, ft.Container(height=theme.space("2")), theme_toggle], spacing=0)
 
         return ft.Container(

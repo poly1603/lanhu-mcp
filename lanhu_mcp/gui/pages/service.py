@@ -302,11 +302,23 @@ class ServicePage:
             self._methods_container.controls = [
                 ft.Container(
                     content=ft.Column([
-                        ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=48, color=p.text_muted),
-                        ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_MEDIUM, color=p.text_secondary),
-                        ft.Text("启动 MCP 服务后可查看和测试支持的方法", size=theme.font_size("sm"), color=p.text_muted),
-                    ], spacing=theme.space("2"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=theme.space("8"),
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=30, color=p.primary),
+                            bgcolor=p.primary_light,
+                            border_radius=theme.radius("full"),
+                            width=64,
+                            height=64,
+                            alignment=ft.alignment.center,
+                        ),
+                        ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                        ft.Text("启动 MCP 服务后可查看工具方法、进行测试调用并复制接入配置。",
+                                size=theme.font_size("sm"), color=p.text_muted, text_align=ft.TextAlign.CENTER),
+                    ], spacing=theme.space("3"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                    bgcolor=p.card,
+                    border=ft.border.all(1, p.border_light),
+                    border_radius=theme.radius("xl"),
+                    padding=theme.space("10"),
+                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
                 ),
             ]
             return
