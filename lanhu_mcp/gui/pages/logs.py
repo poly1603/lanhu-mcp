@@ -12,8 +12,8 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge, stat_chip,
-    primary_button, secondary_button, ghost_icon_button, empty_state,
+    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
+    primary_button, secondary_button, empty_state,
     toast,
 )
 from ..state import AppContext
@@ -366,9 +366,6 @@ class LogsPage:
             self._time_chips(),
             ft.Container(width=theme.space("2")),
             ft.Container(content=self._search_field, expand=True),
-            ft.Container(width=theme.space("2")),
-            ghost_icon_button(ft.Icons.DELETE_OUTLINE, lambda e: self._clear(), tooltip="清空"),
-            primary_button("导出", lambda e: self._export(), icon=ft.Icons.SAVE),
         ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
         toolbar = ft.Container(
@@ -388,12 +385,45 @@ class LogsPage:
             bgcolor=p.surface,
         )
 
+        guide_card = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.TIPS_AND_UPDATES_OUTLINED, size=18, color=p.primary),
+                ft.Text("点击日志行可展开查看元信息；可按 MCP 调用、错误、警告筛选，也可以一键复制全部日志用于排障。",
+                        size=theme.font_size("sm"), color=p.text_secondary, expand=True),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.primary_light,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
+
+        header = ft.Container(
+            content=ft.Row([
+                section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
+                ft.Container(expand=True),
+                secondary_button("清空", lambda e: self._clear(), icon=ft.Icons.DELETE_OUTLINE),
+                primary_button("导出", lambda e: self._export(), icon=ft.Icons.SAVE),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
+        )
+
         body = ft.Column([
             gradient_card(p, self._stat_bar, padding=theme.space("4")),
+            guide_card,
             toolbar,
             log_viewer,
         ], spacing=theme.space("3"))
-        return page_frame(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索", body)
+        return ft.ListView(
+            controls=[
+                header,
+                ft.Container(
+                    content=body,
+                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                ),
+            ],
+            spacing=0,
+            expand=True,
+        )
 
 
 __all__ = ["LogsPage"]

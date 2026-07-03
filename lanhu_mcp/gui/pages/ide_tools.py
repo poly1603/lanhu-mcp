@@ -10,7 +10,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge, stat_chip,
+    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
     primary_button, secondary_button, ghost_icon_button, empty_state,
     run_in_background, toast, show_error,
 )
@@ -214,6 +214,22 @@ class IdeToolsPage:
             ], spacing=theme.space("2")))
         self._history_container.controls = items
 
+    def _flow_item(self, p, title: str, desc: str, icon: str, accent: str) -> ft.Control:
+        return ft.Row([
+            ft.Container(
+                content=ft.Icon(icon, size=16, color=accent),
+                bgcolor=theme.alpha(accent, 0x16),
+                border_radius=theme.radius("md"),
+                width=32,
+                height=32,
+                alignment=ft.alignment.center,
+            ),
+            ft.Column([
+                ft.Text(title, size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                ft.Text(desc, size=theme.font_size("xs"), color=p.text_muted),
+            ], spacing=0),
+        ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
     # ── lifecycle ─────────────────────────────────────────────────
     def refresh(self) -> None:
         self._render()
@@ -343,17 +359,43 @@ class IdeToolsPage:
         p = self.ctx.palette
         self._render()
 
-        toolbar = gradient_card(
-            p,
-            ft.Row([
-                ft.Text("将 MCP 配置写入 AI 编程工具", color=p.text_secondary, expand=True),
+        header = ft.Container(
+            content=ft.Row([
+                section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
+                ft.Container(expand=True),
                 secondary_button("重新检测", lambda e: self.refresh(), icon=ft.Icons.REFRESH),
                 primary_button("全部配置", lambda e: self._configure_all(), icon=ft.Icons.DONE_ALL),
-            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
+        )
+
+        intro_card = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.TERMINAL, size=18, color=p.primary),
+                ft.Text("将当前 MCP 地址写入已安装的 AI 编程工具，配置后重启对应 IDE 即可使用蓝湖能力。",
+                        size=theme.font_size("sm"), color=p.text_secondary, expand=True),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.primary_light,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
             padding=theme.space("4"),
         )
 
         stats_card = gradient_card(p, self._stat_bar, padding=theme.space("4"))
+
+        flow_card = ft.Container(
+            content=ft.Row([
+                self._flow_item(p, "检测", "识别已安装工具", ft.Icons.SEARCH, p.primary),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=p.text_disabled),
+                self._flow_item(p, "写入", "生成 MCP 配置", ft.Icons.EDIT_DOCUMENT, p.accent),
+                ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=p.text_disabled),
+                self._flow_item(p, "重启", "让 IDE 重新加载配置", ft.Icons.RESTART_ALT, p.success),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER, wrap=True),
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
 
         history_card = gradient_card(
             p,
@@ -363,8 +405,18 @@ class IdeToolsPage:
             ], spacing=theme.space("2")),
         )
 
-        body = ft.Column([toolbar, stats_card, self._grid, history_card], spacing=theme.space("4"))
-        return page_frame(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入", body)
+        body = ft.Column([intro_card, stats_card, flow_card, self._grid, history_card], spacing=theme.space("4"))
+        return ft.ListView(
+            controls=[
+                header,
+                ft.Container(
+                    content=body,
+                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                ),
+            ],
+            spacing=0,
+            expand=True,
+        )
 
 
 __all__ = ["IdeToolsPage"]

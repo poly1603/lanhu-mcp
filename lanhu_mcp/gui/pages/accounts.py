@@ -80,18 +80,16 @@ class AccountsPage:
         if role:
             info_items.append(field_row(p, "角色", role))
 
-        # Action buttons row
         action_buttons: List[ft.Control] = [
-            primary_button("一键登录", lambda e: self._add_account(), icon=ft.Icons.LOGIN),
-            secondary_button("手动 Cookie", lambda e: self._add_manual_cookie(), icon=ft.Icons.COOKIE),
-            ghost_icon_button(ft.Icons.OPEN_IN_NEW, lambda e: self._open_login_url(), tooltip="打开蓝湖登录页"),
+            secondary_button("打开登录页", lambda e: self._open_login_url(), icon=ft.Icons.OPEN_IN_NEW),
         ]
-
-        # Add switch account button only when 2+ accounts
         if account_count >= 2:
             action_buttons.append(
                 secondary_button("切换账号", lambda e: self._show_switch_dialog(accounts), icon=ft.Icons.SWAP_HORIZ),
             )
+        action_buttons.append(
+            danger_button(p, "退出登录", lambda e: self._logout_active(active), icon=ft.Icons.LOGOUT),
+        )
 
         controls = [header]
         if info_items:
@@ -178,6 +176,20 @@ class AccountsPage:
                 self.ctx.page.update()
             except Exception:
                 pass
+
+    def _logout_active(self, active: Optional[dict]) -> None:
+        p = self.ctx.palette
+        if not active:
+            return
+        if self.ctx.service.is_running():
+            toast(self.ctx.page, "服务运行中，请先停止服务再退出账号", "warn", p)
+            return
+        account_id = active.get("id", "")
+        name = active.get("name") or accounts_core.account_primary_contact(active) or "蓝湖用户"
+        accounts_core.remove_account(account_id)
+        self.ctx.add_log(f"[ACCOUNT] 已退出账号: {name}")
+        toast(self.ctx.page, "已退出登录", "ok", p)
+        self.refresh()
 
     # ── account stats ─────────────────────────────────────────────
     def _render_stats(self, accounts: list, active: Optional[dict]) -> ft.Control:
@@ -296,6 +308,28 @@ class AccountsPage:
         # Stats bar
         stats_bar = gradient_card(p, self._render_stats(accounts, active), padding=theme.space("4"))
 
+        security_card = ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Icon(ft.Icons.SHIELD_OUTLINED, color=p.success, size=20),
+                    bgcolor=p.success_light,
+                    border_radius=theme.radius("lg"),
+                    width=42,
+                    height=42,
+                    alignment=ft.alignment.center,
+                ),
+                ft.Column([
+                    ft.Text("账号与 Cookie 仅保存在本机", size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    ft.Text("启动服务时会把当前账号 Cookie 注入本地 MCP 进程，不会主动上传到第三方服务。",
+                            size=theme.font_size("xs"), color=p.text_muted),
+                ], spacing=0, expand=True),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.success_light,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
+
         # Profile card (merged info + actions)
         profile_card = gradient_card(
             p,
@@ -309,8 +343,31 @@ class AccountsPage:
             ], spacing=theme.space("3")),
         )
 
-        body = ft.Column([stats_bar, profile_card], spacing=theme.space("4"))
-        return page_frame(p, "账号", "登录管理 · 资料查看 · 账号切换", body)
+        top_actions = ft.Row([
+            primary_button("一键登录", lambda e: self._add_account(), icon=ft.Icons.LOGIN),
+            secondary_button("手动 Cookie", lambda e: self._add_manual_cookie(), icon=ft.Icons.COOKIE),
+        ], spacing=theme.space("2"), wrap=True)
+
+        header = ft.Container(
+            content=ft.Row([
+                section_title(p, "账号", "登录管理 · 资料查看 · 账号切换"),
+                ft.Container(expand=True),
+                top_actions,
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
+        )
+        body = ft.Column([stats_bar, security_card, profile_card], spacing=theme.space("4"))
+        return ft.ListView(
+            controls=[
+                header,
+                ft.Container(
+                    content=body,
+                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                ),
+            ],
+            spacing=0,
+            expand=True,
+        )
 
 
 __all__ = ["AccountsPage"]

@@ -10,7 +10,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge,
+    section_title, card, gradient_card, StatusBadge, CountBadge,
     primary_button, secondary_button, ghost_icon_button,
     stat_chip, toast,
 )
@@ -92,7 +92,11 @@ class ProjectsPage:
                         ft.Icon(ft.Icons.FOLDER_OPEN, size=48, color=p.text_muted),
                         ft.Text("暂无项目", size=theme.font_size("lg"), weight=theme.WEIGHT_MEDIUM, color=p.text_secondary),
                         ft.Text("登录蓝湖账号后刷新项目列表", size=theme.font_size("sm"), color=p.text_muted),
-                    ], spacing=theme.space("2"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Row([
+                            primary_button("刷新项目", lambda e: self._refresh_projects(), icon=ft.Icons.REFRESH),
+                            secondary_button("管理账号", lambda e: self.ctx.navigate("accounts") if self.ctx.navigate else None, icon=ft.Icons.PERSON),
+                        ], spacing=theme.space("3")),
+                    ], spacing=theme.space("3"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=theme.space("8"),
                 )),
             ]
@@ -295,17 +299,13 @@ class ProjectsPage:
         self._render_grid()
         self._render_page_controls()
 
-        header_card = gradient_card(
-            p,
-            ft.Row([
-                ft.Column([
-                    ft.Text("项目管理", size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
-                    ft.Text(f"共 {len(self._all_projects)} 个项目", size=theme.font_size("sm"), color=p.text_muted),
-                ], spacing=theme.space("1"), expand=True),
-                ft.Row([
-                    primary_button("刷新项目", lambda e: self._refresh_projects(), icon=ft.Icons.REFRESH),
-                ], spacing=theme.space("3")),
+        header = ft.Container(
+            content=ft.Row([
+                section_title(p, "项目", f"共 {len(self._all_projects)} 个项目 · 浏览管理关联项目"),
+                ft.Container(expand=True),
+                primary_button("刷新项目", lambda e: self._refresh_projects(), icon=ft.Icons.REFRESH),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
         )
 
         # Pagination bar
@@ -315,13 +315,35 @@ class ProjectsPage:
             secondary_button("下一页", lambda e: self._next_page(), icon=ft.Icons.CHEVRON_RIGHT),
         ], spacing=theme.space("3"), alignment=ft.MainAxisAlignment.CENTER)
 
+        tip_card = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.AUTO_AWESOME, size=20, color=p.accent),
+                ft.Text("项目卡片支持打开蓝湖、复制项目链接、浏览设计稿并生成还原提示词。",
+                        size=theme.font_size("sm"), color=p.text_secondary, expand=True),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.accent_light,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
+
         body = ft.Column([
-            header_card,
             gradient_card(p, self._stat_bar, padding=theme.space("4")),
+            tip_card,
             self._grid,
             pagination_bar,
         ], spacing=theme.space("4"))
-        return page_frame(p, "项目", "浏览管理关联项目 · 分页加载", body)
+        return ft.ListView(
+            controls=[
+                header,
+                ft.Container(
+                    content=body,
+                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                ),
+            ],
+            spacing=0,
+            expand=True,
+        )
 
 
 __all__ = ["ProjectsPage"]

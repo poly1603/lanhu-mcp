@@ -10,7 +10,7 @@ import flet as ft
 from .. import theme
 from ..components import (
     metric_tile, stat_chip, quick_action_tile, gradient_card, page_frame, section_title,
-    StatusBadge, timeline_item,
+    secondary_button, StatusBadge, timeline_item,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
@@ -155,6 +155,80 @@ class OverviewPage:
             quick_action_tile(p, "配置 AI 工具", "写入 IDE 配置", ft.Icons.SETTINGS, goto("ide"), accent=p.accent),
         ], spacing=theme.space(SP), wrap=True)
 
+    def _workflow_card(self, data: dict) -> ft.Container:
+        p = self.ctx.palette
+        steps = [
+            ("1", "登录蓝湖账号", "获取项目、设计稿和 Cookie 权限", data["account_label"] != "未登录"),
+            ("2", "启动 MCP 服务", "在本机暴露 HTTP MCP 端点", data["running"]),
+            ("3", "配置 AI 工具", "把 MCP 地址写入常用 IDE", data["ide_installed"] > 0),
+            ("4", "浏览项目设计", "从项目页打开设计稿并生成提示词", data["projects"] > 0),
+        ]
+        controls: List[ft.Control] = []
+        for index, title, desc, done in steps:
+            accent = p.success if done else p.primary
+            controls.append(ft.Container(
+                content=ft.Row([
+                    ft.Container(
+                        content=ft.Text("✓" if done else index, size=theme.font_size("xs"), weight=theme.WEIGHT_BOLD,
+                                        color=p.text_on_primary if done else accent),
+                        bgcolor=accent if done else theme.alpha(accent, 0x16),
+                        border_radius=theme.radius("full"),
+                        width=28,
+                        height=28,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Column([
+                        ft.Text(title, size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                        ft.Text(desc, size=theme.font_size("xs"), color=p.text_muted),
+                    ], spacing=0, expand=True),
+                ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=ft.padding.symmetric(vertical=theme.space("2")),
+            ))
+        return ft.Container(
+            content=ft.Column([
+                ft.Text("使用路径", size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                ft.Column(controls, spacing=0),
+            ], spacing=theme.space("2")),
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
+        )
+
+    def _suggestion_card(self, data: dict) -> ft.Container:
+        p = self.ctx.palette
+        if data["account_label"] == "未登录":
+            title, desc, icon, target = "先登录蓝湖账号", "登录后才能读取项目、设计稿和生成可用 MCP 地址。", ft.Icons.LOGIN, "accounts"
+        elif not data["running"]:
+            title, desc, icon, target = "启动 MCP 服务", "让 AI IDE 能通过本地 HTTP 端点访问蓝湖能力。", ft.Icons.PLAY_ARROW, "service"
+        elif data["ide_installed"] and data["projects"] == 0:
+            title, desc, icon, target = "刷新项目列表", "读取当前账号可访问项目，后续可浏览设计稿。", ft.Icons.SYNC, "projects"
+        else:
+            title, desc, icon, target = "配置 AI 工具", "一键写入 MCP 配置，把蓝湖能力接入日常开发流。", ft.Icons.SETTINGS, "ide"
+        return ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Icon(icon, color=p.primary, size=22),
+                    bgcolor=p.primary_light,
+                    border_radius=theme.radius("lg"),
+                    width=44,
+                    height=44,
+                    alignment=ft.alignment.center,
+                ),
+                ft.Column([
+                    ft.Text("下一步建议", size=theme.font_size("xs"), color=p.text_muted),
+                    ft.Text(title, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    ft.Text(desc, size=theme.font_size("xs"), color=p.text_muted),
+                ], spacing=0, expand=True),
+                secondary_button("前往", lambda e, t=target: self._goto(t), icon=ft.Icons.ARROW_FORWARD),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.primary_light,
+            border=ft.border.all(1, p.primary_light_hover),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
+
     # ── lifecycle ─────────────────────────────────────────────────
     def refresh(self) -> None:
         data = self._gather()
@@ -193,8 +267,28 @@ class OverviewPage:
                 ], expand=True, spacing=0),
                 ft.Column([
                     self._status_badge_holder,
+                    ft.Row([
+                        ft.Container(
+                            content=ft.Row([ft.Icon(ft.Icons.PLAY_ARROW, size=16, color=p.text_on_primary), ft.Text("启动服务", size=theme.font_size("sm"), color=p.text_on_primary)], spacing=theme.space("1")),
+                            bgcolor=theme.alpha("#FFFFFF", 0x22),
+                            border=ft.border.all(1, theme.alpha("#FFFFFF", 0x36)),
+                            border_radius=theme.radius("full"),
+                            padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+                            ink=True,
+                            on_click=lambda e: self._goto("service"),
+                        ),
+                        ft.Container(
+                            content=ft.Row([ft.Icon(ft.Icons.SETTINGS, size=16, color=p.text_on_primary), ft.Text("配置工具", size=theme.font_size("sm"), color=p.text_on_primary)], spacing=theme.space("1")),
+                            bgcolor=theme.alpha("#FFFFFF", 0x12),
+                            border=ft.border.all(1, theme.alpha("#FFFFFF", 0x28)),
+                            border_radius=theme.radius("full"),
+                            padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+                            ink=True,
+                            on_click=lambda e: self._goto("ide"),
+                        ),
+                    ], spacing=theme.space("2")),
                     ft.Text(f"加载于 {self._loaded_at}", size=theme.font_size("xs"), color=p.text_on_primary, opacity=0.7),
-                ], horizontal_alignment=ft.CrossAxisAlignment.END, spacing=theme.space("1")),
+                ], horizontal_alignment=ft.CrossAxisAlignment.END, spacing=theme.space("2")),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             gradient=ft.LinearGradient(begin=ft.alignment.center_left, end=ft.alignment.center_right,
                                        colors=[p.primary_gradient_start, p.primary_gradient_end]),
@@ -244,8 +338,6 @@ class OverviewPage:
             border_radius=theme.radius("lg"), padding=theme.space("4"),
         )
 
-        left_col = ft.Column([quick_card, tools_card], spacing=theme.space(SP), expand=True)
-
         # ── 右列 ────────────────────────────────────────────────
         timeline_card = ft.Container(
             content=ft.Column([
@@ -279,10 +371,15 @@ class OverviewPage:
             border_radius=theme.radius("lg"), padding=theme.space("4"),
         )
 
-        right_col = ft.Column([timeline_card, ide_card], spacing=theme.space(SP), expand=True)
-        two_col = ft.ResponsiveRow([
-            ft.Container(content=left_col, col={"sm": 12, "md": 12, "lg": 7, "xl": 7}),
-            ft.Container(content=right_col, col={"sm": 12, "md": 12, "lg": 5, "xl": 5}),
+        top_flow = ft.ResponsiveRow([
+            ft.Container(content=self._suggestion_card(data), col={"sm": 12, "md": 6}),
+            ft.Container(content=self._workflow_card(data), col={"sm": 12, "md": 6}),
+        ], spacing=theme.space(SP), run_spacing=theme.space(SP), vertical_alignment=ft.CrossAxisAlignment.START)
+
+        main_grid = ft.ResponsiveRow([
+            ft.Container(content=quick_card, col={"sm": 12, "md": 6, "lg": 5}),
+            ft.Container(content=tools_card, col={"sm": 12, "md": 6, "lg": 4}),
+            ft.Container(content=ide_card, col={"sm": 12, "md": 12, "lg": 3}),
         ], spacing=theme.space(SP), run_spacing=theme.space(SP), vertical_alignment=ft.CrossAxisAlignment.START)
 
         # ── 核心能力 ────────────────────────────────────────────
@@ -305,7 +402,7 @@ class OverviewPage:
             ft.Text(f"端口: {self.ctx.port}", size=theme.font_size("xs"), color=p.text_muted),
         ])
 
-        body = ft.Column([banner, stat_bar, metrics, two_col, feat_section, footer], spacing=theme.space("4"))
+        body = ft.Column([banner, stat_bar, metrics, top_flow, main_grid, feat_section, timeline_card, footer], spacing=theme.space("4"))
         return page_frame(p, "总览", "账号、服务、项目和 AI 工具的当前状态", body)
 
     def _feat(self, p, title: str, desc: str, icon: str, accent: str) -> ft.Container:

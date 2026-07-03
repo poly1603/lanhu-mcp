@@ -301,23 +301,29 @@ class ServicePage:
         if not running:
             self._methods_container.controls = [
                 ft.Container(
-                    content=ft.Column([
+                    content=ft.Row([
                         ft.Container(
-                            content=ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=30, color=p.primary),
+                            content=ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=28, color=p.primary),
                             bgcolor=p.primary_light,
                             border_radius=theme.radius("full"),
-                            width=64,
-                            height=64,
+                            width=58,
+                            height=58,
                             alignment=ft.alignment.center,
                         ),
-                        ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                        ft.Text("启动 MCP 服务后可查看工具方法、进行测试调用并复制接入配置。",
-                                size=theme.font_size("sm"), color=p.text_muted, text_align=ft.TextAlign.CENTER),
-                    ], spacing=theme.space("3"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Column([
+                            ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                            ft.Text("启动 MCP 服务后可查看工具方法、测试调用，并复制 AI 工具接入配置。",
+                                    size=theme.font_size("sm"), color=p.text_muted),
+                        ], spacing=theme.space("1"), expand=True),
+                        ft.Row([
+                            primary_button("启动服务", lambda e: self._start(), icon=ft.Icons.PLAY_ARROW),
+                            secondary_button("复制配置", lambda e: self._show_config(), icon=ft.Icons.CONTENT_COPY),
+                        ], spacing=theme.space("2"), wrap=True),
+                    ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     bgcolor=p.card,
                     border=ft.border.all(1, p.border_light),
                     border_radius=theme.radius("xl"),
-                    padding=theme.space("10"),
+                    padding=theme.space("5"),
                     shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
                 ),
             ]
@@ -339,6 +345,11 @@ class ServicePage:
                 test_status = test_info.get("status", "")
                 method_cards.append(self._method_card(p, name, summary, test_status, test_info))
             badge = CountBadge(p, len(items), "info")
+            methods_grid = ft.ResponsiveRow(
+                [ft.Container(content=card, col={"sm": 12, "md": 6, "lg": 4}) for card in method_cards],
+                spacing=theme.space("2"),
+                run_spacing=theme.space("2"),
+            )
             group_controls.append(
                 ft.Container(
                     content=ft.Column([
@@ -347,7 +358,7 @@ class ServicePage:
                             badge,
                         ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
                         ft.Divider(height=1, color=p.border_light),
-                        ft.Column(method_cards, spacing=theme.space("2")),
+                        methods_grid,
                     ], spacing=theme.space("3")),
                     bgcolor=p.card,
                     border=ft.border.all(1, p.border_light),
@@ -413,8 +424,30 @@ class ServicePage:
             content=ft.Column(content_items, spacing=theme.space("1")),
             padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
             border_radius=theme.radius("md"),
-            bgcolor=p.surface if test_status == "ok" else (p.danger_light if test_status == "error" else None),
+            bgcolor=p.success_light if test_status == "ok" else (p.danger_light if test_status == "error" else p.surface),
+            border=ft.border.all(1, p.border_light),
             animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+        )
+
+    def _service_step(self, p, index: str, title: str, desc: str, icon: str, accent: str) -> ft.Container:
+        return ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Icon(icon, size=18, color=accent),
+                    bgcolor=theme.alpha(accent, 0x16),
+                    border_radius=theme.radius("md"),
+                    width=38,
+                    height=38,
+                    alignment=ft.alignment.center,
+                ),
+                ft.Column([
+                    ft.Text(f"{index}. {title}", size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    ft.Text(desc, size=theme.font_size("xs"), color=p.text_muted, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                ], spacing=0, expand=True),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.surface,
+            border_radius=theme.radius("lg"),
+            padding=theme.space("3"),
         )
 
     # ── view ──────────────────────────────────────────────────────
@@ -465,11 +498,25 @@ class ServicePage:
             ], spacing=theme.space("3")),
         )
 
+        steps_card = ft.Container(
+            content=ft.ResponsiveRow([
+                ft.Container(content=self._service_step(p, "1", "启动服务", "确认账号有效后启动本地 MCP HTTP 服务", ft.Icons.PLAY_ARROW, p.success), col={"sm": 12, "md": 4}),
+                ft.Container(content=self._service_step(p, "2", "复制配置", "把当前端点写入 Cursor、Trae、Claude 等工具", ft.Icons.CONTENT_COPY, p.primary), col={"sm": 12, "md": 4}),
+                ft.Container(content=self._service_step(p, "3", "测试方法", "在服务运行后验证工具方法是否可正常调用", ft.Icons.RULE, p.accent), col={"sm": 12, "md": 4}),
+            ], spacing=theme.space("3"), run_spacing=theme.space("3")),
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+            shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
+        )
+
         # ── Methods section ───────────────────────────────────────
         self._build_methods()
 
         body = ft.Column([
             responsive_pair(control_card, info_card, spacing=theme.space("4")),
+            steps_card,
             self._methods_container,
         ], spacing=theme.space("5"))
 
