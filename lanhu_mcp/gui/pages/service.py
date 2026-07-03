@@ -10,7 +10,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge,
+    section_title, card, gradient_card, page_frame, responsive_pair, StatusBadge, CountBadge,
     primary_button, secondary_button, danger_button, ghost_icon_button,
     stat_chip, field_row,
     run_in_background, toast, show_error,
@@ -457,25 +457,11 @@ class ServicePage:
         self._build_methods()
 
         body = ft.Column([
-            ft.Row([control_card, info_card], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.START),
-            ft.Container(height=theme.space("2")),
+            responsive_pair(control_card, info_card, spacing=theme.space("4")),
             self._methods_container,
-        ], spacing=theme.space("4"))
+        ], spacing=theme.space("5"))
 
-        return ft.ListView(
-            controls=[
-                ft.Container(
-                    content=section_title(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试"),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
-                ),
-                ft.Container(
-                    content=body,
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
-                ),
-            ],
-            spacing=0,
-            expand=True,
-        )
+        return page_frame(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试", body)
 
 
 __all__ = ["ServicePage"]

@@ -8,7 +8,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge,
+    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge,
     primary_button, secondary_button, danger_button, ghost_icon_button,
     avatar, stat_chip, field_row, toast, show_error,
 )
@@ -296,20 +296,8 @@ class AccountsPage:
             ], spacing=theme.space("3")),
         )
 
-        return ft.ListView(
-            controls=[
-                ft.Container(
-                    content=section_title(p, "账号", "登录管理 · 资料查看 · 账号切换"),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
-                ),
-                ft.Container(
-                    content=ft.Column([stats_bar, profile_card], spacing=theme.space("4")),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
-                ),
-            ],
-            spacing=0,
-            expand=True,
-        )
+        body = ft.Column([stats_bar, profile_card], spacing=theme.space("4"))
+        return page_frame(p, "账号", "登录管理 · 资料查看 · 账号切换", body)
 
 
 __all__ = ["AccountsPage"]

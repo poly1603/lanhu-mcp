@@ -10,7 +10,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
+    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge, stat_chip,
     primary_button, secondary_button, ghost_icon_button, empty_state,
     run_in_background, toast, show_error,
 )
@@ -27,7 +27,7 @@ TOOL_ICONS = {
     "Claude Desktop": ft.Icons.DESKTOP_WINDOWS,
     "Codex": ft.Icons.CODE,
     "Cline": ft.Icons.EXTENSION,
-    "Roo Code": ft.Icons.PEST_CONTROL_RODENT,
+    "Roo Code": ft.Icons.EXTENSION,
     "Continue": ft.Icons.PLAY_ARROW,
     "VS Code": ft.Icons.CODE,
     "MimoCode": ft.Icons.SYNC,
@@ -47,7 +47,7 @@ class IdeToolsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._grid = ft.GridView(
-            runs_count=2, max_extent=480, child_aspect_ratio=1.8,
+            runs_count=2, max_extent=500, child_aspect_ratio=1.65,
             spacing=theme.space("4"), run_spacing=theme.space("4"),
         )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
@@ -359,20 +359,8 @@ class IdeToolsPage:
             ], spacing=theme.space("2")),
         )
 
-        return ft.ListView(
-            controls=[
-                ft.Container(
-                    content=section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
-                ),
-                ft.Container(
-                    content=ft.Column([toolbar, stats_card, self._grid, history_card], spacing=theme.space("4")),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
-                ),
-            ],
-            spacing=0,
-            expand=True,
-        )
+        body = ft.Column([toolbar, stats_card, self._grid, history_card], spacing=theme.space("4"))
+        return page_frame(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入", body)
 
 
 __all__ = ["IdeToolsPage"]

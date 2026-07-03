@@ -74,10 +74,11 @@ def card(
         padding=padding,
         expand=expand,
         shadow=ft.BoxShadow(
-            spread_radius=0, blur_radius=4, color=palette.shadow_sm,
-            offset=ft.Offset(0, 2),
+            spread_radius=0, blur_radius=10, color=palette.shadow_sm,
+            offset=ft.Offset(0, 4),
         ),
-        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
+        animate_opacity=ft.Animation(160, ft.AnimationCurve.EASE_OUT),
     )
 
 
@@ -88,11 +89,11 @@ def gradient_card(
     padding: int = 20,
     expand: bool = False,
 ) -> ft.Container:
-    """Card with a faint top-accent gradient bar."""
+    """Card with a restrained brand accent."""
     return ft.Container(
         content=ft.Column([
             ft.Container(
-                height=3,
+                height=2,
                 border_radius=theme.radius("full"),
                 gradient=ft.LinearGradient(
                     begin=ft.alignment.center_left,
@@ -100,7 +101,7 @@ def gradient_card(
                     colors=[palette.primary_gradient_start, palette.primary_gradient_end],
                 ),
             ),
-            ft.Container(content=content, padding=ft.padding.only(top=padding - 4)),
+            ft.Container(content=content, padding=ft.padding.only(top=max(padding - 4, 0))),
         ], spacing=0, tight=True),
         bgcolor=palette.card,
         border=ft.border.all(1, palette.border_light),
@@ -108,10 +109,11 @@ def gradient_card(
         padding=ft.padding.only(left=padding, right=padding, bottom=padding),
         expand=expand,
         shadow=ft.BoxShadow(
-            spread_radius=0, blur_radius=6, color=palette.shadow_md,
-            offset=ft.Offset(0, 2),
+            spread_radius=0, blur_radius=14, color=palette.shadow_md,
+            offset=ft.Offset(0, 6),
         ),
-        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
+        animate_opacity=ft.Animation(160, ft.AnimationCurve.EASE_OUT),
     )
 
 
@@ -120,13 +122,47 @@ def gradient_card(
 # ════════════════════════════════════════════════════════════════
 def section_title(palette: Palette, text: str, subtitle: str = "") -> ft.Control:
     children: List[ft.Control] = [
-        ft.Text(text, size=theme.font_size("2xl"), weight=theme.WEIGHT_BOLD, color=palette.text_primary),
+        ft.Text(text, size=theme.font_size("3xl"), weight=theme.WEIGHT_BOLD, color=palette.text_primary),
     ]
     if subtitle:
         children.append(
-            ft.Text(subtitle, size=theme.font_size("sm"), color=palette.text_secondary)
+            ft.Text(subtitle, size=theme.font_size("sm"), color=palette.text_muted)
         )
     return ft.Column(children, spacing=theme.space("1"))
+
+
+def page_frame(palette: Palette, title: str, subtitle: str, body: ft.Control) -> ft.ListView:
+    return ft.ListView(
+        controls=[
+            ft.Container(
+                content=section_title(palette, title, subtitle),
+                padding=ft.padding.only(
+                    left=theme.space("6"), top=theme.space("5"),
+                    right=theme.space("6"), bottom=theme.space("3"),
+                ),
+            ),
+            ft.Container(
+                content=body,
+                padding=ft.padding.only(
+                    left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6"),
+                ),
+            ),
+        ],
+        spacing=0,
+        expand=True,
+    )
+
+
+def responsive_pair(left: ft.Control, right: ft.Control, *, spacing: int = 16) -> ft.ResponsiveRow:
+    return ft.ResponsiveRow(
+        controls=[
+            ft.Container(content=left, col={"sm": 12, "md": 12, "lg": 7, "xl": 7}),
+            ft.Container(content=right, col={"sm": 12, "md": 12, "lg": 5, "xl": 5}),
+        ],
+        spacing=spacing,
+        run_spacing=spacing,
+        vertical_alignment=ft.CrossAxisAlignment.START,
+    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -175,8 +211,8 @@ def metric_tile(
         border=ft.border.all(1, palette.border_light),
         border_radius=theme.radius("xl"),
         padding=theme.space("5"),
-        shadow=ft.BoxShadow(spread_radius=0, blur_radius=3, color=palette.shadow_sm, offset=ft.Offset(0, 1)),
-        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        shadow=ft.BoxShadow(spread_radius=0, blur_radius=10, color=palette.shadow_sm, offset=ft.Offset(0, 4)),
+        animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
     )
 
 
@@ -198,8 +234,10 @@ def stat_chip(
     return ft.Container(
         content=ft.Row(row, spacing=theme.space("1"), tight=True),
         bgcolor=palette.surface,
+        border=ft.border.all(1, palette.border_light),
         border_radius=theme.radius("full"),
-        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+        padding=ft.padding.symmetric(horizontal=12, vertical=7),
+        animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
     )
 
 
@@ -219,24 +257,25 @@ def quick_action_tile(
     return ft.Container(
         content=ft.Row([
             ft.Container(
-                content=ft.Icon(icon, size=28, color=palette.text_on_primary),
-                bgcolor=accent_color,
+                content=ft.Icon(icon, size=24, color=accent_color),
+                bgcolor=_alpha20(accent_color),
                 border_radius=theme.radius("lg"),
                 padding=theme.space("3"),
             ),
             ft.Column([
-                ft.Text(title, size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=palette.text_primary),
-                ft.Text(subtitle, size=theme.font_size("sm"), color=palette.text_muted),
+                ft.Text(title, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD, color=palette.text_primary),
+                ft.Text(subtitle, size=theme.font_size("xs"), color=palette.text_muted),
             ], spacing=2, expand=True),
-            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=20, color=palette.text_disabled),
-        ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=palette.text_disabled),
+        ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
         bgcolor=palette.card,
         border=ft.border.all(1, palette.border_light),
         border_radius=theme.radius("xl"),
-        padding=theme.space("5"),
+        padding=theme.space("4"),
         ink=True,
         on_click=on_click,
-        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=palette.shadow_sm, offset=ft.Offset(0, 3)),
+        animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
     )
 
 
@@ -300,21 +339,51 @@ def field_row(palette: Palette, label: str, value: str) -> ft.Control:
 # ════════════════════════════════════════════════════════════════
 # Buttons
 # ════════════════════════════════════════════════════════════════
+def _button_shape() -> ft.RoundedRectangleBorder:
+    return ft.RoundedRectangleBorder(radius=theme.radius("md"))
+
+
 def primary_button(text: str, on_click: Callable, *, icon: Optional[str] = None, disabled: bool = False) -> ft.FilledButton:
-    return ft.FilledButton(text=text, icon=icon, on_click=on_click, disabled=disabled)
+    return ft.FilledButton(
+        text=text, icon=icon, on_click=on_click, disabled=disabled,
+        style=ft.ButtonStyle(
+            shape=_button_shape(),
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            elevation={ft.ControlState.DEFAULT: 0, ft.ControlState.HOVERED: 1},
+            animation_duration=150,
+        ),
+    )
 
 
 def secondary_button(text: str, on_click: Callable, *, icon: Optional[str] = None, disabled: bool = False) -> ft.OutlinedButton:
-    return ft.OutlinedButton(text=text, icon=icon, on_click=on_click, disabled=disabled)
+    return ft.OutlinedButton(
+        text=text, icon=icon, on_click=on_click, disabled=disabled,
+        style=ft.ButtonStyle(
+            shape=_button_shape(),
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            animation_duration=150,
+        ),
+    )
 
 
 def danger_button(palette: Palette, text: str, on_click: Callable, *, icon: Optional[str] = None, disabled: bool = False) -> ft.OutlinedButton:
-    return ft.OutlinedButton(text=text, icon=icon, on_click=on_click, disabled=disabled,
-                             style=ft.ButtonStyle(color=palette.danger))
+    return ft.OutlinedButton(
+        text=text, icon=icon, on_click=on_click, disabled=disabled,
+        style=ft.ButtonStyle(
+            color=palette.danger,
+            side=ft.BorderSide(1, palette.danger_light),
+            shape=_button_shape(),
+            padding=ft.padding.symmetric(horizontal=16, vertical=12),
+            animation_duration=150,
+        ),
+    )
 
 
 def ghost_icon_button(icon: str, on_click: Callable, *, tooltip: str = "", disabled: bool = False) -> ft.IconButton:
-    return ft.IconButton(icon=icon, tooltip=tooltip, on_click=on_click, disabled=disabled)
+    return ft.IconButton(
+        icon=icon, tooltip=tooltip, on_click=on_click, disabled=disabled,
+        style=ft.ButtonStyle(shape=ft.CircleBorder(), animation_duration=150),
+    )
 
 
 # ════════════════════════════════════════════════════════════════
@@ -448,7 +517,7 @@ def _alpha20(hex_color: str) -> str:
 
 __all__ = [
     "run_in_background",
-    "card", "gradient_card", "section_title",
+    "card", "gradient_card", "section_title", "page_frame", "responsive_pair",
     "metric_tile", "stat_chip", "quick_action_tile",
     "empty_state", "field_row",
     "primary_button", "secondary_button", "danger_button", "ghost_icon_button",

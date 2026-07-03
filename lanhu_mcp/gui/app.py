@@ -13,7 +13,7 @@ import flet as ft
 
 from . import theme
 from .state import AppContext
-from .components import toast
+from .components import StatusBadge, toast
 from .pages import (
     OverviewPage,
     ServicePage,
@@ -63,8 +63,9 @@ class AppShell:
         self._nav_buttons: Dict[str, ft.Container] = {}
         self._nav_badges: Dict[str, ft.Container] = {}
         self._port_field = ft.TextField(
-            value=str(port), width=96, dense=True, text_align=ft.TextAlign.CENTER,
+            value=str(port), width=104, dense=True, text_align=ft.TextAlign.CENTER,
             keyboard_type=ft.KeyboardType.NUMBER, on_change=self._on_port_change,
+            border_radius=theme.radius("md"),
         )
 
     # ── page registry ─────────────────────────────────────────────
@@ -110,6 +111,7 @@ class AppShell:
         for key, btn in self._nav_buttons.items():
             active = key == self._current
             btn.bgcolor = p.sidebar_active if active else None
+            btn.border = ft.border.all(1, p.primary_hover if active else "#00000000")
             row = btn.content
             if isinstance(row, ft.Row):
                 for c in row.controls:
@@ -160,7 +162,8 @@ class AppShell:
             border_radius=theme.radius("lg"),
             on_click=lambda e, k=key: self.navigate(k),
             ink=True,
-            animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+            border=ft.border.all(1, "#00000000"),
+            animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
         )
         self._nav_buttons[key] = btn
         return btn
@@ -168,7 +171,6 @@ class AppShell:
     def _build_sidebar(self) -> ft.Container:
         p = self.ctx.palette
 
-        # Brand area with gradient accent
         brand = ft.Container(
             content=ft.Row(
                 [
@@ -180,14 +182,18 @@ class AppShell:
                             colors=[p.primary, p.primary_gradient_end or p.primary_hover],
                         ),
                         border_radius=theme.radius("lg"),
-                        padding=theme.space("2"),
+                        width=42, height=42,
+                        alignment=ft.alignment.center,
                     ),
-                    ft.Text(APP_TITLE, size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.sidebar_text),
+                    ft.Column([
+                        ft.Text(APP_TITLE, size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.sidebar_text),
+                        ft.Text("Design MCP Console", size=theme.font_size("xs"), color=p.text_disabled),
+                    ], spacing=0, expand=True),
                 ],
-                spacing=theme.space("2"),
+                spacing=theme.space("3"),
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.only(left=theme.space("4"), top=theme.space("5"), bottom=theme.space("6")),
+            padding=ft.padding.only(left=theme.space("3"), top=theme.space("5"), bottom=theme.space("5")),
         )
 
         # Divider below brand
@@ -198,7 +204,6 @@ class AppShell:
             spacing=theme.space("1"),
         )
 
-        # Bottom: theme toggle inside sidebar
         theme_icon_name = ft.Icons.LIGHT_MODE_OUTLINED if self.ctx.mode == "dark" else ft.Icons.DARK_MODE_OUTLINED
         theme_toggle = ft.Container(
             content=ft.Row(
@@ -211,11 +216,14 @@ class AppShell:
             ),
             padding=ft.padding.symmetric(horizontal=theme.space("4"), vertical=theme.space("3")),
             border_radius=theme.radius("lg"),
+            bgcolor="#FFFFFF10",
             on_click=self._toggle_theme,
             ink=True,
+            animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
         )
 
-        bottom = ft.Column([theme_toggle], spacing=0)
+        service_state = StatusBadge(p, "运行中" if self.ctx.service.is_running() else "未启动", "ok" if self.ctx.service.is_running() else "idle")
+        bottom = ft.Column([service_state, ft.Container(height=theme.space("2")), theme_toggle], spacing=0)
 
         return ft.Container(
             width=250,
@@ -242,16 +250,22 @@ class AppShell:
             vertical_alignment=ft.CrossAxisAlignment.CENTER,
         )
 
+        current_label = next((label for key, label, _icon in NAV_ITEMS if key == self._current), "控制台")
+        running = self.ctx.service.is_running()
         return ft.Container(
-            height=60,
+            height=68,
             bgcolor=p.card,
             border=ft.border.only(bottom=ft.border.BorderSide(1, p.border_light)),
             padding=ft.padding.symmetric(horizontal=theme.space("6")),
             content=ft.Row(
                 [
-                    ft.Text("控制台", size=theme.font_size("lg"),
-                            weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    ft.Column([
+                        ft.Text(current_label, size=theme.font_size("lg"),
+                                weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                        ft.Text("蓝湖设计资产与 MCP 服务工作台", size=theme.font_size("xs"), color=p.text_muted),
+                    ], spacing=0),
                     ft.Container(expand=True),
+                    StatusBadge(p, "服务运行中" if running else "服务未启动", "ok" if running else "idle"),
                     port_section,
                 ],
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,

@@ -9,7 +9,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    metric_tile, stat_chip, quick_action_tile, gradient_card, section_title,
+    metric_tile, stat_chip, quick_action_tile, gradient_card, page_frame, section_title,
     StatusBadge, timeline_item,
 )
 from ..state import AppContext
@@ -278,7 +278,10 @@ class OverviewPage:
         )
 
         right_col = ft.Column([timeline_card, ide_card], spacing=theme.space(SP), expand=True)
-        two_col = ft.Row([left_col, right_col], spacing=theme.space(SP), vertical_alignment=ft.CrossAxisAlignment.START)
+        two_col = ft.ResponsiveRow([
+            ft.Container(content=left_col, col={"sm": 12, "md": 12, "lg": 7, "xl": 7}),
+            ft.Container(content=right_col, col={"sm": 12, "md": 12, "lg": 5, "xl": 5}),
+        ], spacing=theme.space(SP), run_spacing=theme.space(SP), vertical_alignment=ft.CrossAxisAlignment.START)
 
         # ── 核心能力 ────────────────────────────────────────────
         feat_grid = ft.GridView(runs_count=4, max_extent=280, child_aspect_ratio=1.5,
@@ -300,14 +303,8 @@ class OverviewPage:
             ft.Text(f"端口: {self.ctx.port}", size=theme.font_size("xs"), color=p.text_muted),
         ])
 
-        # ── 组装 ────────────────────────────────────────────────
-        scroll = ft.ListView(
-            controls=[banner, stat_bar, metrics, two_col, feat_section, footer],
-            spacing=theme.space(SP),
-            padding=ft.padding.all(theme.space("4")),
-            expand=True,
-        )
-        return ft.Container(content=scroll, bgcolor=p.bg, expand=True)
+        body = ft.Column([banner, stat_bar, metrics, two_col, feat_section, footer], spacing=theme.space("4"))
+        return page_frame(p, "总览", "账号、服务、项目和 AI 工具的当前状态", body)
 
     def _feat(self, p, title: str, desc: str, icon: str, accent: str) -> ft.Container:
         return ft.Container(

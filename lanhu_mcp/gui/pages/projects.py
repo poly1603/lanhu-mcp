@@ -10,11 +10,12 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge,
+    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge,
     primary_button, secondary_button, ghost_icon_button,
     stat_chip, toast,
 )
 from ..state import AppContext
+from .designs import DesignBrowser
 from ...core import accounts as accounts_core
 from ...core import projects as projects_core
 
@@ -25,7 +26,7 @@ class ProjectsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._grid = ft.GridView(
-            runs_count=2, max_extent=480, child_aspect_ratio=2.0,
+            runs_count=2, max_extent=460, child_aspect_ratio=1.85,
             spacing=theme.space("4"), run_spacing=theme.space("4"),
         )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
@@ -33,6 +34,7 @@ class ProjectsPage:
         self._busy = False
         self._all_projects: list[dict] = []
         self._current_page = 1
+        self._design_browser = DesignBrowser(ctx)
 
     # ── stats ─────────────────────────────────────────────────────
     def _render_stats(self, projects: list[dict]) -> None:
@@ -153,14 +155,24 @@ class ProjectsPage:
             ], spacing=theme.space("1")))
 
         # Actions
-        actions = ft.Row([
+        action_controls: List[ft.Control] = []
+        if proj_id:
+            action_controls.append(
+                ghost_icon_button(ft.Icons.IMAGE_OUTLINED,
+                                  lambda e, pid=proj_id, tid=team_id, n=name: self._browse_designs(pid, tid, n),
+                                  tooltip="浏览设计稿")
+            )
+        action_controls.extend([
             ghost_icon_button(ft.Icons.OPEN_IN_NEW,
                               lambda e, u=proj_url: self._open_url(u) if u else None,
-                              tooltip="打开项目"),
+                              tooltip="打开项目",
+                              disabled=not bool(proj_url)),
             ghost_icon_button(ft.Icons.CONTENT_COPY,
                               lambda e, tid=team_id, pid=proj_id: self._copy_links(tid, pid),
-                              tooltip="复制链接"),
-        ], spacing=theme.space("1"))
+                              tooltip="复制链接",
+                              disabled=not bool(team_id or proj_id)),
+        ])
+        actions = ft.Row(action_controls, spacing=theme.space("1"))
 
         content = ft.Column([
             cover,
@@ -256,6 +268,9 @@ class ProjectsPage:
         import webbrowser
         webbrowser.open(url)
 
+    def _browse_designs(self, project_id: str, team_id: str, project_name: str) -> None:
+        self._design_browser.open_for(project_id, team_id, project_name)
+
     def _copy_links(self, team_id: str, project_id: str) -> None:
         p = self.ctx.palette
         try:
@@ -305,25 +320,13 @@ class ProjectsPage:
             secondary_button("下一页", lambda e: self._next_page(), icon=ft.Icons.CHEVRON_RIGHT),
         ], spacing=theme.space("3"), alignment=ft.MainAxisAlignment.CENTER)
 
-        return ft.ListView(
-            controls=[
-                ft.Container(
-                    content=section_title(p, "项目", "浏览管理关联项目 · 分页加载"),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
-                ),
-                ft.Container(
-                    content=ft.Column([
-                        header_card,
-                        gradient_card(p, self._stat_bar, padding=theme.space("4")),
-                        self._grid,
-                        pagination_bar,
-                    ], spacing=theme.space("4")),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
-                ),
-            ],
-            spacing=0,
-            expand=True,
-        )
+        body = ft.Column([
+            header_card,
+            gradient_card(p, self._stat_bar, padding=theme.space("4")),
+            self._grid,
+            pagination_bar,
+        ], spacing=theme.space("4"))
+        return page_frame(p, "项目", "浏览管理关联项目 · 分页加载", body)
 
 
 __all__ = ["ProjectsPage"]

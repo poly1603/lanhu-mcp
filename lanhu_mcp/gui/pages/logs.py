@@ -12,7 +12,7 @@ import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
+    section_title, card, gradient_card, page_frame, StatusBadge, CountBadge, stat_chip,
     primary_button, secondary_button, ghost_icon_button, empty_state,
     toast,
 )
@@ -169,18 +169,18 @@ class LogsPage:
         return "info"
 
     # ── highlight search matches ──────────────────────────────────
-    @staticmethod
-    def _highlight(line: str, query: str) -> ft.Control:
+    def _highlight(self, line: str, query: str) -> ft.Control:
+        p = self.ctx.palette
         if not query:
             return ft.Text(line, size=theme.font_size("sm"), font_family=theme.FONT_MONO,
-                           color="#1A1A1A", selectable=True, expand=True)
+                           color=p.text_primary, selectable=True, expand=True)
         parts = re.split(f"({re.escape(query)})", line, flags=re.IGNORECASE)
         spans = []
         for part in parts:
             if part.lower() == query.lower():
-                spans.append(ft.TextSpan(part, bgcolor="#FFEB3B", color="#000000", weight=theme.WEIGHT_BOLD))
+                spans.append(ft.TextSpan(part, bgcolor=p.warning_light, color=p.warning, weight=theme.WEIGHT_BOLD))
             else:
-                spans.append(ft.TextSpan(part))
+                spans.append(ft.TextSpan(part, style=ft.TextStyle(color=p.text_primary)))
         return ft.Text(spans=spans, size=theme.font_size("sm"), font_family=theme.FONT_MONO, selectable=True, expand=True)
 
     # ── render ────────────────────────────────────────────────────
@@ -270,11 +270,13 @@ class LogsPage:
                         [content_row] + ([detail_content] if detail_content else []),
                         spacing=0, data=idx,
                     ),
-                    bgcolor=bg if is_expanded or level == "mcp" else None,
-                    border_radius=theme.radius("sm"),
-                    padding=theme.space("1"),
+                    bgcolor=bg if is_expanded or level == "mcp" else p.card,
+                    border=ft.border.all(1, p.border_light),
+                    border_radius=theme.radius("md"),
+                    padding=theme.space("2"),
                     on_click=lambda e, i=idx: self._toggle_detail(i),
                     ink=True,
+                    animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 )
                 items.append(clickable)
             self._list.controls = items
@@ -386,21 +388,12 @@ class LogsPage:
             bgcolor=p.surface,
         )
 
-        scroll = ft.ListView(
-            controls=[
-                ft.Container(
-                    content=section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("3"), right=theme.space("4"), bottom=theme.space("3")),
-                ),
-                ft.Container(
-                    content=ft.Column([gradient_card(p, self._stat_bar, padding=theme.space("4")), toolbar, log_viewer], spacing=theme.space("3")),
-                    padding=ft.padding.only(left=theme.space("4"), top=theme.space("1"), right=theme.space("4")),
-                ),
-            ],
-            spacing=0,
-            expand=True,
-        )
-        return scroll
+        body = ft.Column([
+            gradient_card(p, self._stat_bar, padding=theme.space("4")),
+            toolbar,
+            log_viewer,
+        ], spacing=theme.space("3"))
+        return page_frame(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索", body)
 
 
 __all__ = ["LogsPage"]
