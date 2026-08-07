@@ -77,7 +77,8 @@ class IdeToolsPage:
     # ── render tool cards ─────────────────────────────────────────
     def _render(self) -> None:
         p = self.ctx.palette
-        details = self._safe(self.ctx.ide.get_detection_details, {})
+        all_details = self._safe(self.ctx.ide.get_detection_details, {})
+        details = {name: detail for name, detail in all_details.items() if detail.get("installed")}
 
         if not details:
             self._grid.controls = [empty_state(p, "未检测到任何 AI IDE", icon=ft.Icons.DEVELOPER_MODE)]
@@ -95,7 +96,7 @@ class IdeToolsPage:
         self._stat_bar.controls = [
             stat_chip(p, "已安装", str(stats["installed"]), icon=ft.Icons.CHECK_CIRCLE, accent=p.success),
             stat_chip(p, "已配置", str(stats["configured"]), icon=ft.Icons.SETTINGS, accent=p.primary),
-            stat_chip(p, "支持", str(stats["total"]), icon=ft.Icons.DEVICES, accent=p.accent),
+            stat_chip(p, "本机工具", str(stats["total"]), icon=ft.Icons.DEVICES, accent=p.accent),
         ]
 
         self._render_history()
@@ -361,10 +362,8 @@ class IdeToolsPage:
 
         header = ft.Container(
             content=ft.Row([
-                section_title(p, "AI 工具", "检测 · 配置 · 批量部署 MCP 接入"),
+                section_title(p, "AI 工具", "仅显示本机已安装的 AI 工具"),
                 ft.Container(expand=True),
-                secondary_button("重新检测", lambda e: self.refresh(), icon=ft.Icons.REFRESH),
-                primary_button("全部配置", lambda e: self._configure_all(), icon=ft.Icons.DONE_ALL),
             ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
             padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
         )
@@ -372,15 +371,16 @@ class IdeToolsPage:
         intro_card = ft.Container(
             content=ft.Row([
                 ft.Icon(ft.Icons.TERMINAL, size=18, color=p.primary),
-                ft.Text("将当前 MCP 地址写入已安装的 AI 编程工具，配置后重启对应 IDE 即可使用蓝湖能力。",
-                        size=theme.font_size("sm"), color=p.text_secondary, expand=True),
+                ft.Text(
+                    "仅列出当前电脑已安装的 AI 工具，可按需写入当前 MCP 地址。",
+                    size=theme.font_size("sm"), color=p.text_secondary, expand=True,
+                ),
             ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor=p.primary_light,
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
             padding=theme.space("4"),
         )
-
         stats_card = gradient_card(p, self._stat_bar, padding=theme.space("4"))
 
         flow_card = ft.Container(
@@ -405,7 +405,7 @@ class IdeToolsPage:
             ], spacing=theme.space("2")),
         )
 
-        body = ft.Column([intro_card, stats_card, flow_card, self._grid, history_card], spacing=theme.space("4"))
+        body = ft.Column([intro_card, stats_card, self._grid], spacing=theme.space("4"))
         return ft.ListView(
             controls=[
                 header,

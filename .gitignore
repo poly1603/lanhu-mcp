@@ -24,6 +24,8 @@ data/
 build/
 dist/
 dist2/
+build-*/
+dist-*/
 *.exe
 *.spec.bak
 

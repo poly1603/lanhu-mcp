@@ -49,6 +49,7 @@ class OverviewPage:
             project_list = projects_core.cached_projects_for_account(active_id)
         except Exception:
             project_list = []
+        ide_map = {}
         try:
             ide_map = self.ctx.ide.detect_all()
             ide_installed = sum(1 for v in ide_map.values() if v)
@@ -402,7 +403,7 @@ class OverviewPage:
             ft.Text(f"端口: {self.ctx.port}", size=theme.font_size("xs"), color=p.text_muted),
         ])
 
-        body = ft.Column([banner, stat_bar, metrics, top_flow, main_grid, feat_section, timeline_card, footer], spacing=theme.space("4"))
+        body = ft.Column([banner, metrics, main_grid, top_flow, footer], spacing=theme.space("3"))
         return page_frame(p, "总览", "账号、服务、项目和 AI 工具的当前状态", body)
 
     def _feat(self, p, title: str, desc: str, icon: str, accent: str) -> ft.Container:

@@ -130,6 +130,7 @@ class AccountsPage:
                 toast(self.ctx.page, "服务运行中，请先停止服务再切换账号", "warn", p)
                 return
             accounts_core.switch_account(account_id)
+            self.ctx.notify_state_change("account")
             self.ctx.add_log("[ACCOUNT] 已切换账号")
             toast(self.ctx.page, "已切换账号", "ok", p)
             self._close_dialog_and_refresh(dlg)
@@ -193,6 +194,7 @@ class AccountsPage:
         account_id = active.get("id", "")
         name = active.get("name") or accounts_core.account_primary_contact(active) or "蓝湖用户"
         accounts_core.remove_account(account_id)
+        self.ctx.notify_state_change("account")
         self.ctx.add_log(f"[ACCOUNT] 已退出账号: {name}")
         toast(self.ctx.page, "已退出登录", "ok", p)
         self.refresh()
@@ -261,6 +263,7 @@ class AccountsPage:
             self._busy = False
             if result.get("ok"):
                 account = accounts_core.upsert_account(result["cookie"], result.get("profile") or {})
+                self.ctx.notify_state_change("account")
                 label = accounts_core.account_primary_contact(account or {})
                 browser_name = result.get("browser") or "默认浏览器"
                 self.ctx.add_log(f"[LOGIN] 已从 {browser_name} 同步账号: {label}")
@@ -320,6 +323,7 @@ class AccountsPage:
             if status == "success" and cookie:
                 profile = accounts_core.parse_user_payload(result)
                 account = accounts_core.upsert_account(cookie, profile)
+                self.ctx.notify_state_change("account")
                 label = accounts_core.account_primary_contact(account or profile) or "蓝湖用户"
                 self.ctx.add_log(f"[LOGIN] 登录成功: {label}")
                 toast(self.ctx.page, "登录成功，账号已保存", "ok", p)
@@ -350,6 +354,7 @@ class AccountsPage:
                 return
             try:
                 accounts_core.add_manual_account(cookie, display_name=name)
+                self.ctx.notify_state_change("account")
                 self.ctx.add_log(f"[ACCOUNT] 已保存手动账号: {name}")
                 toast(self.ctx.page, f"账号「{name}」已保存", "ok", p)
                 self._close_dialog(dlg)

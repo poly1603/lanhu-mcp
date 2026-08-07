@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import List, Optional
 
@@ -16,9 +17,10 @@ from ..components import (
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
+from ...core import projects as projects_core
 from ...core.paths import is_port_in_use
 from ...services.ide_config import mcp_config_snippets
-from ...services.tools_registry import discover_mcp_tools, group_mcp_tools
+from ...services.tools_registry import discover_mcp_tools, group_mcp_tools, tool_argument_specs
 from lanhu_login_helper import has_valid_auth_cookie
 
 
@@ -239,6 +241,7 @@ class ServicePage:
                   "ok" if ok else "error", self.ctx.palette)
             self._render_status()
             self._build_methods()
+            self.ctx.notify_state_change("service")
             self.ctx.page.update()
 
         def err(exc):
@@ -270,6 +273,7 @@ class ServicePage:
                   "ok" if ok else "error", self.ctx.palette)
             self._render_status()
             self._build_methods()
+            self.ctx.notify_state_change("service")
             self.ctx.page.update()
 
         def err(exc):
@@ -287,15 +291,15 @@ class ServicePage:
 
         def work():
             import httpx
-            resp = httpx.get(url, timeout=5.0, headers={"Accept": "text/event-stream"})
-            return resp.status_code
+            response = httpx.get(url, timeout=5.0, headers={"Accept": "text/event-stream"})
+            return response.status_code
 
         def done(status):
             alive = isinstance(status, int) and status < 500
             self._health_label = "可用" if alive else "异常"
-            msg = f"服务可达 (HTTP {status})" if alive else f"服务异常 (HTTP {status})"
-            self.ctx.add_log(msg)
-            toast(self.ctx.page, msg, "ok" if alive else "error", self.ctx.palette)
+            message = f"服务可达 (HTTP {status})" if alive else f"服务异常 (HTTP {status})"
+            self.ctx.add_log(message)
+            toast(self.ctx.page, message, "ok" if alive else "error", self.ctx.palette)
             self._render_status()
 
         def err(exc):
@@ -307,51 +311,237 @@ class ServicePage:
 
     # ── test a single method ──────────────────────────────────────
     def _test_method(self, method_name: str) -> None:
-        url = self._mcp_url()
+        if not self.ctx.service.is_running():
+            toast(self.ctx.page, "请先启动 MCP 服务", "warn", self.ctx.palette)
+            return
         p = self.ctx.palette
-        self.ctx.add_log(f"[TEST] 调用方法: {method_name}")
+        specs = tool_argument_specs(method_name)
+        try:
+            active = accounts_core.get_active_account() or {}
+            projects = projects_core.cached_projects_for_account(str(active.get("id") or ""))
+        except Exception:
+            projects = []
+        project_index = {
+            f"{item.get('team_id') or '-'} / {item.get('id') or '-'} / {item.get('name') or '未命名项目'}": item
+            for item in projects
+        }
+        fields: dict[str, ft.TextField] = {}
+        controls: List[ft.Control] = []
+        project_selector: Optional[ft.Dropdown] = None
+        if project_index:
+            project_selector = ft.Dropdown(
+                label="操作项目",
+                hint_text="选择后自动填充 project_id 和 team_id",
+                options=[ft.DropdownOption(key, key) for key in project_index],
+                dense=True,
+                enable_filter=True,
+                width=620,
+            )
+            controls.append(project_selector)
+        for spec in specs:
+            name = str(spec["name"])
+            required = bool(spec["required"])
+            default = spec.get("default")
+            fields[name] = ft.TextField(
+                label=f"{name}{' *' if required else ''}",
+                hint_text=f"{spec.get('annotation') or 'str'}" + (f"; default {default}" if default is not None else ""),
+                value="" if default is None else str(default).strip("'\""),
+                dense=True,
+                width=620,
+            )
+            controls.append(fields[name])
+        if not specs:
+            controls.append(ft.Text("此方法没有声明参数。", size=theme.font_size("sm"), color=p.text_muted))
 
-        # Update the test button to show loading
+        def apply_project(_event) -> None:
+            selected = project_index.get(str(project_selector.value or "")) if project_selector else None
+            if not selected:
+                return
+            for field_name, project_key in (("project_id", "id"), ("pid", "id"), ("team_id", "team_id"), ("tid", "team_id")):
+                if field_name in fields:
+                    fields[field_name].value = str(selected.get(project_key) or "")
+            self.ctx.page.update()
+
+        if project_selector is not None:
+            project_selector.on_change = apply_project
+
+        def close_dialog() -> None:
+            try:
+                self.ctx.page.close(dialog)
+            except Exception:
+                dialog.open = False
+                self.ctx.page.update()
+
+        def submit(_event) -> None:
+            arguments: dict[str, object] = {}
+            missing: list[str] = []
+            for spec in specs:
+                name = str(spec["name"])
+                value = str(fields[name].value or "").strip()
+                if not value:
+                    if bool(spec["required"]):
+                        missing.append(name)
+                    continue
+                arguments[name] = self._coerce_argument(value, str(spec.get("annotation") or ""))
+            if missing:
+                toast(self.ctx.page, f"请填写必填参数: {', '.join(missing)}", "warn", p)
+                return
+            close_dialog()
+            self._invoke_method(method_name, arguments)
+
+        dialog = ft.AlertDialog(
+            title=ft.Text(f"调用 {method_name}", color=p.text_primary),
+            content=ft.Container(
+                width=660,
+                content=ft.Column([
+                    ft.Text("选择操作对象，并填写其余必要参数。", size=theme.font_size("sm"), color=p.text_secondary),
+                    *controls,
+                ], spacing=theme.space("3"), scroll=ft.ScrollMode.AUTO, tight=True),
+            ),
+            actions=[
+                ft.TextButton("取消", on_click=lambda _event: close_dialog()),
+                ft.FilledButton("调用方法", icon=ft.Icons.PLAY_ARROW, on_click=submit),
+            ],
+        )
+        self.ctx.page.open(dialog)
+
+    @staticmethod
+    def _coerce_argument(value: str, annotation: str) -> object:
+        normalized = annotation.lower()
+        if "bool" in normalized:
+            return value.lower() in {"1", "true", "yes", "on"}
+        if "int" in normalized and value.lstrip("-").isdigit():
+            return int(value)
+        if "float" in normalized:
+            try:
+                return float(value)
+            except ValueError:
+                pass
+        if any(token in normalized for token in ("list", "dict", "mapping", "sequence")):
+            try:
+                return json.loads(value)
+            except json.JSONDecodeError:
+                return value
+        return value
+
+    def _invoke_method(self, method_name: str, arguments: dict[str, object]) -> None:
+        url = self._mcp_url()
+        self.ctx.add_log(f"[MCP] tools/call {method_name} arguments={json.dumps(arguments, ensure_ascii=False)}")
         self._test_results[method_name] = {"status": "loading"}
         self._build_methods()
         self.ctx.page.update()
 
         def work():
             import httpx
-            payload = {
+            initialize_payload = {
+                "jsonrpc": "2.0",
+                "id": 0,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {"name": "Lanhu MCP GUI", "version": "1.0"},
+                },
+            }
+            call_payload = {
                 "jsonrpc": "2.0",
                 "id": 1,
                 "method": "tools/call",
-                "params": {"name": method_name, "arguments": {}},
+                "params": {"name": method_name, "arguments": arguments},
             }
-            headers = {"Content-Type": "application/json", "Accept": "application/json"}
-            resp = httpx.post(url, json=payload, headers=headers, timeout=15.0)
-            return resp.status_code, resp.text[:500]
+            headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream"}
+            with httpx.Client(timeout=30.0) as client:
+                initialize_response = client.post(url, json=initialize_payload, headers=headers)
+                if initialize_response.status_code >= 400:
+                    return initialize_response.status_code, initialize_response.text[:12000]
+                session_id = initialize_response.headers.get("mcp-session-id")
+                if not session_id:
+                    raise RuntimeError("MCP initialize did not return a session ID")
+                session_headers = dict(headers)
+                session_headers["Mcp-Session-Id"] = session_id
+                initialized_payload = {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
+                initialized_response = client.post(url, json=initialized_payload, headers=session_headers)
+                if initialized_response.status_code >= 400:
+                    return initialized_response.status_code, initialized_response.text[:12000]
+                response = client.post(url, json=call_payload, headers=session_headers)
+                return response.status_code, response.text[:12000]
 
-        def done(result):
+        def done(result) -> None:
             status_code, body = result
-            ok = isinstance(status_code, int) and status_code < 400
+            rpc_error = False
+            try:
+                payload_candidates = [body]
+                payload_candidates.extend(
+                    line[5:].strip() for line in body.splitlines() if line.strip().startswith("data:")
+                )
+                parsed_payload = {}
+                for candidate in reversed(payload_candidates):
+                    try:
+                        parsed_payload = json.loads(candidate)
+                        break
+                    except json.JSONDecodeError:
+                        continue
+                result_payload = parsed_payload.get("result") if isinstance(parsed_payload, dict) else {}
+                rpc_error = bool(
+                    isinstance(parsed_payload, dict) and parsed_payload.get("error")
+                    or isinstance(result_payload, dict) and result_payload.get("isError")
+                )
+            except (AttributeError, TypeError):
+                rpc_error = False
+            ok = isinstance(status_code, int) and status_code < 400 and not rpc_error
             self._test_results[method_name] = {
                 "status": "ok" if ok else "error",
                 "code": status_code,
                 "body": body,
             }
-            self.ctx.add_log(f"[TEST] {method_name}: HTTP {status_code}")
+            self.ctx.add_log(f"[MCP] {method_name} -> HTTP {status_code} {'OK' if ok else 'ERROR'}")
             self._build_methods()
+            self.ctx.notify_state_change("mcp_call")
             self.ctx.page.update()
+            self._show_call_result(method_name, arguments, status_code, body, ok)
 
-        def err(exc):
-            self._test_results[method_name] = {
-                "status": "error",
-                "body": str(exc)[:200],
-            }
-            self.ctx.add_log(f"[TEST] {method_name}: {exc}")
+        def err(exc) -> None:
+            body = str(exc)[:1000]
+            self._test_results[method_name] = {"status": "error", "body": body}
+            self.ctx.add_log(f"[MCP] {method_name} failed: {body}")
             self._build_methods()
+            self.ctx.notify_state_change("mcp_call")
             self.ctx.page.update()
+            self._show_call_result(method_name, arguments, 0, body, False)
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
-    # ── config dialog ─────────────────────────────────────────────
+    def _show_call_result(self, method_name: str, arguments: dict[str, object], status_code: int, body: str, ok: bool) -> None:
+        p = self.ctx.palette
+        output = ft.TextField(value=body, read_only=True, multiline=True, min_lines=12, max_lines=16, text_size=theme.font_size("xs"))
+
+        def close_dialog() -> None:
+            try:
+                self.ctx.page.close(dialog)
+            except Exception:
+                dialog.open = False
+                self.ctx.page.update()
+
+        def copy_result(_event) -> None:
+            try:
+                self.ctx.page.set_clipboard(body)
+                toast(self.ctx.page, "已复制调用结果", "ok", p)
+            except Exception as exc:
+                show_error(self.ctx.page, exc, "复制 MCP 调用结果", p, self.ctx.add_log)
+
+        dialog = ft.AlertDialog(
+            title=ft.Text(f"{method_name} · {'成功' if ok else '失败'}", color=p.success if ok else p.danger),
+            content=ft.Container(width=760, content=ft.Column([
+                ft.Text(f"HTTP {status_code} · {json.dumps(arguments, ensure_ascii=False)}", size=theme.font_size("xs"), color=p.text_muted, selectable=True),
+                output,
+            ], spacing=theme.space("2"), tight=True)),
+            actions=[
+                ft.TextButton("关闭", on_click=lambda _event: close_dialog()),
+                ft.FilledButton("复制结果", icon=ft.Icons.CONTENT_COPY, on_click=copy_result),
+            ],
+        )
+        self.ctx.page.open(dialog)
+
     def _show_config(self) -> None:
         p = self.ctx.palette
         try:

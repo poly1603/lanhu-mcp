@@ -1,4 +1,4 @@
-"""Comprehensive tests for Lanhu MCP GUI (monolithic lanhu_mcp_gui.py)."""
+"""Comprehensive tests for shared Lanhu MCP GUI helpers."""
 import json
 import os
 import sys

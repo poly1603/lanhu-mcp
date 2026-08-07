@@ -1,12 +1,4 @@
-"""MCP 服务子进程管理与服务脚本定位（无 Tkinter 依赖）。
-
-从 ``lanhu_mcp_gui.py`` 抽取。源码模式下统一通过 ``python <gui> --server`` 拉起
-服务，确保扩展 MCP 工具被加载；打包后复用当前 exe 的 ``--server`` 分支。
-
-注意：原 GUI 用 ``Path(__file__)`` 推断 GUI 脚本路径，迁移到本模块后改用
-``APP_DIR / 'lanhu_mcp_gui.py'``（源码模式下 ``APP_DIR`` 即仓库根目录），避免
-``__file__`` 指向 ``lanhu_mcp/services`` 目录。
-"""
+"""MCP service process management with no desktop UI dependency."""
 from __future__ import annotations
 
 import os
@@ -48,10 +40,10 @@ def build_server_start_command() -> tuple[list[str], "Path", str]:
         # 单文件打包后没有独立服务 exe，直接拉起自身的 --server 分支。
         return [sys.executable, '--server'], APP_DIR, '内置服务'
 
-    gui_script = APP_DIR / 'lanhu_mcp_gui.py'
-    if gui_script.exists():
+    launcher_script = APP_DIR / 'lanhu_mcp_launcher.py'
+    if launcher_script.exists():
         # 源码开发时也走同一个 --server 分支，确保扩展 MCP 工具被加载。
-        return [sys.executable, str(gui_script), '--server'], gui_script.parent, '源码内置服务'
+        return [sys.executable, str(launcher_script), '--server'], launcher_script.parent, '源码内置服务'
 
     server_script = find_server_script()
     if server_script:

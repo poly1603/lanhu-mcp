@@ -1,4 +1,4 @@
-"""MCP 工具发现与分组（无 Tkinter 依赖）。
+"""MCP 工具发现与分组（无界面依赖）。
 
 通过 AST 扫描服务端源码里的 ``@mcp.tool`` 装饰器，避免界面方法清单过期。仅依赖
 标准库。``tool_source_candidates`` 仅使用 :data:`APP_DIR` / :data:`FROZEN_TEMP_DIR`
@@ -22,6 +22,7 @@ __all__ = [
     "discover_mcp_tools",
     "tool_sort_key",
     "group_mcp_tools",
+    "tool_argument_specs",
     "MCP_TOOL_NAMES",
 ]
 
@@ -138,6 +139,56 @@ def scan_mcp_tools_from_file(source_path: Path) -> list[tuple[str, str]]:
                 break
     return tools
 
+
+def tool_argument_specs(tool_name: str) -> list[dict[str, object]]:
+    """Read a tool signature from source for the GUI test form.
+
+    FastMCP exposes schemas at runtime, but extracting the Python signature
+    keeps the form available before a server session is initialized and works
+    for the bundled executable as well.
+    """
+    if not tool_name:
+        return []
+    for source_path in tool_source_candidates():
+        if not source_path.exists():
+            continue
+        try:
+            tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) or node.name != tool_name:
+                continue
+            decorated = any(
+                isinstance(decorator.func if isinstance(decorator, ast.Call) else decorator, ast.Attribute)
+                and (decorator.func if isinstance(decorator, ast.Call) else decorator).attr == "tool"
+                for decorator in node.decorator_list
+            )
+            if not decorated:
+                continue
+            positional = list(node.args.posonlyargs) + list(node.args.args)
+            defaults = [None] * (len(positional) - len(node.args.defaults)) + list(node.args.defaults)
+            specs: list[dict[str, object]] = []
+            for argument, default in zip(positional, defaults):
+                if argument.arg in {"self", "cls"}:
+                    continue
+                annotation = ast.unparse(argument.annotation) if argument.annotation is not None else "str"
+                specs.append({
+                    "name": argument.arg,
+                    "required": default is None,
+                    "annotation": annotation,
+                    "default": None if default is None else ast.unparse(default),
+                })
+            for argument, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+                annotation = ast.unparse(argument.annotation) if argument.annotation is not None else "str"
+                specs.append({
+                    "name": argument.arg,
+                    "required": default is None,
+                    "annotation": annotation,
+                    "default": None if default is None else ast.unparse(default),
+                })
+            return specs
+    return []
 
 def discover_mcp_tools(refresh: bool = False) -> list[tuple[str, str]]:
     """发现当前服务支持的全部 MCP 工具。"""

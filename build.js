@@ -14,7 +14,6 @@ const CONFIG = {
   outputName: 'LanhuMCP',
   distDir: 'dist',
   buildDir: 'build',
-  dist2Dir: 'dist2',
 };
 
 // 颜色输出
@@ -242,18 +241,6 @@ function postBuild() {
   logInfo(`输出文件: ${exePath}`);
   logInfo(`文件大小: ${sizeMB} MB`);
   logInfo(`修改时间: ${modifiedTime}`);
-
-  // 同步到 dist2
-  if (fs.existsSync(CONFIG.dist2Dir)) {
-    const dist2Exe = path.join(CONFIG.dist2Dir, `${CONFIG.outputName}.exe`);
-    try {
-      fs.copyFileSync(exePath, dist2Exe);
-      logSuccess(`已同步到: ${dist2Exe}`);
-    } catch (e) {
-      logWarning(`同步到 dist2 失败: ${e.message}`);
-    }
-  }
-
   return true;
 }
 

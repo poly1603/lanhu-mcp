@@ -1,6 +1,6 @@
 """账号头像下载与本地缓存（带大小上限）。
 
-从 ``lanhu_mcp_gui.py`` 抽取的纯逻辑，仅依赖标准库，供 Tkinter / Flet GUI 复用。
+从核心模块抽取的纯逻辑，仅依赖标准库，供 Flet GUI 复用。
 """
 from __future__ import annotations
 

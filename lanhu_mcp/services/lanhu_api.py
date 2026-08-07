@@ -1,6 +1,6 @@
 """蓝湖 Web API 封装（请求头、用户资料、项目、设计 API）。
 
-从 ``lanhu_mcp_gui.py`` 抽取的网络逻辑，仅依赖标准库 ``urllib``。归一化与去重等
+从核心模块抽取的网络逻辑，仅依赖标准库 ``urllib``。归一化与去重等
 纯逻辑放在 :mod:`lanhu_mcp.core.projects` / :mod:`lanhu_mcp.core.accounts`，本模块
 依赖它们，保持 ``paths ← accounts ← projects ← lanhu_api`` 的单向依赖。
 
@@ -13,6 +13,7 @@ import base64
 import json
 import urllib.error
 import urllib.request
+import urllib.parse
 
 from ..core.accounts import parse_user_payload
 from ..core.paths import DEFAULT_LANHU_LOGIN_URL
@@ -21,6 +22,7 @@ from ..core.projects import (
     merge_project_lists,
     normalize_project_item,
     projects_from_payload,
+    project_identity_key,
     read_projects_data,
     write_projects_data,
 )
@@ -122,60 +124,103 @@ def fetch_lanhu_user_profile(cookie: str) -> tuple[bool, str, dict]:
     return False, "；".join(errors[-3:]) if errors else "未读取到用户资料", {}
 
 
-def fetch_lanhu_projects(cookie: str) -> tuple[bool, str, list[dict]]:
-    """尝试读取当前账号可访问项目列表。
 
-    蓝湖 API 流程：
-    1. GET /api/project/team_projects — 返回所有团队及其项目
-    2. 数据结构: {"result": {"team_projects": [{"tid": "...", "team_name": "...", "projects": [...]}]}}
-    """
+def _extract_project_page(payload: object) -> list[dict]:
+    """Normalize one project API response page."""
+    projects: list[dict] = []
+    if isinstance(payload, dict):
+        result = payload.get("result") or payload.get("data") or payload
+        team_projects = result.get("team_projects") if isinstance(result, dict) else None
+        if isinstance(team_projects, list):
+            for team_entry in team_projects:
+                if not isinstance(team_entry, dict):
+                    continue
+                team_id = team_entry.get("tid") or team_entry.get("team_id") or ""
+                team_name = team_entry.get("team_name") or team_entry.get("name") or ""
+                raw_items = team_entry.get("projects") or team_entry.get("items") or []
+                for item in raw_items if isinstance(raw_items, list) else []:
+                    if not isinstance(item, dict):
+                        continue
+                    item = dict(item)
+                    item.setdefault("team_id", team_id)
+                    item.setdefault("tid", team_id)
+                    normalized = normalize_project_item(item)
+                    if not normalized.get("team_name"):
+                        normalized["team_name"] = str(team_name)
+                    projects.append(normalized)
+        if not projects and isinstance(result, dict):
+            candidate = result.get("projects") or result.get("items") or result.get("records")
+            if isinstance(candidate, list):
+                projects = [normalize_project_item(item) for item in candidate if isinstance(item, dict)]
+    if not projects:
+        projects = projects_from_payload(payload)
+    return merge_project_lists(projects)
+
+
+def _project_total(payload: object) -> int:
+    """Read common pagination totals without assuming one response shape."""
+    if not isinstance(payload, dict):
+        return 0
+    for container in (payload, payload.get("result"), payload.get("data")):
+        if not isinstance(container, dict):
+            continue
+        for key in ("total", "total_count", "totalCount"):
+            try:
+                if int(container.get(key) or 0) > 0:
+                    return int(container[key])
+            except (TypeError, ValueError):
+                pass
+        page_info = container.get("pagination") or container.get("pageInfo") or container.get("page_info")
+        if isinstance(page_info, dict):
+            for key in ("total", "total_count", "totalCount"):
+                try:
+                    if int(page_info.get(key) or 0) > 0:
+                        return int(page_info[key])
+                except (TypeError, ValueError):
+                    pass
+    return 0
+def fetch_lanhu_projects(cookie: str, page_size: int = 100, max_pages: int = 100) -> tuple[bool, str, list[dict]]:
+    """Fetch every accessible project page and merge duplicate route variants."""
     if not cookie:
-        return False, "缺少蓝湖 Cookie，请先登录账号。", []
+        return False, "缺少蓝湖 Cookie，请先登录账号", []
     errors: list[str] = []
+    page_size = max(20, min(int(page_size or 100), 500))
     for endpoint in PROJECT_ENDPOINTS:
-        url = f"https://lanhuapp.com{endpoint}"
-        request = urllib.request.Request(url, headers=lanhu_api_headers(cookie))
+        collected: list[dict] = []
+        seen_pages: set[str] = set()
+        total_hint = 0
         try:
-            with urllib.request.urlopen(request, timeout=12) as response:
-                body = response.read().decode('utf-8', errors='replace')
-        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            for page in range(1, max(1, int(max_pages or 100)) + 1):
+                query = urllib.parse.urlencode({"page": page, "page_size": page_size})
+                url = f"https://lanhuapp.com{endpoint}?{query}"
+                request = urllib.request.Request(url, headers=lanhu_api_headers(cookie))
+                with urllib.request.urlopen(request, timeout=15) as response:
+                    body = response.read().decode("utf-8", errors="replace")
+                payload = json.loads(body)
+                page_projects = _extract_project_page(payload)
+                if not page_projects:
+                    if page == 1:
+                        errors.append(f"{endpoint}: 未发现项目字段")
+                    break
+                page_key = "|".join(sorted(project_identity_key(item) for item in page_projects))
+                if page_key in seen_pages:
+                    break
+                seen_pages.add(page_key)
+                collected.extend(page_projects)
+                unique_count = len(merge_project_lists(collected))
+                total_hint = max(total_hint, _project_total(payload))
+                if total_hint and unique_count >= total_hint:
+                    break
+                if len(page_projects) < page_size:
+                    break
+        except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as error:
             errors.append(f"{endpoint}: {error}")
             continue
-        try:
-            payload = json.loads(body)
-        except json.JSONDecodeError:
-            errors.append(f"{endpoint}: 返回不是 JSON")
-            continue
-        # 蓝湖 team_projects API 返回 {"code": "00000", "result": {"team_projects": [...]}}
-        # 手动从 team_projects 结构中提取项目（避免通用提取误识别 team 对象为项目）
-        projects: list[dict] = []
-        if isinstance(payload, dict):
-            result = payload.get("result") or payload
-            team_projects = result.get("team_projects") or []
-            if isinstance(team_projects, list):
-                for team_entry in team_projects:
-                    if not isinstance(team_entry, dict):
-                        continue
-                    team_id = team_entry.get("tid") or team_entry.get("team_id") or ""
-                    team_name = team_entry.get("team_name") or team_entry.get("name") or ""
-                    for proj in (team_entry.get("projects") or []):
-                        if not isinstance(proj, dict):
-                            continue
-                        proj_copy = dict(proj)
-                        proj_copy.setdefault("team_id", team_id)
-                        proj_copy.setdefault("tid", team_id)
-                        normalized = normalize_project_item(proj_copy)
-                        if not normalized.get("team_name"):
-                            normalized["team_name"] = team_name
-                        projects.append(normalized)
-        # 回退到通用提取
-        if not projects:
-            projects = projects_from_payload(payload)
+        projects = merge_project_lists(collected)
         if projects:
-            return True, f"已从 {endpoint} 读取项目", projects
-        errors.append(f"{endpoint}: 未发现项目字段")
+            suffix = f"，共分页读取 {len(projects)} 个项目" if len(seen_pages) > 1 else f"，共读取 {len(projects)} 个项目"
+            return True, f"已从 {endpoint}{suffix}", projects
     return False, "；".join(errors[-3:]) if errors else "未读取到项目", []
-
 
 def load_projects_for_account(account: dict) -> tuple[bool, str, list[dict]]:
     """合并 API、登录缓存和本地保存的项目来源。"""

@@ -377,14 +377,25 @@ class LogsPage:
         )
 
         log_viewer = ft.Container(
-            content=self._list,
+            content=ft.Column([
+                ft.Container(
+                    content=ft.Row([
+                        ft.Container(width=8, height=8, bgcolor="#22C55E", border_radius=theme.radius("full")),
+                        ft.Text("MCP SERVICE OUTPUT", size=theme.font_size("xs"), color="#A5B4FC", font_family=theme.FONT_MONO, weight=theme.WEIGHT_BOLD),
+                        ft.Container(expand=True),
+                        ft.Text("live", size=theme.font_size("xs"), color="#86EFAC", font_family=theme.FONT_MONO),
+                    ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=ft.padding.only(left=theme.space("3"), right=theme.space("3"), top=theme.space("2"), bottom=theme.space("2")),
+                ),
+                ft.Divider(height=1, color="#253550"),
+                self._list,
+            ], spacing=0, expand=True),
             expand=True,
             border_radius=theme.radius("lg"),
-            border=ft.border.all(1, p.border_light),
+            border=ft.border.all(1, "#253550"),
             padding=theme.space("2"),
-            bgcolor=p.surface,
+            bgcolor="#0B1020",
         )
-
         guide_card = ft.Container(
             content=ft.Row([
                 ft.Icon(ft.Icons.TIPS_AND_UPDATES_OUTLINED, size=18, color=p.primary),

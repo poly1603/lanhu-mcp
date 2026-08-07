@@ -1,8 +1,8 @@
-"""多账号管理与用户资料解析（无 Tkinter / 无网络依赖）。
+"""多账号管理与用户资料解析（无网络依赖）。
 
-从 ``lanhu_mcp_gui.py`` 抽取的纯逻辑：Cookie/JWT 解析、用户资料候选收集与
+从核心模块抽取的纯逻辑：Cookie/JWT 解析、用户资料候选收集与
 合并、多账号读写/迁移/激活、账号展示行拼接、登录地址读写。仅依赖标准库，可
-在无第三方依赖的环境中导入与测试，供 Tkinter / Flet GUI 以及 CLI 复用。
+在无第三方依赖的环境中导入与测试，供 Flet GUI 以及 CLI 复用。
 """
 from __future__ import annotations
 

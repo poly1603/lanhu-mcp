@@ -2,7 +2,7 @@
 
 The login helper runs in a **separate process** (a pywebview window) so it can
 host a WebView2/Edge browser without blocking or polluting the main GUI process.
-Both the legacy Tkinter GUI and the new Flet GUI call :func:`run_login_helper`
+The Flet GUI calls :func:`run_login_helper`
 to obtain the login result dictionary.
 
 The returned dict mirrors what the helper writes to its result file, e.g.::

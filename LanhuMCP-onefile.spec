@@ -2,41 +2,9 @@
 """
 单文件打包配置 - GUI + Server 合并为一个 exe
 """
-import sys
-import os
-import sysconfig
-from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 
-def collect_runtime_tree(source: Path, target: str) -> list[tuple[str, str]]:
-    """把目录递归转换为 PyInstaller datas。"""
-    root = Path(source)
-    if not root.exists():
-        return []
-    return [(str(path), str(Path(target) / path.relative_to(root).parent)) for path in root.rglob('*') if path.is_file()]
-
-
-PYTHON_BASE = Path(sys.base_prefix)
-PYTHON_DLL_DIR = PYTHON_BASE / 'DLLs'
-TCL_ROOT = PYTHON_BASE / 'tcl'
-TKINTER_ROOT = Path(sysconfig.get_path('stdlib')) / 'tkinter'
-
-tcl_tk_datas = (
-    collect_runtime_tree(TCL_ROOT / 'tcl8.6', '_tcl_data')
-    + collect_runtime_tree(TCL_ROOT / 'tk8.6', '_tk_data')
-    + collect_runtime_tree(TCL_ROOT / 'tcl8', 'tcl8')
-    + collect_runtime_tree(TKINTER_ROOT, 'tkinter')
-)
-tcl_tk_binaries = [
-    (str(path), '.') for path in [
-        PYTHON_DLL_DIR / '_tkinter.pyd',
-        PYTHON_DLL_DIR / 'tcl86t.dll',
-        PYTHON_DLL_DIR / 'tk86t.dll',
-    ] if path.exists()
-]
-
-# 收集 fastmcp 及其依赖的所有子模块和数据文件
 fastmcp_hiddenimports = collect_submodules('fastmcp')
 fastmcp_datas = collect_data_files('fastmcp')
 
@@ -62,17 +30,17 @@ except Exception:
 a = Analysis(
     ['lanhu_mcp_launcher.py'],
     pathex=['.'],
-    binaries=tcl_tk_binaries,
+    binaries=[],
     datas=[
         ('.env.example', '.'),
         ('lanhu_login_helper.py', '.'),
-    ] + fastmcp_datas + tcl_tk_datas + flet_datas,
+    ] + fastmcp_datas + flet_datas,
     hiddenimports=[
         # === 核心入口 ===
         'lanhu_mcp_server',
         'lanhu_login_helper',
-        'lanhu_mcp_gui',
         'lanhu_mcp_launcher',
+        'lanhu_mcp.runtime',
 
         # === pywebview ===
         'webview',
@@ -85,14 +53,6 @@ a = Analysis(
         'clr_loader.netfx',
         'clr_loader.hostfxr',
         'clr_loader.ffi',
-
-        # === Tkinter GUI ===
-        'tkinter',
-        'tkinter.ttk',
-        'tkinter.messagebox',
-        'PIL',
-        'PIL.Image',
-        'PIL.ImageTk',
 
         # === lanhu_mcp 子包 ===
         'lanhu_mcp',
@@ -240,12 +200,10 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[
-        'hook_tcl_find_executable.py',
         'hook_fastmcp_metadata.py',
         'hook_flet_no_pip.py',
     ],
     excludes=[
-        'tkinter.test',
         'unittest',
         'pytest',
         '_pytest',

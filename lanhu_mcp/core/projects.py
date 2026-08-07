@@ -1,6 +1,6 @@
-"""项目数据处理（无 Tkinter / 无网络依赖）。
+"""项目数据处理（无网络依赖）。
 
-从 ``lanhu_mcp_gui.py`` 抽取的纯逻辑：项目缓存读写、蓝湖项目 URL 解析、字段
+从核心模块抽取的纯逻辑：项目缓存读写、蓝湖项目 URL 解析、字段
 归一化、去重合并、登录缓存项目链接提取。网络拉取（``fetch_lanhu_projects`` /
 ``load_projects_for_account``）放在 :mod:`lanhu_mcp.services.lanhu_api`，以保持
 ``paths ← accounts ← projects`` 的单向依赖、避免循环导入。

@@ -154,8 +154,9 @@ url = "http://127.0.0.1:8000/mcp"
 
 | 文件 | 说明 |
 |------|------|
-| `lanhu_mcp_gui.py` | onefile 主入口，负责默认 GUI、`--server`、`--login-helper` 分发 |
-| `lanhu_mcp_app.py` | 兼容 CLI 入口 |
+| `lanhu_mcp_launcher.py` | onefile 入口，分发 Flet、服务和登录辅助模式 |
+| `lanhu_mcp_gui.py` | 兼容导入层，不包含界面实现 |
+| `lanhu_mcp/runtime.py` | 无界面运行时分支 |
 | `lanhu_mcp_server.py` | MCP 服务入口 |
 | `LanhuMCP-onefile.spec` | PyInstaller 唯一打包配置 |
 | `build.bat` / `build_onefile.bat` | Windows 本地打包脚本 |

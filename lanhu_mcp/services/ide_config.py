@@ -1,6 +1,6 @@
-"""AI IDE / MCP 客户端检测与配置写入（无 Tkinter 依赖）。
+"""AI IDE / MCP 客户端检测与配置写入（无界面依赖）。
 
-从 ``lanhu_mcp_gui.py`` 抽取的纯逻辑，仅依赖标准库。支持 JSON / Claude CLI /
+从核心模块抽取的纯逻辑，仅依赖标准库。支持 JSON / Claude CLI /
 YAML / TOML 四种配置格式，MCP URL 由 :func:`current_mcp_url` 按当前账号生成。
 """
 from __future__ import annotations

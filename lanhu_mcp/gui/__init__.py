@@ -1,7 +1,7 @@
 """Flet GUI package for Lanhu MCP.
 
 This package contains the modern Flet-based desktop UI that replaces the
-legacy Tkinter shell. It is organised into:
+previous desktop shell. It is organised into:
 
 - ``theme``      : design tokens (colors, spacing, radius, fonts) + Flet themes
 - ``components`` : reusable Flet controls (sidebar, cards, badges, toasts, ...)

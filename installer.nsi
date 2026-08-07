@@ -65,9 +65,7 @@ Section "主程序" SecMain
     SetOutPath "$INSTDIR"
 
     ; 安装文件
-    File "dist\lanhu_mcp\lanhu_mcp.exe"
-    File "dist\lanhu_mcp\lanhu_mcp_gui.exe"
-    File /r "dist\lanhu_mcp\_internal"
+    File "dist\LanhuMCP.exe"
 
     ; 创建卸载程序
     WriteUninstaller "$INSTDIR\Uninstall.exe"

@@ -42,6 +42,7 @@ class AppContext:
         self._logs: List[str] = []
         self._log_lock = threading.Lock()
         self._log_subscribers: List[Callable[[str], None]] = []
+        self._state_subscribers: List[Callable[[str], None]] = []
 
         # Page navigation hook (set by the app shell).
         self.navigate: Optional[Callable[[str], None]] = None
@@ -111,4 +112,24 @@ class AppContext:
         return unsubscribe
 
 
+    def notify_state_change(self, reason: str = "state") -> None:
+        """Notify the shell that shared state changed."""
+        with self._log_lock:
+            subscribers = list(self._state_subscribers)
+        for callback in subscribers:
+            try:
+                callback(str(reason or "state"))
+            except Exception:
+                pass
+
+    def subscribe_state(self, callback: Callable[[str], None]) -> Callable[[], None]:
+        with self._log_lock:
+            self._state_subscribers.append(callback)
+
+        def unsubscribe() -> None:
+            with self._log_lock:
+                if callback in self._state_subscribers:
+                    self._state_subscribers.remove(callback)
+
+        return unsubscribe
 __all__ = ["AppContext", "LOG_BUFFER_LIMIT"]

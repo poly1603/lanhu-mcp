@@ -71,7 +71,23 @@ class AppShell:
             border_radius=theme.radius("md"),
         )
         self.ctx.on_port_change = self._sync_port_field
+        self._state_unsubscribe = self.ctx.subscribe_state(self._on_context_state)
 
+    def _on_context_state(self, _reason: str) -> None:
+        """Keep shell chrome and the visible page in sync with shared state."""
+        if not hasattr(self, "_topbar") or not hasattr(self, "_sidebar"):
+            return
+        try:
+            self._sidebar.content = self._build_sidebar().content
+            self._topbar.content = self._build_topbar().content
+            self._sync_nav_styles()
+            page_obj = self._pages.get(self._current)
+            if page_obj is not None:
+                page_obj.refresh()
+            self.page.update()
+        except Exception:
+            # A page may emit state while it is being replaced during startup.
+            pass
     # ── page registry ─────────────────────────────────────────────
     def _page(self, key: str):
         if key not in self._pages:

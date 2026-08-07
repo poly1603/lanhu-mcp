@@ -26,9 +26,11 @@ PAGE_SIZE = 10
 class ProjectsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
-        self._grid = ft.GridView(
-            runs_count=2, max_extent=460, child_aspect_ratio=1.85,
-            spacing=theme.space("4"), run_spacing=theme.space("4"),
+        # Keep one vertical scroll owner (the page ListView). A nested GridView
+        # reserves a full viewport and produces a large blank block above cards.
+        self._grid = ft.ResponsiveRow(
+            spacing=theme.space("4"),
+            run_spacing=theme.space("4"),
         )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
         self._page_text = ft.Text("", size=theme.font_size("sm"), color=lambda: self.ctx.palette.text_muted)
@@ -47,6 +49,25 @@ class ProjectsPage:
         )
 
     # ── stats ─────────────────────────────────────────────────────
+        self._team_filter = ft.Dropdown(
+            label="团队", value="__all__", width=160, dense=True,
+            options=[ft.DropdownOption("__all__", "全部团队")],
+            on_change=self._on_filter_change,
+        )
+        self._type_filter = ft.Dropdown(
+            label="类型", value="__all__", width=140, dense=True,
+            options=[ft.DropdownOption("__all__", "全部类型")],
+            on_change=self._on_filter_change,
+        )
+        self._sort_field = ft.Dropdown(
+            label="排序", value="updated_desc", width=160, dense=True,
+            options=[
+                ft.DropdownOption("updated_desc", "最近更新"),
+                ft.DropdownOption("name_asc", "名称 A-Z"),
+                ft.DropdownOption("team_asc", "团队名称"),
+            ],
+            on_change=self._on_filter_change,
+        )
     def _render_stats(self, projects: list[dict]) -> None:
         p = self.ctx.palette
         team_ids = set(pr.get("team_id", "") for pr in projects if pr.get("team_id"))
@@ -65,18 +86,48 @@ class ProjectsPage:
         start = (self._current_page - 1) * PAGE_SIZE
         return self._filtered_projects()[start: start + PAGE_SIZE]
 
+    def _sync_filter_options(self) -> None:
+        """Refresh classification options after a new account payload arrives."""
+        teams = sorted({str(item.get("team_name") or item.get("team_id") or "").strip() for item in self._all_projects if str(item.get("team_name") or item.get("team_id") or "").strip()})
+        types = sorted({str(item.get("type") or "项目").strip() for item in self._all_projects if str(item.get("type") or "项目").strip()})
+        current_team = self._team_filter.value or "__all__"
+        current_type = self._type_filter.value or "__all__"
+        self._team_filter.options = [ft.DropdownOption("__all__", "全部团队")] + [ft.DropdownOption(value, value) for value in teams]
+        self._type_filter.options = [ft.DropdownOption("__all__", "全部类型")] + [ft.DropdownOption(value, value) for value in types]
+        self._team_filter.value = current_team if current_team in {"__all__", *teams} else "__all__"
+        self._type_filter.value = current_type if current_type in {"__all__", *types} else "__all__"
+
+    def _on_filter_change(self, _event: ft.ControlEvent) -> None:
+        self._current_page = 1
+        self._render_grid()
+        self._render_page_controls()
+        try:
+            self.ctx.page.update()
+        except Exception:
+            pass
+
     def _filtered_projects(self) -> list[dict]:
         query = str(self._search_field.value or "").strip().lower()
-        if not query:
-            return list(self._all_projects)
-        return [
-            project for project in self._all_projects
-            if query in " ".join(
-                str(project.get(field) or "")
-                for field in ("name", "team_name", "team_id", "owner_name", "id")
-            ).lower()
-        ]
-
+        team = str(self._team_filter.value or "__all__")
+        project_type = str(self._type_filter.value or "__all__")
+        items = list(self._all_projects)
+        if query:
+            items = [
+                project for project in items
+                if query in " ".join(str(project.get(field) or "") for field in ("name", "team_name", "team_id", "owner_name", "id")).lower()
+            ]
+        if team != "__all__":
+            items = [project for project in items if str(project.get("team_name") or project.get("team_id") or "") == team]
+        if project_type != "__all__":
+            items = [project for project in items if str(project.get("type") or "项目") == project_type]
+        sort_mode = str(self._sort_field.value or "updated_desc")
+        if sort_mode == "name_asc":
+            items.sort(key=lambda project: str(project.get("name") or "").casefold())
+        elif sort_mode == "team_asc":
+            items.sort(key=lambda project: (str(project.get("team_name") or project.get("team_id") or "").casefold(), str(project.get("name") or "").casefold()))
+        else:
+            items.sort(key=lambda project: str(project.get("updated_at") or project.get("created_at") or ""), reverse=True)
+        return items
     def _on_search_change(self, _event: ft.ControlEvent) -> None:
         self._current_page = 1
         self._render_grid()
@@ -131,11 +182,15 @@ class ProjectsPage:
                     padding=theme.space("8"),
                 )),
             ]
+            self._grid.controls[0].col = {"sm": 12, "md": 12, "lg": 12, "xl": 12}
             return
 
         cards: List[ft.Control] = []
         for proj in page_projects:
-            cards.append(self._project_card(p, proj))
+            cards.append(ft.Container(
+                content=self._project_card(p, proj),
+                col={"sm": 12, "md": 6, "lg": 4, "xl": 4},
+            ))
         self._grid.controls = cards
 
     def _project_card(self, p, proj: dict) -> ft.Container:
@@ -211,7 +266,7 @@ class ProjectsPage:
                 project_icon,
                 ft.Column([
                     ft.Text(name, size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD,
-                            color=p.text_primary, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                            color=p.text_primary, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
                     ft.Text(proj_type, size=theme.font_size("xs"), color=p.text_muted),
                 ], spacing=theme.space("1"), expand=True),
                 badge,
@@ -230,6 +285,8 @@ class ProjectsPage:
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
             animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+            on_click=lambda _event, pid=proj_id, tid=team_id, project_name=name: self._browse_designs(pid, tid, project_name) if pid else None,
+            ink=True,
         )
 
     @staticmethod
@@ -251,6 +308,7 @@ class ProjectsPage:
             self._all_projects = projects_core.cached_projects_for_account(active_id)
 
         self._current_page = 1
+        self._sync_filter_options()
         self._render_stats(self._all_projects)
         self._render_grid()
         self._render_page_controls()
@@ -302,6 +360,7 @@ class ProjectsPage:
             self._render_page_controls()
             self._status_text.value = message
             self._status_text.color = self.ctx.palette.success if ok else self.ctx.palette.warning
+            self.ctx.notify_state_change("projects")
             self.ctx.add_log(f"[OK] [PROJECTS] 获取到 {len(self._all_projects)} 个项目")
             self.ctx.page.update()
 
@@ -398,6 +457,7 @@ class ProjectsPage:
         active_id = (active or {}).get("id", "") if active else ""
         self._all_projects = projects_core.cached_projects_for_account(active_id)
         self._current_page = 1
+        self._sync_filter_options()
         self._render_stats(self._all_projects)
         self._render_grid()
         self._render_page_controls()
@@ -434,9 +494,17 @@ class ProjectsPage:
         self._search_field.focused_border_color = p.primary
         self._search_field.color = p.text_primary
         self._search_field.bgcolor = p.card
+        for field in (self._team_filter, self._type_filter, self._sort_field):
+            field.border_color = p.border
+            field.focused_border_color = p.primary
+            field.color = p.text_primary
+            field.bgcolor = p.card
         toolbar = ft.Container(
             content=ft.Row([
                 self._search_field,
+                self._team_filter,
+                self._type_filter,
+                self._sort_field,
                 ft.Container(content=self._status_text, expand=True),
                 secondary_button("添加项目链接", lambda _event: self._add_manual_project(), icon=ft.Icons.ADD_LINK),
                 primary_button("同步项目", lambda _event: self._refresh_projects(), icon=ft.Icons.REFRESH),

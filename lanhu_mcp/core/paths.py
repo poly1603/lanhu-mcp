@@ -1,6 +1,6 @@
 """共享路径、数据目录、日志与运行时探测。
 
-从 ``lanhu_mcp_gui.py`` 抽取的纯逻辑（无 Tkinter 依赖），供 Tkinter / Flet GUI
+从核心模块抽取的纯逻辑（无界面依赖），供 Flet GUI
 以及 CLI 复用。仅依赖标准库，可在无第三方依赖的环境中导入与测试。
 """
 from __future__ import annotations
@@ -54,7 +54,6 @@ __all__ = [
     "find_server_exe",
     "find_server_dir",
     "app_runtime_label",
-    "compare_packaged_outputs",
 ]
 
 
@@ -207,22 +206,3 @@ def app_runtime_label() -> str:
         modified_text = "未知时间"
     mode_text = "打包版" if getattr(sys, "frozen", False) else "源码版"
     return f"{mode_text} · {modified_text} · {executable_path}"
-
-
-def compare_packaged_outputs() -> str:
-    """比较 dist 与 dist2 输出，减少用户误开旧文件的排障成本。"""
-    root_dir = APP_DIR.parent if APP_DIR.name.lower() in {"dist", "dist2"} else APP_DIR
-    primary = root_dir / "dist" / "LanhuMCP.exe"
-    secondary = root_dir / "dist2" / "LanhuMCP.exe"
-    if not primary.exists() or not secondary.exists():
-        return ""
-    try:
-        primary_time = primary.stat().st_mtime
-        secondary_time = secondary.stat().st_mtime
-    except OSError:
-        return ""
-    if abs(primary_time - secondary_time) < 2:
-        return "dist 与 dist2 已同步"
-    if secondary_time < primary_time:
-        return "注意: dist2\\LanhuMCP.exe 比 dist 旧，请使用最新 dist 或重新同步。"
-    return "注意: dist 与 dist2 时间不同，请确认当前打开的是最新构建。"
