@@ -14,6 +14,7 @@ import flet as ft
 from . import theme
 from .state import AppContext
 from .components import StatusBadge, toast
+from ..core import accounts as accounts_core
 from .pages import (
     OverviewPage,
     ServicePage,
@@ -45,10 +46,12 @@ class AppShell:
         self._pages: Dict[str, object] = {}
         self._current = "overview"
         self._last_nav_time = 0.0
+        self._navigation_sequence = 0
 
         self._switcher = ft.AnimatedSwitcher(
             content=ft.Container(),
-            duration=220,
+            duration=240,
+            reverse_duration=160,
             transition=ft.AnimatedSwitcherTransition.FADE,
             switch_in_curve=ft.AnimationCurve.EASE_OUT,
             switch_out_curve=ft.AnimationCurve.EASE_IN,
@@ -63,10 +66,11 @@ class AppShell:
         self._nav_buttons: Dict[str, ft.Container] = {}
         self._nav_badges: Dict[str, ft.Container] = {}
         self._port_field = ft.TextField(
-            value=str(port), width=104, dense=True, text_align=ft.TextAlign.CENTER,
+            value=str(port), width=96, height=42, dense=True, text_align=ft.TextAlign.CENTER,
             keyboard_type=ft.KeyboardType.NUMBER, on_change=self._on_port_change,
             border_radius=theme.radius("md"),
         )
+        self.ctx.on_port_change = self._sync_port_field
 
     # ── page registry ─────────────────────────────────────────────
     def _page(self, key: str):
@@ -82,23 +86,36 @@ class AppShell:
             self._pages[key] = factories[key](self.ctx)
         return self._pages[key]
 
+    def _page_transition_content(self, key: str) -> ft.Container:
+        """Wrap each navigation target so AnimatedSwitcher always sees a new page."""
+        self._navigation_sequence += 1
+        return ft.Container(
+            key=f"workspace-{key}-{self._navigation_sequence}",
+            content=self._page(key).build(),
+            expand=True,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        )
+
     # ── navigation ────────────────────────────────────────────────
     def navigate(self, key: str) -> None:
         if key not in dict((k, l) for k, l, _ in NAV_ITEMS):
             return
         now = time.time()
-        if key == self._current and now - self._last_nav_time < 0.3:
+        previous_nav_time = self._last_nav_time
+        if key == self._current and now - previous_nav_time < 0.3:
             return  # debounce
         self._last_nav_time = now
         self._current = key
         page_obj = self._page(key)
         # 先 build（创建控件树），再 refresh 注入数据
-        self._switcher.content = page_obj.build()
+        self._switcher.duration = 180 if now - previous_nav_time < 1.0 else 260
+        self._switcher.reverse_duration = 140
+        self._switcher.transition = ft.AnimatedSwitcherTransition.FADE
+        self._switcher.content = self._page_transition_content(key)
         try:
             page_obj.refresh()
         except Exception:
             pass
-        self._switcher.duration = 180 if now - self._last_nav_time < 1.0 else 300
         self._sync_nav_styles()
         self._update_badges()
         self._topbar.content = self._build_topbar().content
@@ -136,7 +153,12 @@ class AppShell:
         if raw.isdigit():
             port = int(raw)
             if 1 <= port <= 65535:
-                self.ctx.port = port
+                self.ctx.set_port(port)
+
+    def _sync_port_field(self, port: int) -> None:
+        """Reflect page-originated port changes in the persistent topbar field."""
+        self._port_field.value = str(port)
+        self._port_field.error_text = None
 
     def _toggle_theme(self, e: ft.ControlEvent) -> None:
         new_mode = "dark" if self.ctx.mode == "light" else "light"
@@ -252,6 +274,15 @@ class AppShell:
     def _build_topbar(self) -> ft.Container:
         p = self.ctx.palette
 
+        running = self.ctx.service.is_running()
+        self._port_field.border_color = p.border
+        self._port_field.focused_border_color = p.primary
+        self._port_field.bgcolor = p.input_bg
+        self._port_field.color = p.text_primary
+        self._port_field.text_size = theme.font_size("base")
+        self._port_field.disabled = running
+        self._port_field.tooltip = "服务运行时端口不可修改"
+
         # Port section
         port_section = ft.Row(
             [
@@ -263,7 +294,25 @@ class AppShell:
         )
 
         current_label = next((label for key, label, _icon in NAV_ITEMS if key == self._current), "控制台")
-        running = self.ctx.service.is_running()
+        try:
+            active_account = accounts_core.get_active_account()
+        except Exception:
+            active_account = None
+        account_label = accounts_core.account_primary_contact(active_account) if active_account else "未登录"
+        account_chip = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.PERSON_OUTLINE, size=16, color=p.text_secondary),
+                ft.Text(account_label, size=theme.font_size("xs"), color=p.text_secondary,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+            ], spacing=theme.space("1"), tight=True),
+            bgcolor=p.surface,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("full"),
+            padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+            on_click=lambda _event: self.navigate("accounts"),
+            ink=True,
+            tooltip="管理蓝湖账号",
+        )
         return ft.Container(
             height=68,
             bgcolor=p.card,
@@ -277,6 +326,7 @@ class AppShell:
                         ft.Text("蓝湖设计资产与 MCP 服务工作台", size=theme.font_size("xs"), color=p.text_muted),
                     ], spacing=0),
                     ft.Container(expand=True),
+                    account_chip,
                     StatusBadge(p, "服务运行中" if running else "服务未启动", "ok" if running else "idle"),
                     port_section,
                 ],
@@ -317,7 +367,7 @@ class AppShell:
         # 先把当前页 build 出来，再 refresh
         self._current = "overview"
         page_obj = self._page("overview")
-        self._switcher.content = page_obj.build()
+        self._switcher.content = self._page_transition_content("overview")
         try:
             page_obj.refresh()
         except Exception:

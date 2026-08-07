@@ -7,8 +7,6 @@ MCP 工具集成 - 将 codegen 引擎注册为 MCP 工具
 3. lanhu_analyze_interaction - 交互意图分析
 4. lanhu_preview_ir - 预览 DesignIR
 """
-from __future__ import annotations
-
 import json
 from typing import Annotated, Optional, List, Dict, Any
 

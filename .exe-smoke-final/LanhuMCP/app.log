@@ -1,0 +1,9 @@
+2026-08-06 14:00:50 [INFO] === LanhuMCP GUI 启动 ===
+2026-08-06 14:00:50 [INFO] APP_DIR: D:\WorkBench\lanhu-mcp\dist
+2026-08-06 14:00:50 [INFO] DATA_DIR: D:\WorkBench\lanhu-mcp\.exe-smoke-final\LanhuMCP
+2026-08-06 14:00:50 [INFO] LOG_FILE: D:\WorkBench\lanhu-mcp\.exe-smoke-final\LanhuMCP\app.log
+2026-08-06 14:00:50 [INFO] sys.executable: D:\WorkBench\lanhu-mcp\dist\LanhuMCP.exe
+2026-08-06 14:00:50 [INFO] sys.frozen: True
+2026-08-06 14:00:50 [INFO] sys.version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
+2026-08-06 14:00:50 [INFO] sys._MEIPASS: C:\Users\swiml\AppData\Local\Temp\_MEI84282
+2026-08-06 14:00:50 [INFO] 登录助手分支启动: args=['D:\\WorkBench\\lanhu-mcp\\dist\\LanhuMCP.exe', '--login-helper', 'D:\\WorkBench\\lanhu-mcp\\.exe-smoke-final\\LanhuMCP\\result.json', 'D:\\WorkBench\\lanhu-mcp\\.exe-smoke-final\\LanhuMCP\\webview', 'https://lanhuapp.com/web/']

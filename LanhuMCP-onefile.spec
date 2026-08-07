@@ -60,7 +60,7 @@ except Exception:
     flet_datas = []
 
 a = Analysis(
-    ['lanhu_mcp_gui.py'],
+    ['lanhu_mcp_launcher.py'],
     pathex=['.'],
     binaries=tcl_tk_binaries,
     datas=[
@@ -72,6 +72,7 @@ a = Analysis(
         'lanhu_mcp_server',
         'lanhu_login_helper',
         'lanhu_mcp_gui',
+        'lanhu_mcp_launcher',
 
         # === pywebview ===
         'webview',
@@ -123,6 +124,17 @@ a = Analysis(
         'lanhu_mcp.services.ide_config',
         'lanhu_mcp.services.service_manager',
         'lanhu_mcp.services.login_helper',
+        'lanhu_mcp.services.browser_login',
+
+        # === Default browser Cookie bridge ===
+        'browser_cookie3',
+        'win32crypt',
+        'Cryptodome',
+        'Cryptodome.Cipher',
+        'Cryptodome.Cipher.AES',
+        'lz4',
+        'shadowcopy',
+        'wmi',
 
         # === lanhu_mcp.gui（Flet 界面）===
         'lanhu_mcp.gui',
@@ -214,6 +226,16 @@ a = Analysis(
         # === importlib 元数据（关键！fastmcp 需要） ===
         'importlib.metadata',
         'importlib_metadata',
+        # FastMCP/Docket 在 HTTP 服务启动时通过 importlib 动态加载。
+        'docket',
+        'burner_redis',
+        'redis',
+        'fakeredis',
+        'key_value',
+        'key_value.aio',
+        'key_value.aio.stores.filetree',
+        'aiofile',
+        'caio',
     ] + fastmcp_hiddenimports + mcp_hiddenimports + flet_hiddenimports,
     hookspath=[],
     hooksconfig={},

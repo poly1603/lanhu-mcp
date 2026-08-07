@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from typing import List, Optional
 
@@ -12,13 +11,15 @@ from .. import theme
 from ..components import (
     section_title, card, gradient_card, page_frame, responsive_pair, StatusBadge, CountBadge,
     primary_button, secondary_button, danger_button, ghost_icon_button,
-    stat_chip, field_row,
+    stat_chip,
     run_in_background, toast, show_error,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
+from ...core.paths import is_port_in_use
 from ...services.ide_config import mcp_config_snippets
 from ...services.tools_registry import discover_mcp_tools, group_mcp_tools
+from lanhu_login_helper import has_valid_auth_cookie
 
 
 MCP_URL_MAP: dict = {}
@@ -29,12 +30,15 @@ class ServicePage:
         self.ctx = ctx
         self._status_holder = ft.Row(spacing=theme.space("2"))
         self._health_section = ft.Row(spacing=theme.space("4"), wrap=True)
-        self._action_holder = ft.Row(spacing=theme.space("3"))
+        self._action_holder = ft.Row(spacing=theme.space("3"), wrap=True)
         self._url_text = ft.Text(selectable=True, size=theme.font_size("sm"))
         self._methods_container = ft.Column(spacing=theme.space("3"))
         self._busy = False
         self._started_at: Optional[float] = None
         self._test_results: dict = {}
+        self._notice_holder = ft.Column(spacing=theme.space("2"))
+        self._last_start_error = ""
+        self._health_label = "待检查"
 
     def _mcp_url(self) -> str:
         try:
@@ -44,6 +48,92 @@ class ServicePage:
             return accounts_core.current_mcp_url(self.ctx.port)
         except Exception:
             return f"http://localhost:{self.ctx.port}/mcp"
+
+    def _display_endpoint(self) -> str:
+        """Keep the main service surface readable; configs retain the full URL."""
+        return f"http://localhost:{self.ctx.port}/mcp"
+
+    def _suggest_available_port(self) -> Optional[int]:
+        """Find a nearby unused local port for one-click recovery."""
+        start = max(1024, min(int(self.ctx.port) + 1, 65535))
+        for candidate in range(start, min(start + 16, 65536)):
+            if not is_port_in_use(candidate):
+                return candidate
+        return None
+
+    def _use_available_port(self) -> None:
+        candidate = self._suggest_available_port()
+        if candidate is None:
+            toast(self.ctx.page, "附近端口均不可用，请在顶部手动设置端口。", "warn", self.ctx.palette)
+            return
+        previous = self.ctx.port
+        self.ctx.set_port(candidate)
+        self._last_start_error = ""
+        self._health_label = "待检查"
+        self.ctx.add_log(f"[SERVICE] 端口从 {previous} 切换为 {candidate}")
+        self._render_status()
+        try:
+            self.ctx.page.update()
+        except Exception:
+            pass
+        toast(self.ctx.page, f"已切换到可用端口 {candidate}", "ok", self.ctx.palette)
+
+    def _show_logs(self) -> None:
+        if self.ctx.navigate:
+            self.ctx.navigate("logs")
+
+    def _copy_endpoint(self) -> None:
+        try:
+            self.ctx.page.set_clipboard(self._mcp_url())
+            toast(self.ctx.page, "MCP 地址已复制", "ok", self.ctx.palette)
+        except Exception as exc:
+            show_error(self.ctx.page, exc, "复制 MCP 地址", self.ctx.palette, self.ctx.add_log)
+
+    def _render_notice(self) -> None:
+        p = self.ctx.palette
+        message = self._last_start_error.strip()
+        if not message:
+            self._notice_holder.controls = []
+            return
+
+        is_port_error = "端口" in message and "占用" in message
+        title = "端口不可用" if is_port_error else "服务未能启动"
+        actions: List[ft.Control] = [
+            secondary_button("查看日志", lambda _event: self._show_logs(), icon=ft.Icons.ARTICLE_OUTLINED),
+        ]
+        if is_port_error:
+            candidate = self._suggest_available_port()
+            if candidate is not None:
+                actions.insert(
+                    0,
+                    primary_button(f"改用 {candidate}", lambda _event: self._use_available_port(), icon=ft.Icons.SWAP_HORIZ),
+                )
+
+        self._notice_holder.controls = [
+            ft.Container(
+                content=ft.Row([
+                    ft.Container(
+                        content=ft.Icon(ft.Icons.ERROR_OUTLINE, size=18, color=p.warning),
+                        bgcolor=p.warning_light,
+                        border_radius=theme.radius("md"),
+                        width=36,
+                        height=36,
+                        alignment=ft.alignment.center,
+                    ),
+                    ft.Column([
+                        ft.Text(title, size=theme.font_size("sm"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                        ft.Text(message, size=theme.font_size("xs"), color=p.text_secondary, max_lines=2,
+                                overflow=ft.TextOverflow.ELLIPSIS),
+                    ], spacing=0, expand=True),
+                    ft.Row(actions, spacing=theme.space("2"), wrap=True),
+                ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER, wrap=True),
+                bgcolor=p.warning_light,
+                border=ft.border.all(1, theme.alpha(p.warning, 0x55)),
+                border_radius=theme.radius("lg"),
+                padding=theme.space("3"),
+                animate=ft.Animation(180, ft.AnimationCurve.EASE_OUT),
+            )
+        ]
 
     def _uptime(self) -> str:
         if not self._started_at:
@@ -64,14 +154,22 @@ class ServicePage:
             StatusBadge(p, "运行中" if running else "已停止", "ok" if running else "idle"),
             StatusBadge(p, f"端口 {self.ctx.port}", "info"),
         ]
-        self._url_text.value = self._mcp_url()
+        self._url_text.value = self._display_endpoint()
         self._url_text.color = p.text_primary
 
         uptime = self._uptime()
+        health_color = p.success if self._health_label == "可用" else (p.danger if self._health_label == "异常" else p.warning)
+        try:
+            active = accounts_core.get_active_account()
+        except Exception:
+            active = None
+        account_label = accounts_core.account_primary_contact(active) if active else "未登录"
         self._health_section.controls = [
             stat_chip(p, "运行时长", uptime, icon=ft.Icons.TIMER, accent=p.accent),
             stat_chip(p, "MCP 端点", "/mcp", icon=ft.Icons.LINK, accent=p.primary),
             stat_chip(p, "地址", f"localhost:{self.ctx.port}", icon=ft.Icons.ROUTER, accent=p.warning),
+            stat_chip(p, "连通性", self._health_label, icon=ft.Icons.MONITOR_HEART, accent=health_color),
+            stat_chip(p, "账号", account_label[:18], icon=ft.Icons.PERSON_OUTLINE, accent=p.primary),
         ]
 
         if self._busy:
@@ -90,6 +188,7 @@ class ServicePage:
                 primary_button("启动服务", lambda e: self._start(), icon=ft.Icons.PLAY_ARROW),
                 secondary_button("复制接入配置", lambda e: self._show_config(), icon=ft.Icons.CONTENT_COPY),
             ]
+        self._render_notice()
 
     def _set_busy(self, busy: bool) -> None:
         self._busy = busy
@@ -101,12 +200,15 @@ class ServicePage:
 
     # ── start / stop ──────────────────────────────────────────────
     def _start(self) -> None:
+        if self._busy:
+            toast(self.ctx.page, "服务正在处理中，请稍候。", "info", self.ctx.palette)
+            return
         active = None
         try:
             active = accounts_core.get_active_account()
         except Exception:
             active = None
-        if not active:
+        if not active or not has_valid_auth_cookie(str(active.get("cookie") or "")):
             toast(self.ctx.page, "请先在账号页登录蓝湖账号", "warn", self.ctx.palette)
             if self.ctx.navigate:
                 self.ctx.navigate("accounts")
@@ -126,8 +228,12 @@ class ServicePage:
             if ok:
                 self._started_at = time.time()
                 MCP_URL_MAP[self.ctx.port] = self._mcp_url()
+                self._last_start_error = ""
+                self._health_label = "待检查"
             else:
                 self._started_at = None
+                self._last_start_error = msg or "服务启动失败"
+                self._health_label = "异常"
             self.ctx.add_log(msg or ("服务已启动" if ok else "服务启动失败"))
             toast(self.ctx.page, msg or ("服务已启动" if ok else "服务启动失败"),
                   "ok" if ok else "error", self.ctx.palette)
@@ -137,12 +243,17 @@ class ServicePage:
 
         def err(exc):
             self._busy = False
+            self._last_start_error = str(exc)
+            self._health_label = "异常"
             show_error(self.ctx.page, exc, "服务启动", self.ctx.palette, self.ctx.add_log)
             self._render_status()
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
     def _stop(self) -> None:
+        if self._busy:
+            toast(self.ctx.page, "服务正在处理中，请稍候。", "info", self.ctx.palette)
+            return
         self._set_busy(True)
 
         def work():
@@ -151,6 +262,8 @@ class ServicePage:
         def done(result):
             self._busy = False
             self._started_at = None
+            self._last_start_error = ""
+            self._health_label = "待检查"
             ok, msg = result if isinstance(result, tuple) else (bool(result), "")
             self.ctx.add_log(msg or ("服务已停止" if ok else "停止失败"))
             toast(self.ctx.page, msg or ("服务已停止" if ok else "停止失败"),
@@ -179,12 +292,16 @@ class ServicePage:
 
         def done(status):
             alive = isinstance(status, int) and status < 500
+            self._health_label = "可用" if alive else "异常"
             msg = f"服务可达 (HTTP {status})" if alive else f"服务异常 (HTTP {status})"
             self.ctx.add_log(msg)
             toast(self.ctx.page, msg, "ok" if alive else "error", self.ctx.palette)
+            self._render_status()
 
         def err(exc):
+            self._health_label = "异常"
             show_error(self.ctx.page, exc, "健康检查", self.ctx.palette, self.ctx.add_log)
+            self._render_status()
 
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
 
@@ -297,43 +414,60 @@ class ServicePage:
         p = self.ctx.palette
         running = self.ctx.service.is_running()
 
-        # Only show methods when service is running
-        if not running:
-            self._methods_container.controls = [
-                ft.Container(
-                    content=ft.Row([
-                        ft.Container(
-                            content=ft.Icon(ft.Icons.PLAY_CIRCLE_OUTLINE, size=28, color=p.primary),
-                            bgcolor=p.primary_light,
-                            border_radius=theme.radius("full"),
-                            width=58,
-                            height=58,
-                            alignment=ft.alignment.center,
-                        ),
-                        ft.Column([
-                            ft.Text("服务未启动", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                            ft.Text("启动 MCP 服务后可查看工具方法、测试调用，并复制 AI 工具接入配置。",
-                                    size=theme.font_size("sm"), color=p.text_muted),
-                        ], spacing=theme.space("1"), expand=True),
-                        ft.Row([
-                            primary_button("启动服务", lambda e: self._start(), icon=ft.Icons.PLAY_ARROW),
-                            secondary_button("复制配置", lambda e: self._show_config(), icon=ft.Icons.CONTENT_COPY),
-                        ], spacing=theme.space("2"), wrap=True),
-                    ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    bgcolor=p.card,
-                    border=ft.border.all(1, p.border_light),
-                    border_radius=theme.radius("xl"),
-                    padding=theme.space("5"),
-                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
-                ),
-            ]
-            return
-
         try:
             tools = discover_mcp_tools()
             groups = group_mcp_tools(tools)
         except Exception:
             tools, groups = [], {}
+
+        # Keep the stopped state informative without duplicating the primary
+        # start action that already lives in the service control card.
+        if not running:
+            group_chips: List[ft.Control] = []
+            for group_name, items in groups.items():
+                if not items:
+                    continue
+                group_chips.append(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Text(group_name, size=theme.font_size("xs"), color=p.text_secondary),
+                            CountBadge(p, len(items), "info"),
+                        ], spacing=theme.space("2"), tight=True),
+                        bgcolor=p.surface,
+                        border=ft.border.all(1, p.border_light),
+                        border_radius=theme.radius("full"),
+                        padding=ft.padding.symmetric(horizontal=theme.space("3"), vertical=theme.space("2")),
+                    )
+                )
+            self._methods_container.controls = [
+                ft.Container(
+                    content=ft.Row([
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.EXTENSION_OUTLINED, size=26, color=p.primary),
+                            bgcolor=p.primary_light,
+                            border_radius=theme.radius("full"),
+                            width=54,
+                            height=54,
+                            alignment=ft.alignment.center,
+                        ),
+                        ft.Column([
+                            ft.Row([
+                                ft.Text("MCP 工具目录", size=theme.font_size("lg"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                                CountBadge(p, len(tools), "info"),
+                            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                            ft.Text("服务启动后即可使用、检查并测试当前账号可访问的方法。",
+                                    size=theme.font_size("sm"), color=p.text_muted),
+                            ft.Row(group_chips, spacing=theme.space("2"), run_spacing=theme.space("2"), wrap=True) if group_chips else ft.Container(),
+                        ], spacing=theme.space("1"), expand=True),
+                    ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    bgcolor=p.card,
+                    border=ft.border.all(1, p.border_light),
+                    border_radius=theme.radius("xl"),
+                    padding=theme.space("4"),
+                    shadow=ft.BoxShadow(spread_radius=0, blur_radius=8, color=p.shadow_sm, offset=ft.Offset(0, 3)),
+                ),
+            ]
+            return
 
         group_controls: List[ft.Control] = []
         for group_name, items in groups.items():
@@ -479,13 +613,19 @@ class ServicePage:
                     ft.Column([
                         ft.Text("MCP 服务控制", size=theme.font_size("xl"),
                                 weight=theme.WEIGHT_BOLD, color=p.text_primary),
-                        ft.Text(self._url_text.value or "", size=theme.font_size("sm"),
-                                color=p.text_muted, selectable=True),
+                        ft.Row([
+                            ft.Text(self._url_text.value or "", size=theme.font_size("sm"),
+                                    color=p.text_muted, selectable=True, max_lines=1,
+                                    overflow=ft.TextOverflow.ELLIPSIS, expand=True),
+                            ghost_icon_button(ft.Icons.CONTENT_COPY, lambda _event: self._copy_endpoint(),
+                                              tooltip="复制 MCP 地址"),
+                        ], spacing=theme.space("1"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
                     ], spacing=theme.space("1"), expand=True),
                     ft.Column([self._status_holder], horizontal_alignment=ft.CrossAxisAlignment.END),
                 ], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=theme.space("4")),
                 ft.Divider(height=1, color=p.border_light),
                 self._action_holder,
+                self._notice_holder,
             ], spacing=theme.space("4")),
         )
 

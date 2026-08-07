@@ -14,6 +14,9 @@ from ..components import (
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
+from ...services.browser_login import read_default_browser_cookie
+from ...services.lanhu_api import fetch_lanhu_user_profile
+from lanhu_login_helper import has_valid_auth_cookie
 
 
 class AccountsPage:
@@ -28,17 +31,18 @@ class AccountsPage:
         account_count = len(accounts)
 
         if not active:
+            waiting = ft.Row([
+                ft.ProgressRing(width=16, height=16, stroke_width=2),
+                ft.Text("正在等待登录窗口完成验证…", size=theme.font_size("sm"), color=p.text_secondary),
+            ], spacing=theme.space("2")) if self._busy else StatusBadge(p, "等待登录", "info")
             self._profile_card_content.controls = [
                 ft.Container(
                     content=ft.Column([
                         ft.Icon(ft.Icons.ACCOUNT_CIRCLE, size=56, color=p.text_muted),
                         ft.Text("未登录", size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_secondary),
-                        ft.Text("请添加蓝湖账号或使用 Cookie 登录", size=theme.font_size("sm"), color=p.text_muted),
-                        ft.Container(height=theme.space("2")),
-                        ft.Row([
-                            primary_button("一键登录", lambda e: self._add_account(), icon=ft.Icons.LOGIN),
-                            secondary_button("手动 Cookie", lambda e: self._add_manual_cookie(), icon=ft.Icons.COOKIE),
-                        ], spacing=theme.space("3")),
+                        ft.Text("通过顶部操作添加蓝湖账号，登录完成后会自动读取账号资料。",
+                                size=theme.font_size("sm"), color=p.text_muted),
+                        waiting,
                     ], spacing=theme.space("3"), horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                     padding=theme.space("8"),
                 ),
@@ -55,6 +59,7 @@ class AccountsPage:
         role = active.get("role", "")
         avatar_url = accounts_core.avatar_url(active)
         label = accounts_core.account_primary_contact(active) or name
+        cookie_valid = has_valid_auth_cookie(str(active.get("cookie") or ""))
 
         # Avatar + name header
         header = ft.Row([
@@ -63,6 +68,7 @@ class AccountsPage:
                 ft.Text(name, size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
                 ft.Text(label, size=theme.font_size("sm"), color=p.text_muted),
             ], spacing=theme.space("1"), expand=True),
+            StatusBadge(p, "登录有效" if cookie_valid else "需要重新登录", "ok" if cookie_valid else "warn"),
         ], spacing=theme.space("4"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
         # Info grid (2 columns)
@@ -81,7 +87,7 @@ class AccountsPage:
             info_items.append(field_row(p, "角色", role))
 
         action_buttons: List[ft.Control] = [
-            secondary_button("打开登录页", lambda e: self._open_login_url(), icon=ft.Icons.OPEN_IN_NEW),
+            secondary_button("同步浏览器 Cookie", lambda e: self._sync_default_browser_cookie(), icon=ft.Icons.SYNC),
         ]
         if account_count >= 2:
             action_buttons.append(
@@ -194,10 +200,13 @@ class AccountsPage:
     # ── account stats ─────────────────────────────────────────────
     def _render_stats(self, accounts: list, active: Optional[dict]) -> ft.Control:
         p = self.ctx.palette
+        valid = bool(active and has_valid_auth_cookie(str(active.get("cookie") or "")))
         return ft.Row([
             stat_chip(p, "已登录", str(len(accounts)), icon=ft.Icons.GROUP, accent=p.primary),
             stat_chip(p, "当前账号", accounts_core.account_primary_contact(active)[:12] if active else "无",
                       icon=ft.Icons.PERSON, accent=p.success),
+            stat_chip(p, "会话", "有效" if valid else "待登录",
+                      icon=ft.Icons.VERIFIED_USER, accent=p.success if valid else p.warning),
         ], spacing=theme.space("4"), wrap=True)
 
     # ── lifecycle ─────────────────────────────────────────────────
@@ -218,33 +227,112 @@ class AccountsPage:
             pass
 
     # ── actions ───────────────────────────────────────────────────
-    def _add_account(self) -> None:
+    def _sync_default_browser_cookie(self) -> None:
+        """Read an already authenticated default-browser session without opening a new tab."""
         p = self.ctx.palette
-        self.ctx.add_log("[LOGIN] 启动蓝湖一键登录…")
+        if self._busy:
+            toast(self.ctx.page, "登录或同步正在进行，请稍候。", "info", p)
+            return
+        self._busy = True
+        self.ctx.add_log("[LOGIN] 正在同步默认浏览器 Cookie")
+        self.refresh()
 
         def work():
-            return accounts_core.launch_login_helper(
+            cookie, browser_name, diagnostics = read_default_browser_cookie()
+            if not cookie or not has_valid_auth_cookie(cookie):
+                detail = "; ".join(diagnostics[-2:])
+                return {
+                    "ok": False,
+                    "error": detail or "未在默认浏览器中读取到有效的蓝湖登录 Cookie。",
+                }
+            profile = accounts_core.user_info_from_cookie(cookie)
+            _ok, message, api_profile = fetch_lanhu_user_profile(cookie)
+            if api_profile:
+                profile = accounts_core.merge_identity_info(api_profile, profile)
+            return {
+                "ok": True,
+                "cookie": cookie,
+                "profile": profile,
+                "browser": browser_name,
+                "profile_message": message,
+            }
+
+        def done(result):
+            self._busy = False
+            if result.get("ok"):
+                account = accounts_core.upsert_account(result["cookie"], result.get("profile") or {})
+                label = accounts_core.account_primary_contact(account or {})
+                browser_name = result.get("browser") or "默认浏览器"
+                self.ctx.add_log(f"[LOGIN] 已从 {browser_name} 同步账号: {label}")
+                toast(self.ctx.page, "浏览器登录状态已同步", "ok", p)
+            else:
+                error = str(result.get("error") or "未读取到有效浏览器 Cookie")
+                self.ctx.add_log(f"[WARN] [LOGIN] {error}")
+                toast(self.ctx.page, error, "warn", p)
+            self.refresh()
+
+        def err(exc):
+            self._busy = False
+            show_error(self.ctx.page, exc, "同步浏览器 Cookie", p, self.ctx.add_log)
+            self.refresh()
+
+        from ..components import run_in_background
+        run_in_background(self.ctx.page, work, on_done=done, on_error=err)
+
+    def _add_account(self) -> None:
+        p = self.ctx.palette
+        if self._busy:
+            toast(self.ctx.page, "登录窗口正在运行，请先完成当前登录。", "info", p)
+            return
+        self._busy = True
+        self.ctx.add_log("[LOGIN] 启动蓝湖一键登录…")
+        self.refresh()
+
+        def work():
+            result = accounts_core.launch_login_helper(
                 0,
                 on_output=lambda line: self.ctx.add_log(line),
                 on_error=lambda line: self.ctx.add_log(f"[ERR] {line}"),
             )
+            if not isinstance(result, dict):
+                return result
+            cookie = str(result.get("cookies") or "")
+            if result.get("status") == "success" and cookie:
+                _ok, message, profile = fetch_lanhu_user_profile(cookie)
+                login_profile = accounts_core.parse_user_payload(result)
+                if profile:
+                    merged_profile = accounts_core.merge_identity_info(profile, login_profile)
+                    merged_profile["raw"] = {
+                        key: value for key, value in result.items() if key != "user"
+                    }
+                    result["user"] = merged_profile
+                result["profile_message"] = message
+            return result
 
         def done(result):
+            self._busy = False
             if not result:
                 toast(self.ctx.page, "登录未完成", "warn", p)
+                self.refresh()
                 return
-            ok = result.get("ok") if isinstance(result, dict) else bool(result)
-            if ok:
-                self.ctx.add_log("[LOGIN] 登录成功")
-                toast(self.ctx.page, "登录成功", "ok", p)
+            status = str(result.get("status") or "") if isinstance(result, dict) else ""
+            cookie = str(result.get("cookies") or "") if isinstance(result, dict) else ""
+            if status == "success" and cookie:
+                profile = accounts_core.parse_user_payload(result)
+                account = accounts_core.upsert_account(cookie, profile)
+                label = accounts_core.account_primary_contact(account or profile) or "蓝湖用户"
+                self.ctx.add_log(f"[LOGIN] 登录成功: {label}")
+                toast(self.ctx.page, "登录成功，账号已保存", "ok", p)
             else:
-                error = (result or {}).get("error") or "登录失败"
+                error = (result or {}).get("error") or "未检测到有效登录态，请在登录窗口完成登录后再关闭。"
                 self.ctx.add_log(f"[ERR] [LOGIN] {error}")
                 toast(self.ctx.page, error, "error", p)
             self.refresh()
 
         def err(exc):
+            self._busy = False
             show_error(self.ctx.page, exc, "蓝湖登录", p, self.ctx.add_log)
+            self.refresh()
 
         from ..components import run_in_background
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
@@ -282,14 +370,6 @@ class AccountsPage:
         )
         self.ctx.page.open(dlg)
 
-    def _open_login_url(self) -> None:
-        import webbrowser
-        try:
-            url = accounts_core.get_login_url()
-        except Exception:
-            url = "https://lanhuapp.com/web/"
-        webbrowser.open(url)
-
     # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
@@ -307,6 +387,30 @@ class AccountsPage:
 
         # Stats bar
         stats_bar = gradient_card(p, self._render_stats(accounts, active), padding=theme.space("4"))
+
+        browser_login_card = ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Icon(ft.Icons.LANGUAGE, color=p.primary, size=22),
+                    bgcolor=p.primary_light,
+                    border_radius=theme.radius("lg"),
+                    width=44,
+                    height=44,
+                    alignment=ft.alignment.center,
+                ),
+                ft.Column([
+                    ft.Text("默认浏览器登录与自动同步", size=theme.font_size("base"),
+                            weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
+                    ft.Text("一键登录会弹出蓝湖登录窗口并读取真实账号信息；已在默认浏览器登录时可点同步浏览器 Cookie。",
+                            size=theme.font_size("xs"), color=p.text_muted),
+                ], spacing=0, expand=True),
+                StatusBadge(p, "登录窗口", "info"),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.primary_light,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("4"),
+        )
 
         security_card = ft.Container(
             content=ft.Row([
@@ -356,7 +460,7 @@ class AccountsPage:
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
         )
-        body = ft.Column([stats_bar, security_card, profile_card], spacing=theme.space("4"))
+        body = ft.Column([stats_bar, browser_login_card, security_card, profile_card], spacing=theme.space("4"))
         return ft.ListView(
             controls=[
                 header,

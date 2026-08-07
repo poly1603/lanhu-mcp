@@ -1,0 +1,9 @@
+2026-08-06 18:58:55 [INFO] === LanhuMCP GUI 启动 ===
+2026-08-06 18:58:55 [INFO] APP_DIR: D:\WorkBench\lanhu-mcp\dist-login-fallback
+2026-08-06 18:58:55 [INFO] DATA_DIR: D:\WorkBench\lanhu-mcp\.smoke-appdata-new2\LanhuMCP
+2026-08-06 18:58:55 [INFO] LOG_FILE: D:\WorkBench\lanhu-mcp\.smoke-appdata-new2\LanhuMCP\app.log
+2026-08-06 18:58:55 [INFO] sys.executable: D:\WorkBench\lanhu-mcp\dist-login-fallback\LanhuMCP.exe
+2026-08-06 18:58:55 [INFO] sys.frozen: True
+2026-08-06 18:58:55 [INFO] sys.version: 3.12.10 (tags/v3.12.10:0cc8128, Apr  8 2025, 12:21:36) [MSC v.1943 64 bit (AMD64)]
+2026-08-06 18:58:55 [INFO] sys._MEIPASS: C:\Users\swiml\AppData\Local\Temp\_MEI40322
+2026-08-06 18:58:55 [INFO] 登录助手分支启动: args=['D:\\WorkBench\\lanhu-mcp\\dist-login-fallback\\LanhuMCP.exe', '--login-helper']

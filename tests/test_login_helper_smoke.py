@@ -8,6 +8,16 @@ from pathlib import Path
 import lanhu_login_helper
 
 
+def test_cookie_objects_and_new_auth_names_are_supported() -> None:
+    """pywebview 的 Cookie 对象和新版认证名称都不能被当作匿名状态丢弃。"""
+
+    cookie = types.SimpleNamespace(name="lanhu_auth_token", value="token-value-123")
+
+    assert lanhu_login_helper.format_cookie([cookie]) == "lanhu_auth_token=token-value-123"
+    assert lanhu_login_helper.has_valid_auth_cookie("lanhu_auth_token=token-value-123")
+    assert not lanhu_login_helper.has_valid_auth_cookie("SERVERID=abc; user_token=undefined")
+
+
 def test_smoke_mode_skips_webview_start(tmp_path: Path, monkeypatch) -> None:
     """烟测模式下不应真正启动 WebView。"""
     result_file = tmp_path / "result.json"

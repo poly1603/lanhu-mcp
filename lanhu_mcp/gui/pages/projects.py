@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import math
-import time
 from typing import List, Optional
+from urllib.parse import urlencode
 
 import flet as ft
 
@@ -18,6 +18,7 @@ from ..state import AppContext
 from .designs import DesignBrowser
 from ...core import accounts as accounts_core
 from ...core import projects as projects_core
+from ...services.lanhu_api import load_projects_for_account
 
 PAGE_SIZE = 10
 
@@ -35,6 +36,15 @@ class ProjectsPage:
         self._all_projects: list[dict] = []
         self._current_page = 1
         self._design_browser = DesignBrowser(ctx)
+        self._auto_loaded_account_id = ""
+        self._status_text = ft.Text("", size=theme.font_size("xs"))
+        self._search_field = ft.TextField(
+            hint_text="搜索项目、团队或负责人",
+            prefix_icon=ft.Icons.SEARCH,
+            dense=True,
+            width=300,
+            on_change=self._on_search_change,
+        )
 
     # ── stats ─────────────────────────────────────────────────────
     def _render_stats(self, projects: list[dict]) -> None:
@@ -49,11 +59,32 @@ class ProjectsPage:
 
     # ── pagination ────────────────────────────────────────────────
     def _total_pages(self) -> int:
-        return max(1, math.ceil(len(self._all_projects) / PAGE_SIZE))
+        return max(1, math.ceil(len(self._filtered_projects()) / PAGE_SIZE))
 
     def _page_projects(self) -> list[dict]:
         start = (self._current_page - 1) * PAGE_SIZE
-        return self._all_projects[start: start + PAGE_SIZE]
+        return self._filtered_projects()[start: start + PAGE_SIZE]
+
+    def _filtered_projects(self) -> list[dict]:
+        query = str(self._search_field.value or "").strip().lower()
+        if not query:
+            return list(self._all_projects)
+        return [
+            project for project in self._all_projects
+            if query in " ".join(
+                str(project.get(field) or "")
+                for field in ("name", "team_name", "team_id", "owner_name", "id")
+            ).lower()
+        ]
+
+    def _on_search_change(self, _event: ft.ControlEvent) -> None:
+        self._current_page = 1
+        self._render_grid()
+        self._render_page_controls()
+        try:
+            self.ctx.page.update()
+        except Exception:
+            pass
 
     def _render_page_controls(self) -> None:
         p = self.ctx.palette
@@ -223,17 +254,30 @@ class ProjectsPage:
         self._render_stats(self._all_projects)
         self._render_grid()
         self._render_page_controls()
+        p = self.ctx.palette
+        self._status_text.color = p.text_muted
+        if not active_id:
+            self._status_text.value = "登录后可自动读取当前账号的蓝湖项目。"
+        elif self._all_projects:
+            self._status_text.value = f"当前显示 {len(self._filtered_projects())} / {len(self._all_projects)} 个项目"
+        else:
+            self._status_text.value = "正在准备项目数据；也可以添加已有的蓝湖项目链接。"
         try:
             self.ctx.page.update()
         except Exception:
             pass
+        if active_id and active and active.get("cookie") and self._auto_loaded_account_id != active_id:
+            self._auto_loaded_account_id = active_id
+            self._refresh_projects(silent=True)
 
     # ── actions ───────────────────────────────────────────────────
-    def _refresh_projects(self) -> None:
+    def _refresh_projects(self, *, silent: bool = False) -> None:
         if self._busy:
             toast(self.ctx.page, "刷新进行中，请稍候", "info", self.ctx.palette)
             return
         self._busy = True
+        self._status_text.value = "正在从蓝湖同步项目，请稍候..."
+        self._status_text.color = self.ctx.palette.primary
         self.ctx.add_log("[PROJECTS] 刷新项目列表…")
 
         def work():
@@ -241,27 +285,80 @@ class ProjectsPage:
                 active = accounts_core.get_active_account()
             except Exception:
                 active = None
-            active_id = (active or {}).get("id", "") if active else ""
-            time.sleep(0.3)
-            return active_id
+            if not active or not active.get("cookie"):
+                return False, "请先在账号页完成蓝湖登录。", []
+            return load_projects_for_account(active)
 
-        def done(active_id: str):
+        def done(result):
             self._busy = False
-            self._all_projects = projects_core.cached_projects_for_account(active_id or "")
+            ok, message, projects = result
+            self._all_projects = projects or []
+            if not self._all_projects:
+                active_id = str((accounts_core.get_active_account() or {}).get("id") or "")
+                self._all_projects = projects_core.cached_projects_for_account(active_id)
             self._current_page = 1
             self._render_stats(self._all_projects)
             self._render_grid()
             self._render_page_controls()
+            self._status_text.value = message
+            self._status_text.color = self.ctx.palette.success if ok else self.ctx.palette.warning
             self.ctx.add_log(f"[OK] [PROJECTS] 获取到 {len(self._all_projects)} 个项目")
             self.ctx.page.update()
 
+            if not silent:
+                toast(self.ctx.page, message, "ok" if ok else "warn", self.ctx.palette)
+
         def err(exc):
             self._busy = False
+            self._status_text.value = f"项目同步失败: {exc}"
+            self._status_text.color = self.ctx.palette.danger
             from ..components import show_error
             show_error(self.ctx.page, exc, "刷新项目", self.ctx.palette, self.ctx.add_log)
 
         from ..components import run_in_background
         run_in_background(self.ctx.page, work, on_done=done, on_error=err)
+
+    def _add_manual_project(self) -> None:
+        p = self.ctx.palette
+        url_field = ft.TextField(
+            label="蓝湖项目链接",
+            hint_text="粘贴包含 tid 和 pid 的蓝湖项目地址",
+            autofocus=True,
+            min_lines=2,
+            max_lines=3,
+            multiline=True,
+            width=520,
+        )
+
+        def close_dialog() -> None:
+            try:
+                self.ctx.page.close(dialog)
+            except Exception:
+                dialog.open = False
+                self.ctx.page.update()
+
+        def save_project(_event) -> None:
+            active = accounts_core.get_active_account() or {}
+            account_id = str(active.get("id") or "")
+            ok, message, _project = projects_core.save_manual_project(
+                str(url_field.value or ""), account_id
+            )
+            if not ok:
+                toast(self.ctx.page, message, "warn", p)
+                return
+            close_dialog()
+            self.refresh()
+            toast(self.ctx.page, message, "ok", p)
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("添加项目链接", color=p.text_primary),
+            content=url_field,
+            actions=[
+                ft.TextButton("取消", on_click=lambda _event: close_dialog()),
+                ft.FilledButton("保存项目", icon=ft.Icons.ADD_LINK, on_click=save_project),
+            ],
+        )
+        self.ctx.page.open(dialog)
 
     def _open_url(self, url: str) -> None:
         import webbrowser
@@ -277,7 +374,13 @@ class ProjectsPage:
             if team_id:
                 lines.append(f"Team: https://lanhuapp.com/web/#/team/{team_id}")
             if project_id:
-                lines.append(f"Project: https://lanhuapp.com/web/#/project/{project_id}")
+                query = {"pid": project_id}
+                if team_id:
+                    query["tid"] = team_id
+                lines.append(
+                    "Project: https://lanhuapp.com/web/#/item/project/stage?"
+                    + urlencode(query)
+                )
             text = "\n".join(lines)
             self.ctx.page.set_clipboard(text)
             toast(self.ctx.page, "项目链接已复制", "ok", p)
@@ -327,8 +430,26 @@ class ProjectsPage:
             padding=theme.space("4"),
         )
 
+        self._search_field.border_color = p.border
+        self._search_field.focused_border_color = p.primary
+        self._search_field.color = p.text_primary
+        self._search_field.bgcolor = p.card
+        toolbar = ft.Container(
+            content=ft.Row([
+                self._search_field,
+                ft.Container(content=self._status_text, expand=True),
+                secondary_button("添加项目链接", lambda _event: self._add_manual_project(), icon=ft.Icons.ADD_LINK),
+                primary_button("同步项目", lambda _event: self._refresh_projects(), icon=ft.Icons.REFRESH),
+            ], spacing=theme.space("3"), wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("3"),
+        )
+
         body = ft.Column([
             gradient_card(p, self._stat_bar, padding=theme.space("4")),
+            toolbar,
             tip_card,
             self._grid,
             pagination_bar,

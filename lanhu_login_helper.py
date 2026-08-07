@@ -33,6 +33,16 @@ STRICT_AUTH_COOKIE_NAMES = {
     "access_token",
     "authorization",
 }
+AUTH_COOKIE_NAME_HINTS = (
+    "token",
+    "auth",
+    "session",
+    "sess",
+    "sid",
+    "login",
+    "member",
+    "account",
+)
 
 
 LOADING_HTML = """
@@ -131,10 +141,12 @@ def format_cookie(raw_cookie: object) -> str:
     if isinstance(raw_cookie, list):
         pairs: list[str] = []
         for item in raw_cookie:
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name")
-            value = item.get("value")
+            if isinstance(item, dict):
+                name = item.get("name")
+                value = item.get("value")
+            else:
+                name = getattr(item, "name", None)
+                value = getattr(item, "value", None)
             if name and value is not None:
                 pairs.append(f"{name}={value}")
         return "; ".join(pairs)
@@ -185,7 +197,10 @@ def has_valid_auth_cookie(cookie: str) -> bool:
             continue
         if lowered_value in INVALID_AUTH_VALUES:
             continue
-        if lowered_name in STRICT_AUTH_COOKIE_NAMES and len(value.strip()) >= 6:
+        if (
+            lowered_name in STRICT_AUTH_COOKIE_NAMES
+            or any(hint in lowered_name for hint in AUTH_COOKIE_NAME_HINTS)
+        ) and len(value.strip()) >= 6:
             return True
     return False
 
@@ -216,7 +231,10 @@ def storage_value_has_identity(value: object) -> bool:
             "mobile",
             "phone",
         )
-        return any(parsed.get(key) not in (None, "") for key in identity_keys)
+        lowered = {str(key).lower(): item for key, item in parsed.items()}
+        return any(lowered.get(key.lower()) not in (None, "") for key in identity_keys)
+    if isinstance(parsed, list):
+        return any(storage_value_has_identity(item) for item in parsed[:20])
     return False
 
 
@@ -391,8 +409,11 @@ def is_lanhu_logged_in(
         return False
     has_auth_cookie = has_valid_auth_cookie(cookie)
     has_storage_auth = has_valid_storage_auth(browser_state)
-    is_authed_route = "/item/" in current_url or "/team/" in current_url or "/project/" in current_url
-    return bool(has_auth_cookie and (has_storage_auth or is_authed_route))
+    is_authed_route = any(route in current_url.lower() for route in (
+        "/item/", "/team/", "/project/", "/home", "/workspace", "/dashboard",
+    ))
+    has_user_payload = storage_value_has_identity(browser_state.get("user", {}))
+    return bool(has_auth_cookie and (has_storage_auth or has_user_payload or is_authed_route))
 
 
 def detect_edge_error(browser_state: dict[str, object]) -> str:

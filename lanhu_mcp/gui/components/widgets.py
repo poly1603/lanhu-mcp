@@ -480,10 +480,17 @@ def toast(page: ft.Page, message: str, kind: str = "info", palette: Optional[Pal
         "warn": palette.warning, "info": palette.primary,
     }
     bar = ft.SnackBar(
-        content=ft.Text(message, color="#FFFFFF"),
+        content=ft.Text(message, color="#FFFFFF", max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
         bgcolor=color_map.get(kind, palette.primary),
         behavior=ft.SnackBarBehavior.FLOATING,
-        margin=ft.margin.only(bottom=20, left=20, right=20),
+        width=420,
+        duration=3200,
+        elevation=6,
+        padding=ft.padding.symmetric(horizontal=16, vertical=12),
+        margin=ft.margin.only(bottom=18, right=24),
+        shape=ft.RoundedRectangleBorder(radius=theme.radius("lg")),
+        show_close_icon=True,
+        close_icon_color="#FFFFFF",
     )
     page.open(bar)
 

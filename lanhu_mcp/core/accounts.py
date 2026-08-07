@@ -9,7 +9,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
+import subprocess
+import sys
 import time
+from pathlib import Path
 from typing import Optional
 from urllib.parse import quote, unquote
 
@@ -850,57 +854,137 @@ def avatar_url(account: dict) -> str:
     )
 
 
+def _needs_browser_sync_fallback(result: object) -> bool:
+    """判断登录窗口是否不可用，需要退回默认浏览器同步。"""
+    if not isinstance(result, dict) or result.get("status") != "error":
+        return False
+    error_text = str(result.get("error") or "").lower()
+    return bool(
+        result.get("source") == "managed-webview"
+        and any(marker in error_text for marker in ("webview2", "安全登录窗口", "无法启动", "页面地址为空"))
+    )
+
+
+def _run_managed_webview_login(
+    login_url: str,
+    *,
+    login_port: int = 0,
+    on_output=None,
+) -> dict:
+    """运行应用自管的 WebView 登录，不依赖读取第三方浏览器 Cookie。"""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    token = f"{os.getpid()}-{time.time_ns()}"
+    result_file = DATA_DIR / f".login-result-{token}.json"
+    storage_root = DATA_DIR / "webview"
+    env = dict(os.environ)
+    if login_port:
+        env["LANHU_LOGIN_PORT"] = str(login_port)
+
+    if getattr(sys, "frozen", False):
+        command = [
+            sys.executable,
+            "--login-helper",
+            str(result_file),
+            str(storage_root),
+            login_url,
+        ]
+    else:
+        helper_path = Path(__file__).resolve().parents[2] / "lanhu_login_helper.py"
+        if not helper_path.exists():
+            return {
+                "status": "error",
+                "cookies": "",
+                "error": "找不到应用内蓝湖登录组件。",
+                "source": "managed-webview",
+            }
+        command = [sys.executable, str(helper_path), str(result_file), str(storage_root), login_url]
+
+    if on_output:
+        on_output("默认浏览器 Cookie 受系统保护，已自动打开安全登录窗口。")
+
+    try:
+        creation_flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+        completed = subprocess.run(
+            command,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=330,
+            creationflags=creation_flags,
+            check=False,
+        )
+        if result_file.exists():
+            try:
+                result = json.loads(result_file.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                result = {}
+            if isinstance(result, dict) and result.get("status"):
+                result.setdefault("source", "managed-webview")
+                result.setdefault("fallback_reason", "browser-cookie-read-unavailable")
+                return result
+        return {
+            "status": "error",
+            "cookies": "",
+            "error": f"安全登录窗口未返回结果（退出码 {completed.returncode}）。",
+            "source": "managed-webview",
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "status": "error",
+            "cookies": "",
+            "error": "安全登录窗口等待超时，请关闭登录窗口后重试。",
+            "source": "managed-webview",
+        }
+    except OSError as exc:
+        return {
+            "status": "error",
+            "cookies": "",
+            "error": f"无法启动安全登录窗口: {exc}",
+            "source": "managed-webview",
+        }
+    finally:
+        try:
+            result_file.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def launch_login_helper(
     login_port: int = 0,
     on_output=None,
     on_error=None,
 ) -> Optional[dict]:
-    """启动蓝湖登录 helper 子进程，等待结果 JSON。"""
-    import subprocess
-    import sys
-    import os
+    """启动蓝湖登录 helper 子进程，优先弹出登录窗口。
 
-    result_file = DATA_DIR / "login_result.json"
-    try:
-        if result_file.exists():
-            result_file.unlink()
-    except OSError:
-        pass
-
-    env = dict(os.environ)
-    if login_port:
-        env["LANHU_LOGIN_PORT"] = str(login_port)
-
-    # 优先使用打包后的 exe
-    exe_path = os.path.join(os.path.dirname(sys.executable), "LanhuMCP.exe")
-    if not os.path.exists(exe_path):
-        exe_path = sys.executable
+    一键登录现在优先走应用自管的浏览器窗口，便于真实完成蓝湖登录并
+    读取用户信息；默认浏览器 Cookie 同步保留为单独兜底路径。
+    """
+    from ..services.browser_login import run_default_browser_login
+    login_url = get_saved_login_url()
 
     try:
-        proc = subprocess.Popen(
-            [exe_path, "--login-helper"],
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        result = _run_managed_webview_login(
+            login_url,
+            on_output=on_output,
+            login_port=login_port,
         )
-        proc.wait(timeout=120)
-    except subprocess.TimeoutExpired:
-        try:
-            proc.kill()
-        except Exception:
-            pass
-        if on_error:
-            on_error("登录超时（120秒）")
-        return None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         if on_error:
             on_error(str(exc))
-        return None
+        return {"status": "error", "error": str(exc)}
 
-    try:
-        if result_file.exists():
-            data = json.loads(result_file.read_text(encoding="utf-8"))
-            return data
-    except (json.JSONDecodeError, OSError):
-        pass
-    return None
+    if _needs_browser_sync_fallback(result):
+        if on_output:
+            on_output("登录窗口不可用，已切换为默认浏览器 Cookie 同步。")
+        result = run_default_browser_login(
+            login_url,
+            timeout=300.0,
+            on_status=on_output,
+        )
+
+    if on_output and isinstance(result, dict):
+        status = str(result.get("status") or "cancelled")
+        on_output(f"登录助手返回状态: {status}")
+    if on_error and isinstance(result, dict) and result.get("status") == "error":
+        on_error(str(result.get("error") or "登录失败"))
+    return result

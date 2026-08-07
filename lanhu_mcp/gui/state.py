@@ -49,10 +49,25 @@ class AppContext:
         # Active account id (set by accounts page refresh).
         self.active_account_id: str = ""
 
+        # Optional hook used by the shell to keep chrome controls in sync
+        # when a page changes the port programmatically.
+        self.on_port_change: Optional[Callable[[int], None]] = None
+
     # -- theme ----------------------------------------------------------
     def set_mode(self, mode: str) -> None:
         self.mode = mode
         self.palette = theme.get_palette(mode)
+
+    def set_port(self, port: int) -> None:
+        """Update the service port and notify the shell when available."""
+        self.port = int(port)
+        callback = self.on_port_change
+        if callback is not None:
+            try:
+                callback(self.port)
+            except Exception:
+                # A stale UI hook must never block a port change.
+                pass
 
     # -- logging --------------------------------------------------------
     def add_log(self, line: str) -> None:

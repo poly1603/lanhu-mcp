@@ -37,6 +37,9 @@ __all__ = [
 
 PROJECT_ENDPOINTS = [
     "/api/project/team_projects",
+    "/api/project/projects",
+    "/api/project/list",
+    "/api/team/projects",
 ]
 
 USER_PROFILE_ENDPOINTS = [
@@ -70,11 +73,18 @@ def lanhu_api_headers(cookie: str) -> dict[str, str]:
     }
     # 从 Cookie 中提取 user_token，构造 Basic Auth header
     token = ""
-    for pair in cookie.split("; "):
-        parts = pair.split("=", 1)
-        if len(parts) == 2 and parts[0] == "user_token":
-            token = parts[1]
-            break
+    token_names = {
+        "user_token", "access_token", "auth_token", "lanhu_auth_token",
+        "token", "authorization", "sid", "session", "sessionid",
+    }
+    for pair in cookie.split(";"):
+        parts = pair.strip().split("=", 1)
+        if len(parts) == 2 and parts[0].strip().lower() in token_names:
+            value = parts[1].strip()
+            if value and value.lower() not in {"undefined", "null", "false"}:
+                token = value
+                if parts[0].strip().lower() == "user_token":
+                    break
     if token:
         basic_auth = base64.b64encode(f"{token}:".encode()).decode()
         headers["Authorization"] = f"Basic {basic_auth}"
