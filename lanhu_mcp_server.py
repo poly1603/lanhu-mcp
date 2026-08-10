@@ -9,6 +9,7 @@ import re
 import base64
 import json
 import hashlib
+import sys
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional, Union, List, Any
@@ -70,21 +71,63 @@ mcp = FastMCP("Lanhu Axure Extractor")
 # 全局配置
 DEFAULT_COOKIE = "your_lanhu_cookie_here"  # 请替换为你的蓝湖Cookie，从浏览器开发者工具中获取
 
-# Cookie 优先级：cookie.json 文件 > 环境变量 > DEFAULT_COOKIE
-# cookie.json 可由 GUI 或脚本自动更新，避免环境变量需要重启的问题
-_COOKIE_JSON_PATH = Path(__file__).parent / "cookie.json"
+# Cookie 优先级：显式文件 > 运行目录/项目目录 cookie.json > 环境变量 > 默认值。
+#
+# 单文件 PyInstaller 服务启动时，``__file__`` 位于临时解包目录，不能只查找
+# ``Path(__file__).parent / cookie.json``。GUI 会从 ``dist\\LanhuMCP.exe`` 启动
+# 服务，而当前项目的有效 cookie.json 位于 exe 的上一级项目目录，因此这里把
+# 显式配置、exe 目录和 exe 上一级目录都纳入查找，并保持“文件优先于环境变量”
+# 的既有约定。不会把 Cookie 写入日志，只暴露来源和长度用于诊断。
+_COOKIE_JSON_NAME = "cookie.json"
+COOKIE_SOURCE = "none"
+
+
+def _cookie_file_candidates() -> list[Path]:
+    """返回按优先级排列的外部 Cookie 文件候选路径。"""
+    candidates: list[Path] = []
+    configured_path = os.getenv("LANHU_COOKIE_FILE", "").strip()
+    if configured_path:
+        candidates.append(Path(configured_path).expanduser())
+
+    module_dir = Path(__file__).resolve().parent
+    executable_dir = Path(sys.executable).resolve().parent
+    for directory in (module_dir, executable_dir, executable_dir.parent):
+        candidate = directory / _COOKIE_JSON_NAME
+        if candidate not in candidates:
+            candidates.append(candidate)
+    return candidates
+
+
+def _read_cookie_file(path: Path) -> str:
+    """读取一个 Lanhu Cookie JSON 文件，失败时返回空字符串。"""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return ""
+    if not isinstance(data, dict):
+        return ""
+    value = data.get("lanhu_cookie") or data.get("cookie")
+    return value.strip() if isinstance(value, str) else ""
+
+
 def _load_cookie() -> str:
-    """按优先级加载 Cookie：cookie.json > 环境变量 > 默认值"""
-    if _COOKIE_JSON_PATH.exists():
-        try:
-            import json as _json
-            with open(_COOKIE_JSON_PATH, "r", encoding="utf-8") as _f:
-                _data = _json.load(_f)
-                if isinstance(_data, dict) and _data.get("lanhu_cookie"):
-                    return _data["lanhu_cookie"]
-        except Exception:
-            pass
-    return os.getenv("LANHU_COOKIE", DEFAULT_COOKIE)
+    """按优先级加载 Cookie，并记录不敏感的来源信息。"""
+    global COOKIE_SOURCE
+
+    for path in _cookie_file_candidates():
+        value = _read_cookie_file(path)
+        if value:
+            COOKIE_SOURCE = str(path)
+            return value
+
+    value = os.getenv("LANHU_COOKIE", "").strip()
+    if value:
+        COOKIE_SOURCE = "LANHU_COOKIE"
+        return value
+
+    COOKIE_SOURCE = "default"
+    return DEFAULT_COOKIE
+
 
 COOKIE = _load_cookie()
 
@@ -7586,9 +7629,10 @@ async def lanhu_health_check(
     """
     import platform
     
-    # 检查 Cookie 配置
-    lanhu_cookie = os.getenv('LANHU_COOKIE', '')
-    dds_cookie = os.getenv('DDS_COOKIE', '')
+    # 检查实际生效的 Cookie 配置，而不是只读取环境变量。
+    # 打包服务可能从 exe 目录或项目目录的 cookie.json 加载凭据。
+    lanhu_cookie = COOKIE
+    dds_cookie = DDS_COOKIE
     
     # 检查 Basic Auth 是否可构造
     basic_auth_status = 'missing'
@@ -7645,6 +7689,7 @@ async def lanhu_health_check(
             'server_port': os.getenv('SERVER_PORT', '8000'),
         },
         'cookie_status': cookie_status,
+        'cookie_source': COOKIE_SOURCE,
         'cache_stats': cache_stats,
         'dependencies': {
             'playwright': playwright_status,
