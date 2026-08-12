@@ -1,76 +1,52 @@
-#!/bin/bash
-# ========================================
-#  Lanhu MCP Server - macOS .app 打包
-# ========================================
+#!/usr/bin/env bash
+set -euo pipefail
 
-APP_NAME="Lanhu MCP"
-APP_VERSION="2.0.0"
-ICON_FILE="icon.icns"  # 可选：准备一个 .icns 图标文件
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR"
 
-echo "创建 macOS .app 包..."
-
-# 检查可执行文件
-if [ ! -f dist/lanhu_mcp/lanhu_mcp ]; then
-    echo "错误：请先运行 build.sh 生成可执行文件"
-    exit 1
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "create_app.sh is only for macOS; use build.sh on Linux or Windows." >&2
+  exit 1
 fi
 
-# 创建 .app 目录结构
-APP_DIR="dist/${APP_NAME}.app"
-mkdir -p "${APP_DIR}/Contents/MacOS"
-mkdir -p "${APP_DIR}/Contents/Resources"
+if [[ ! -x "$ROOT_DIR/dist/LanhuMCP" && ! -d "$ROOT_DIR/dist/LanhuMCP.app" ]]; then
+  "$ROOT_DIR/build.sh"
+fi
 
-# 复制可执行文件
-cp dist/lanhu_mcp/lanhu_mcp "${APP_DIR}/Contents/MacOS/"
+if [[ -d "$ROOT_DIR/dist/LanhuMCP.app" ]]; then
+  echo "macOS app bundle: $ROOT_DIR/dist/LanhuMCP.app"
+  exit 0
+fi
 
-# 复制依赖文件
-cp -r dist/lanhu_mcp/* "${APP_DIR}/Contents/MacOS/"
+APP_DIR="$ROOT_DIR/dist/Lanhu MCP.app"
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+cp "$ROOT_DIR/dist/LanhuMCP" "$APP_DIR/Contents/MacOS/LanhuMCP"
+chmod +x "$APP_DIR/Contents/MacOS/LanhuMCP"
 
-# 创建 Info.plist
-cat > "${APP_DIR}/Contents/Info.plist" << EOF
+cat > "$APP_DIR/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
-    <string>lanhu_mcp</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.lanhu.mcp-server</string>
-    <key>CFBundleName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleDisplayName</key>
-    <string>${APP_NAME}</string>
-    <key>CFBundleVersion</key>
-    <string>${APP_VERSION}</string>
-    <key>CFBundleShortVersionString</key>
-    <string>${APP_VERSION}</string>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>CFBundleSignature</key>
-    <string>????</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>10.13</string>
-    <key>LSUIElement</key>
-    <false/>
-    <key>NSHighResolutionCapable</key>
-    <true/>
+  <key>CFBundleExecutable</key>
+  <string>LanhuMCP</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.lanhu.mcp</string>
+  <key>CFBundleName</key>
+  <string>Lanhu MCP</string>
+  <key>CFBundleDisplayName</key>
+  <string>Lanhu MCP</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleVersion</key>
+  <string>1.0.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
 </dict>
 </plist>
-EOF
+PLIST
 
-# 创建启动脚本
-cat > "${APP_DIR}/Contents/MacOS/start.sh" << 'EOF'
-#!/bin/bash
-cd "$(dirname "$0")"
-./lanhu_mcp
-EOF
-chmod +x "${APP_DIR}/Contents/MacOS/start.sh"
-
-echo ""
-echo "========================================"
-echo "  .app 创建成功！"
-echo "========================================"
-echo ""
-echo "应用位置: ${APP_NAME}.app"
-echo "双击即可运行"
-echo ""
+echo "macOS app bundle: $APP_DIR"

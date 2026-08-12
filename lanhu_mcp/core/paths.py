@@ -41,6 +41,7 @@ __all__ = [
     "WEBVIEW_STORAGE_DIR",
     "AVATAR_CACHE_DIR",
     "LOG_FILE",
+    "WINDOW_PREFERENCES_FILE",
     "DEFAULT_LANHU_LOGIN_URL",
     "AVATAR_MAX_BYTES",
     "ensure_writable_data_dir",
@@ -97,6 +98,7 @@ PROJECTS_FILE = DATA_DIR / "projects.json"
 WEBVIEW_STORAGE_DIR = DATA_DIR / "webview"
 AVATAR_CACHE_DIR = DATA_DIR / "avatars"
 LOG_FILE = DATA_DIR / "app.log"
+WINDOW_PREFERENCES_FILE = DATA_DIR / "window_preferences.json"
 DEFAULT_LANHU_LOGIN_URL = "https://lanhuapp.com/web/"
 AVATAR_MAX_BYTES = 1024 * 1024
 
@@ -108,7 +110,18 @@ _logger = logging.getLogger("LanhuMCP")
 _logger.setLevel(logging.DEBUG)
 if not _logger.handlers:
     try:
-        _log_handler: logging.Handler = logging.FileHandler(str(LOG_FILE), encoding="utf-8")
+        # When the desktop shell launches the MCP child process, the parent
+        # captures stdout and persists it as one unified console stream.  The
+        # child must not write the same line to app.log as well, otherwise a
+        # restart would show every service line twice.
+        log_to_file = os.environ.get("LANHU_LOG_TO_FILE", "1").lower() not in {
+            "0", "false", "no", "off"
+        }
+        _log_handler = (
+            logging.FileHandler(str(LOG_FILE), encoding="utf-8")
+            if log_to_file
+            else logging.NullHandler()
+        )
     except OSError:
         # 日志文件被占用或无权限时，不能阻断主程序启动。
         _log_handler = logging.StreamHandler(sys.stderr)
@@ -125,7 +138,7 @@ def flog(msg: str, level: str = "info") -> None:
     被 GBK 击穿。日志文件本来也是 UTF-8，可以安全写中文/特殊字符。
     """
     getattr(_logger, level, _logger.info)(msg)
-    print(f"[{level.upper()}] {msg}")
+    print(f"[{level.upper()}] {msg}", flush=True)
 
 
 def is_gui_smoke_mode() -> bool:

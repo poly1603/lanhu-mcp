@@ -13,6 +13,7 @@ from typing import Callable, Dict, List, Optional
 import flet as ft
 
 from .. import theme
+from ..branding import banner_path
 from ..theme import Palette
 from ...core.errors import describe_error
 
@@ -131,26 +132,79 @@ def section_title(palette: Palette, text: str, subtitle: str = "") -> ft.Control
     return ft.Column(children, spacing=theme.space("1"))
 
 
-def page_frame(palette: Palette, title: str, subtitle: str, body: ft.Control) -> ft.ListView:
-    return ft.ListView(
-        controls=[
+def page_banner(palette: Palette, title: str, subtitle: str = "", name: str = "shared") -> ft.Container:
+    """Compact visual identity strip shared by the main menu pages."""
+    image = banner_path(name)
+    # Use Container.image as a decoration rather than putting an Image inside
+    # Stack.  An Image child can keep its intrinsic width during Flet's first
+    # layout pass, leaving the right side of the banner as the gray canvas.
+    # A decoration is painted into the already-resolved container bounds.
+    return ft.Container(
+        image=ft.DecorationImage(
+            src=str(image),
+            fit=ft.ImageFit.COVER,
+            filter_quality=ft.FilterQuality.HIGH,
+            anti_alias=True,
+        ),
+        content=ft.Stack([
             ft.Container(
-                content=section_title(palette, title, subtitle),
-                padding=ft.padding.only(
-                    left=theme.space("6"), top=theme.space("5"),
-                    right=theme.space("6"), bottom=theme.space("3"),
+                gradient=ft.LinearGradient(
+                    begin=ft.alignment.center_left,
+                    end=ft.alignment.center_right,
+                    colors=["#D90B1224", "#660B1224", "#000B1224"],
                 ),
+                expand=True,
             ),
+            ft.Container(
+                content=ft.Column([
+                    ft.Text(title, size=theme.font_size("3xl"), weight=theme.WEIGHT_BOLD, color="#FFFFFF"),
+                    ft.Text(subtitle, size=theme.font_size("sm"), color="#D9E7FF") if subtitle else ft.Container(),
+                ], spacing=theme.space("1")),
+                padding=ft.padding.symmetric(horizontal=24, vertical=18),
+                alignment=ft.alignment.center_left,
+                expand=True,
+            ),
+        ], fit=ft.StackFit.EXPAND, expand=True, height=126),
+        height=126,
+        bgcolor="#0B1220",
+        border_radius=theme.radius("xl"),
+        clip_behavior=ft.ClipBehavior.HARD_EDGE,
+        margin=ft.margin.only(left=theme.space("6"), top=theme.space("4"), right=theme.space("6")),
+    )
+
+
+def page_frame(palette: Palette, title: str, subtitle: str, body: ft.Control, *, banner: str | None = None) -> ft.ListView:
+    top = [page_banner(palette, title, subtitle, banner)] if banner else [
+        ft.Container(
+            content=section_title(palette, title, subtitle),
+            padding=ft.padding.only(
+                left=theme.space("6"), top=theme.space("5"),
+                right=theme.space("6"), bottom=theme.space("3"),
+            ),
+        )
+    ]
+    view = ft.ListView(
+        controls=[
+            *top,
             ft.Container(
                 content=body,
                 padding=ft.padding.only(
                     left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6"),
                 ),
+                # Give the page surface an explicit fill color; otherwise a
+                # short/animated child can reveal Flet's neutral canvas.
+                bgcolor=palette.card,
+                expand=True,
             ),
         ],
         spacing=0,
         expand=True,
     )
+    # Keep all standard pages on the same workspace surface as the shell.
+    # Otherwise the ListView can expose the global gray canvas between cards
+    # while Flet is laying out an AnimatedSwitcher page.
+    view.bgcolor = palette.card
+    return view
 
 
 def responsive_pair(left: ft.Control, right: ft.Control, *, spacing: int = 16) -> ft.ResponsiveRow:
@@ -520,7 +574,7 @@ def _alpha20(hex_color: str) -> str:
 
 __all__ = [
     "run_in_background",
-    "card", "gradient_card", "section_title", "page_frame", "responsive_pair",
+    "card", "gradient_card", "section_title", "page_banner", "page_frame", "responsive_pair",
     "metric_tile", "stat_chip", "quick_action_tile",
     "empty_state", "field_row",
     "primary_button", "secondary_button", "danger_button", "ghost_icon_button",

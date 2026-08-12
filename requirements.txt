@@ -10,5 +10,7 @@ typer>=0.9.0
 pywebview>=5.0
 flet==0.28.3
 flet-desktop==0.28.3
+Pillow>=10.0
+pystray>=0.19.5
 browser-cookie3>=0.20
 

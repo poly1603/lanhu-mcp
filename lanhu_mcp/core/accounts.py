@@ -535,21 +535,131 @@ def read_accounts_data() -> dict:
     accounts = data.get("accounts", [])
     if not isinstance(accounts, list):
         accounts = []
-    return {
+    return _normalize_accounts_data({
         "active_id": str(data.get("active_id", "")),
         "accounts": [item for item in accounts if isinstance(item, dict)],
-    }
+    })
+
+
+_PLACEHOLDER_ACCOUNT_NAMES = {"", "蓝湖用户", "手动账号"}
+_LEGACY_ACCOUNT_NAME = "已登录账号"
+
+
+def _identity_text(value: object) -> str:
+    return str(value or "").strip().casefold()
+
+
+def _account_identity_keys(account: dict) -> set[str]:
+    """Return stable, non-cookie identifiers used for account de-duplication."""
+    keys: set[str] = set()
+    fingerprint = _identity_text(account.get("cookie_fingerprint"))
+    for field in ("user_id", "uid", "uuid", "email", "username", "login_name"):
+        value = _identity_text(account.get(field))
+        if value:
+            keys.add(f"{field}:{value}")
+    account_id = _identity_text(account.get("id"))
+    if account_id and account_id != fingerprint:
+        keys.add(f"id:{account_id}")
+    return keys
+
+
+def _accounts_match(left: dict, right: dict) -> bool:
+    left_fingerprint = _identity_text(left.get("cookie_fingerprint"))
+    right_fingerprint = _identity_text(right.get("cookie_fingerprint"))
+    if left_fingerprint and right_fingerprint and left_fingerprint == right_fingerprint:
+        return True
+    return bool(_account_identity_keys(left) & _account_identity_keys(right))
+
+
+def _account_profile_score(account: dict) -> int:
+    return sum(bool(account.get(key)) for key in ("email", "username", "nickname", "avatar", "company", "team", "role"))
+
+
+def _account_has_real_profile(account: dict) -> bool:
+    """Whether a record contains user identity data, not migration defaults."""
+    return any(
+        bool(account.get(key))
+        for key in (
+            "user_id", "uid", "uuid", "email", "mobile", "username",
+            "login_name", "nickname", "avatar", "company", "team",
+        )
+    )
+
+
+def _merge_account_records(existing: dict, incoming: dict) -> dict:
+    """Keep the richest profile while always adopting the newest cookie."""
+    merged = dict(existing)
+    existing_score = _account_profile_score(existing)
+    incoming_score = _account_profile_score(incoming)
+    for key, value in incoming.items():
+        if value in (None, "", {}):
+            continue
+        if key == "id":
+            existing_id = _identity_text(merged.get("id"))
+            existing_fingerprint = _identity_text(merged.get("cookie_fingerprint"))
+            if not existing_id or existing_id == existing_fingerprint:
+                merged[key] = value
+            continue
+        if key in {"cookie", "cookie_fingerprint", "updated_at"}:
+            merged[key] = value
+            continue
+        if not merged.get(key) or (key == "name" and _identity_text(merged.get(key)) in _PLACEHOLDER_ACCOUNT_NAMES):
+            merged[key] = value
+        elif incoming_score > existing_score and key not in {"id", "created_at"}:
+            merged[key] = value
+    return merged
+
+
+def _normalize_accounts_data(data: dict) -> dict:
+    """Collapse duplicate login records without removing distinct users."""
+    normalized: list[dict] = []
+    for item in data.get("accounts", []) if isinstance(data, dict) else []:
+        if not isinstance(item, dict):
+            continue
+        account = dict(item)
+        fingerprint = str(account.get("cookie_fingerprint") or cookie_fingerprint(str(account.get("cookie") or "")))
+        if fingerprint:
+            account["cookie_fingerprint"] = fingerprint
+        duplicate = next((existing for existing in normalized if _accounts_match(existing, account)), None)
+        if duplicate is None:
+            normalized.append(account)
+        else:
+            merged = _merge_account_records(duplicate, account)
+            duplicate.clear()
+            duplicate.update(merged)
+
+    # This exact placeholder is produced only by legacy cookie migration. If
+    # a later login produced a real profile, it is not a second user.
+    meaningful = [
+        account for account in normalized
+        if _identity_text(account.get("name")) != _identity_text(_LEGACY_ACCOUNT_NAME)
+        or _account_has_real_profile(account)
+    ]
+    if meaningful and len(meaningful) < len(normalized):
+        normalized = meaningful
+
+    active_id = str(data.get("active_id") or "") if isinstance(data, dict) else ""
+    ids = {str(account.get("id") or "") for account in normalized}
+    if active_id not in ids:
+        # A migrated store may not have an active id yet. Pick a stable
+        # default; explicit multi-account switching can replace it later.
+        active_id = str(normalized[0].get("id") or "") if normalized else ""
+    return {"active_id": active_id, "accounts": normalized}
 
 
 def write_accounts_data(data: dict) -> None:
     """保存多用户账号文件。"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    ACCOUNTS_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    ACCOUNTS_FILE.write_text(json.dumps(_normalize_accounts_data(data), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def migrate_legacy_cookie() -> dict:
     """把旧版 cookie.txt 迁移成默认账号，确保老用户升级后无需重登。"""
     data = read_accounts_data()
+    normalized = _normalize_accounts_data(data)
+    if normalized != data:
+        write_accounts_data(normalized)
+        data = normalized
     if data["accounts"] or not COOKIE_FILE.exists():
         return data
     legacy_cookie = COOKIE_FILE.read_text(encoding="utf-8").strip()
@@ -617,13 +727,18 @@ def upsert_account(cookie: object, user_info: Optional[dict] = None) -> Optional
     account_id = str(user_info.get("id") or fallback_id)
     data = migrate_legacy_cookie()
     accounts = data["accounts"]
-    existing = next(
-        (
-            item for item in accounts
-            if item.get("id") == account_id or item.get("cookie_fingerprint") == fallback_id
-        ),
-        None,
-    )
+    identity_probe = {
+        "id": user_info.get("id") or "",
+        "email": user_info.get("email") or "",
+        "username": user_info.get("username") or "",
+        "cookie_fingerprint": fallback_id,
+    }
+    existing = next((item for item in accounts if _accounts_match(item, identity_probe)), None)
+    if existing is not None and not user_info.get("id"):
+        existing_id = str(existing.get("id") or "")
+        existing_fingerprint = str(existing.get("cookie_fingerprint") or "")
+        if existing_id and existing_id != existing_fingerprint:
+            account_id = existing_id
     account = existing or {"id": account_id, "created_at": now_text()}
     account["id"] = account_id
     account.update({
@@ -645,6 +760,11 @@ def upsert_account(cookie: object, user_info: Optional[dict] = None) -> Optional
     if existing is None:
         accounts.append(account)
     data["active_id"] = account_id
+    data = _normalize_accounts_data(data)
+    # A single saved account should always be the active account; with two or
+    # more accounts the explicit selection is preserved.
+    if len(data["accounts"]) == 1:
+        data["active_id"] = str(data["accounts"][0].get("id") or "")
     write_accounts_data(data)
     save_cookie(cookie)
     return account

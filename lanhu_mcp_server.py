@@ -10,6 +10,7 @@ import base64
 import json
 import hashlib
 import sys
+import time
 from pathlib import Path
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional, Union, List, Any
@@ -62,11 +63,78 @@ import httpx
 from fastmcp import Context
 from bs4 import BeautifulSoup
 from fastmcp import FastMCP
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 from fastmcp.utilities.types import Image
 from playwright.async_api import async_playwright
+from lanhu_mcp.core.paths import flog
 
-# 创建FastMCP服务器
-mcp = FastMCP("Lanhu Axure Extractor")
+
+_MCP_SENSITIVE_KEYS = {
+    "cookie", "cookies", "token", "user_token", "access_token",
+    "authorization", "password", "passwd", "secret", "api_key",
+}
+
+
+def _redact_mcp_value(value: Any, key: str = "") -> Any:
+    """Return a bounded, JSON-safe tool argument preview without secrets."""
+    if key.lower() in _MCP_SENSITIVE_KEYS or any(
+        marker in key.lower() for marker in ("cookie", "token", "password", "secret")
+    ):
+        return "<redacted>"
+    if isinstance(value, dict):
+        return {str(k): _redact_mcp_value(v, str(k)) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_redact_mcp_value(item, key) for item in value[:30]]
+    if isinstance(value, str):
+        # URLs can carry credentials in query strings even when the argument
+        # key itself is harmless.  Remove common credential parameters too.
+        value = re.sub(
+            r"([?&](?:token|access_token|user_token|authorization|password|secret|cookie|cookies)=)[^&\s]+",
+            r"\1<redacted>", value, flags=re.IGNORECASE,
+        )
+        return value if len(value) <= 320 else value[:317] + "..."
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    return str(value)[:320]
+
+
+def _mcp_preview(value: Any, limit: int = 1200) -> str:
+    try:
+        rendered = json.dumps(_redact_mcp_value(value), ensure_ascii=False, separators=(",", ":"))
+    except (TypeError, ValueError):
+        rendered = repr(value)
+    return rendered if len(rendered) <= limit else rendered[: limit - 3] + "..."
+
+
+class _MCPCallLoggingMiddleware(Middleware):
+    """Emit one request and one result line for every AI tools/call request."""
+
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        message = context.message
+        tool_name = str(getattr(message, "name", "unknown"))
+        arguments = getattr(message, "arguments", None) or {}
+        started = time.perf_counter()
+        flog(f"[MCP] tools/call {tool_name} arguments={_mcp_preview(arguments)}")
+        try:
+            result = await call_next(context)
+        except Exception as error:  # noqa: BLE001 - preserve FastMCP error semantics
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            flog(f"[MCP] {tool_name} -> ERROR {type(error).__name__}: {str(error)[:400]} ({elapsed_ms:.0f}ms)", "error")
+            raise
+
+        is_error = bool(getattr(result, "isError", getattr(result, "is_error", False)))
+        content = getattr(result, "content", None)
+        content_count = len(content) if isinstance(content, (list, tuple)) else 0
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        status = "ERROR" if is_error else "OK"
+        flog(f"[MCP] {tool_name} -> {status} content_items={content_count} ({elapsed_ms:.0f}ms)",
+             "error" if is_error else "info")
+        return result
+
+
+# 创建FastMCP服务器。中间件在这里挂载后，旧工具和 lanhu_mcp.server
+# 后续注册的新工具都会统一进入同一条 MCP 调用日志链路。
+mcp = FastMCP("Lanhu Axure Extractor", middleware=[_MCPCallLoggingMiddleware()])
 
 # 全局配置
 DEFAULT_COOKIE = "your_lanhu_cookie_here"  # 请替换为你的蓝湖Cookie，从浏览器开发者工具中获取

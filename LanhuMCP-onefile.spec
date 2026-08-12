@@ -3,6 +3,12 @@
 单文件打包配置 - GUI + Server 合并为一个 exe
 """
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+import sys
+
+
+# PyInstaller uses ICO resources on Windows and PNG/ICNS resources on Unix.
+# The GUI also applies the same path to Flet's live native window at runtime.
+native_icon = 'assets/lanhu_mcp.ico' if sys.platform == 'win32' else 'assets/lanhu_mcp_logo.png'
 
 
 fastmcp_hiddenimports = collect_submodules('fastmcp')
@@ -27,6 +33,28 @@ except Exception:
     flet_hiddenimports = []
     flet_datas = []
 
+# The tray is optional at source/runtime level, but include it in GUI builds
+# when the GUI extras are installed.  Missing build extras must not block the
+# server-only analysis path.
+try:
+    pystray_hiddenimports = collect_submodules('pystray')
+    pystray_datas = collect_data_files('pystray')
+except Exception:
+    pystray_hiddenimports = []
+    pystray_datas = []
+
+optional_gui_hiddenimports = []
+try:
+    import pystray  # noqa: F401
+    optional_gui_hiddenimports += ['pystray', 'pystray._win32'] + pystray_hiddenimports
+except Exception:
+    pass
+try:
+    import PIL  # noqa: F401
+    optional_gui_hiddenimports += ['PIL', 'PIL.Image', 'PIL.ImageDraw']
+except Exception:
+    pass
+
 a = Analysis(
     ['lanhu_mcp_launcher.py'],
     pathex=['.'],
@@ -34,7 +62,14 @@ a = Analysis(
     datas=[
         ('.env.example', '.'),
         ('lanhu_login_helper.py', '.'),
-    ] + fastmcp_datas + flet_datas,
+        # The GUI reads signatures from source when building the inline
+        # method form. Include these two small source modules in the frozen
+        # bundle so packaged builds do not fall back to an empty arguments
+        # object for required MCP parameters such as ``url``.
+        ('lanhu_mcp_server.py', '.'),
+        ('lanhu_mcp/server.py', 'lanhu_mcp'),
+        ('assets', 'assets'),
+    ] + fastmcp_datas + flet_datas + pystray_datas,
     hiddenimports=[
         # === 核心入口 ===
         'lanhu_mcp_server',
@@ -99,8 +134,11 @@ a = Analysis(
         # === lanhu_mcp.gui（Flet 界面）===
         'lanhu_mcp.gui',
         'lanhu_mcp.gui.theme',
+        'lanhu_mcp.gui.branding',
         'lanhu_mcp.gui.state',
         'lanhu_mcp.gui.app',
+        'lanhu_mcp.gui.tray',
+        'lanhu_mcp.gui.floating',
         'lanhu_mcp.gui.components',
         'lanhu_mcp.gui.components.widgets',
         'lanhu_mcp.gui.pages',
@@ -196,7 +234,7 @@ a = Analysis(
         'key_value.aio.stores.filetree',
         'aiofile',
         'caio',
-    ] + fastmcp_hiddenimports + mcp_hiddenimports + flet_hiddenimports,
+    ] + fastmcp_hiddenimports + mcp_hiddenimports + flet_hiddenimports + optional_gui_hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[
@@ -226,6 +264,7 @@ exe = EXE(
     a.datas,
     [],
     name='LanhuMCP',
+    icon=native_icon,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

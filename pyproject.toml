@@ -56,6 +56,8 @@ dependencies = [
 gui = [
     "flet==0.28.3",
     "pywebview>=5.0",
+    "Pillow>=10.0",
+    "pystray>=0.19.5",
     "browser-cookie3>=0.20",
 ]
 build = [

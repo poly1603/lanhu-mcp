@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import math
-from typing import List, Optional
+from typing import List
 from urllib.parse import urlencode
 
 import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge,
+    section_title, card, gradient_card, StatusBadge,
     primary_button, secondary_button, ghost_icon_button,
-    stat_chip, toast,
+    toast, page_banner,
 )
 from ..state import AppContext
 from .designs import DesignBrowser
@@ -26,13 +26,21 @@ PAGE_SIZE = 10
 class ProjectsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
-        # Keep one vertical scroll owner (the page ListView). A nested GridView
-        # reserves a full viewport and produces a large blank block above cards.
+        # Keep one vertical scroll owner (the page ListView). The project
+        # cards themselves are a tight ResponsiveRow so the grid never claims
+        # a second viewport and leaves a blank block above the content.
         self._grid = ft.ResponsiveRow(
+            alignment=ft.MainAxisAlignment.START,
+            vertical_alignment=ft.CrossAxisAlignment.START,
             spacing=theme.space("4"),
             run_spacing=theme.space("4"),
         )
-        self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
+        self._stat_bar = ft.ResponsiveRow(
+            alignment=ft.MainAxisAlignment.START,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            spacing=theme.space("3"),
+            run_spacing=theme.space("3"),
+        )
         self._page_text = ft.Text("", size=theme.font_size("sm"), color=lambda: self.ctx.palette.text_muted)
         self._busy = False
         self._all_projects: list[dict] = []
@@ -44,23 +52,23 @@ class ProjectsPage:
             hint_text="搜索项目、团队或负责人",
             prefix_icon=ft.Icons.SEARCH,
             dense=True,
-            width=300,
+            width=280,
             on_change=self._on_search_change,
         )
 
     # ── stats ─────────────────────────────────────────────────────
         self._team_filter = ft.Dropdown(
-            label="团队", value="__all__", width=160, dense=True,
+            label="团队", value="__all__", width=148, dense=True,
             options=[ft.DropdownOption("__all__", "全部团队")],
             on_change=self._on_filter_change,
         )
         self._type_filter = ft.Dropdown(
-            label="类型", value="__all__", width=140, dense=True,
+            label="类型", value="__all__", width=132, dense=True,
             options=[ft.DropdownOption("__all__", "全部类型")],
             on_change=self._on_filter_change,
         )
         self._sort_field = ft.Dropdown(
-            label="排序", value="updated_desc", width=160, dense=True,
+            label="排序", value="updated_desc", width=148, dense=True,
             options=[
                 ft.DropdownOption("updated_desc", "最近更新"),
                 ft.DropdownOption("name_asc", "名称 A-Z"),
@@ -68,14 +76,69 @@ class ProjectsPage:
             ],
             on_change=self._on_filter_change,
         )
+
+    def _on_unmount(self) -> None:
+        """Release thumbnail workers and image references when leaving page."""
+        self._design_browser._close()
+
+    def _close_design_browser(self) -> None:
+        self._design_browser._close()
+
+    def _project_stat_tile(
+        self,
+        p,
+        label: str,
+        value: str,
+        sub: str,
+        icon: str,
+        accent: str,
+    ) -> ft.Container:
+        """Build a compact metric tile matching the reference dashboard."""
+        return ft.Container(
+            content=ft.Row([
+                ft.Container(
+                    content=ft.Icon(icon, size=20, color=accent),
+                    bgcolor=theme.alpha(accent, 0x18),
+                    border_radius=theme.radius("lg"),
+                    width=42,
+                    height=42,
+                    alignment=ft.alignment.center,
+                ),
+                ft.Column([
+                    ft.Text(label, size=theme.font_size("xs"), color=p.text_muted),
+                    ft.Text(value, size=theme.font_size("xl"), weight=theme.WEIGHT_BOLD, color=p.text_primary),
+                    ft.Text(sub, size=theme.font_size("xs"), color=p.text_muted, max_lines=1,
+                            overflow=ft.TextOverflow.ELLIPSIS),
+                ], spacing=0, expand=True),
+            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=p.card,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("xl"),
+            padding=theme.space("3"),
+        )
+
     def _render_stats(self, projects: list[dict]) -> None:
         p = self.ctx.palette
         team_ids = set(pr.get("team_id", "") for pr in projects if pr.get("team_id"))
         api_count = sum(1 for pr in projects if pr.get("source", "").lower() in ("api", "蓝湖接口"))
+        manual_count = max(0, len(projects) - api_count)
         self._stat_bar.controls = [
-            stat_chip(p, "项目总数", str(len(projects)), icon=ft.Icons.FOLDER, accent=p.accent),
-            stat_chip(p, "关联团队", str(len(team_ids)), icon=ft.Icons.GROUPS, accent=p.primary),
-            stat_chip(p, "API 数据", str(api_count), icon=ft.Icons.CLOUD, accent=p.success),
+            ft.Container(
+                content=self._project_stat_tile(p, "全部项目", str(len(projects)), "已保存的蓝湖项目", ft.Icons.FOLDER_OUTLINED, p.primary),
+                col={"sm": 12, "md": 6, "lg": 3, "xl": 3},
+            ),
+            ft.Container(
+                content=self._project_stat_tile(p, "关联团队", str(len(team_ids)), "按团队归类", ft.Icons.GROUPS_OUTLINED, p.accent),
+                col={"sm": 12, "md": 6, "lg": 3, "xl": 3},
+            ),
+            ft.Container(
+                content=self._project_stat_tile(p, "蓝湖接口", str(api_count), "接口同步项目", ft.Icons.CLOUD_OUTLINED, p.success),
+                col={"sm": 12, "md": 6, "lg": 3, "xl": 3},
+            ),
+            ft.Container(
+                content=self._project_stat_tile(p, "本地链接", str(manual_count), "登录缓存或手动添加", ft.Icons.LINK, p.accent_warm),
+                col={"sm": 12, "md": 6, "lg": 3, "xl": 3},
+            ),
         ]
 
     # ── pagination ────────────────────────────────────────────────
@@ -189,7 +252,7 @@ class ProjectsPage:
         for proj in page_projects:
             cards.append(ft.Container(
                 content=self._project_card(p, proj),
-                col={"sm": 12, "md": 6, "lg": 4, "xl": 4},
+                col={"sm": 12, "md": 6, "lg": 4, "xl": 3},
             ))
         self._grid.controls = cards
 
@@ -223,22 +286,26 @@ class ProjectsPage:
         if team_name or team_id:
             meta_items.append(ft.Row([
                 ft.Icon(ft.Icons.GROUPS, size=12, color=p.text_muted),
-                ft.Text(team_name or team_id, size=theme.font_size("xs"), color=p.text_muted),
+                ft.Text(team_name or team_id, size=theme.font_size("xs"), color=p.text_muted,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
             ], spacing=theme.space("1")))
         if owner_name:
             meta_items.append(ft.Row([
                 ft.Icon(ft.Icons.PERSON, size=12, color=p.text_muted),
-                ft.Text(owner_name, size=theme.font_size("xs"), color=p.text_muted),
+                ft.Text(owner_name, size=theme.font_size("xs"), color=p.text_muted,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
             ], spacing=theme.space("1")))
         if updated_at:
             meta_items.append(ft.Row([
                 ft.Icon(ft.Icons.UPDATE, size=12, color=p.text_muted),
-                ft.Text(f"更新: {updated_at[:10]}", size=theme.font_size("xs"), color=p.text_muted),
+                ft.Text(f"更新: {updated_at[:10]}", size=theme.font_size("xs"), color=p.text_muted,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
             ], spacing=theme.space("1")))
-        if created_at:
+        elif created_at:
             meta_items.append(ft.Row([
                 ft.Icon(ft.Icons.CALENDAR_TODAY, size=12, color=p.text_muted),
-                ft.Text(f"创建: {created_at[:10]}", size=theme.font_size("xs"), color=p.text_muted),
+                ft.Text(f"创建: {created_at[:10]}", size=theme.font_size("xs"), color=p.text_muted,
+                        max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
             ], spacing=theme.space("1")))
 
         # Actions
@@ -259,7 +326,13 @@ class ProjectsPage:
                               tooltip="复制链接",
                               disabled=not bool(team_id or proj_id)),
         ])
-        actions = ft.Row(action_controls, spacing=theme.space("1"))
+        actions = ft.Container(
+            content=ft.Row(action_controls, spacing=theme.space("1")),
+            bgcolor=p.surface,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("full"),
+            padding=ft.padding.symmetric(horizontal=theme.space("2"), vertical=1),
+        )
 
         content = ft.Column([
             ft.Row([
@@ -463,12 +536,8 @@ class ProjectsPage:
         self._render_page_controls()
 
         header = ft.Container(
-            content=ft.Row([
-                section_title(p, "项目", f"共 {len(self._all_projects)} 个项目 · 浏览管理关联项目"),
-                ft.Container(expand=True),
-                primary_button("刷新项目", lambda e: self._refresh_projects(), icon=ft.Icons.REFRESH),
-            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
+            content=page_banner(p, "项目", "管理和浏览已连接的蓝湖项目，快速访问设计资源与文档", "projects"),
+            bgcolor=p.card,
         )
 
         # Pagination bar
@@ -499,40 +568,54 @@ class ProjectsPage:
             field.focused_border_color = p.primary
             field.color = p.text_primary
             field.bgcolor = p.card
+        toolbar_controls = ft.Row([
+            self._search_field,
+            self._team_filter,
+            self._type_filter,
+            self._sort_field,
+            secondary_button("添加项目链接", lambda _event: self._add_manual_project(), icon=ft.Icons.ADD_LINK),
+            primary_button("同步项目", lambda _event: self._refresh_projects(), icon=ft.Icons.REFRESH),
+        ], spacing=theme.space("3"), wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        toolbar_meta = ft.Row([
+            ft.Icon(ft.Icons.INFO_OUTLINE, size=16, color=p.primary),
+            self._status_text,
+            ft.Container(expand=True),
+            pagination_bar,
+        ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
         toolbar = ft.Container(
-            content=ft.Row([
-                self._search_field,
-                self._team_filter,
-                self._type_filter,
-                self._sort_field,
-                ft.Container(content=self._status_text, expand=True),
-                secondary_button("添加项目链接", lambda _event: self._add_manual_project(), icon=ft.Icons.ADD_LINK),
-                primary_button("同步项目", lambda _event: self._refresh_projects(), icon=ft.Icons.REFRESH),
-            ], spacing=theme.space("3"), wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            content=ft.Column([toolbar_controls, toolbar_meta], spacing=theme.space("2"), tight=True),
             bgcolor=p.card,
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
-            padding=theme.space("3"),
+            padding=theme.space("4"),
         )
 
         body = ft.Column([
-            gradient_card(p, self._stat_bar, padding=theme.space("4")),
             toolbar,
+            gradient_card(p, self._stat_bar, padding=theme.space("4")),
             tip_card,
             self._grid,
-            pagination_bar,
-        ], spacing=theme.space("4"))
-        return ft.ListView(
+        ], spacing=theme.space("4"), tight=True)
+        view = ft.ListView(
             controls=[
                 header,
                 ft.Container(
                     content=body,
-                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                    bgcolor=p.card,
+                    padding=ft.padding.only(
+                        left=theme.space("6"), top=theme.space("1"),
+                        right=theme.space("6"), bottom=theme.space("6"),
+                    ),
                 ),
             ],
             spacing=0,
             expand=True,
         )
+        # Keep the page itself on the same white workspace surface as the
+        # shell.  The cards provide the subtle borders/shadows; the old gray
+        # ListView background made the area above the project grid look empty.
+        view.bgcolor = p.card
+        return view
 
 
 __all__ = ["ProjectsPage"]

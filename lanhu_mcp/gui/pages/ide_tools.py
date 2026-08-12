@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from typing import Dict, List
 
 import flet as ft
@@ -15,8 +16,10 @@ from ..components import (
     run_in_background, toast, show_error,
 )
 from ..state import AppContext
+from ..components.widgets import page_banner
 
 STATUS_ORDER = {"configured": 0, "installed": 1, "not_installed": 2, "unknown": 3}
+IDE_CARD_HEIGHT = 390
 
 # Icon mapping for known tools
 TOOL_ICONS = {
@@ -46,13 +49,21 @@ TOOL_ICONS = {
 class IdeToolsPage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
-        self._grid = ft.GridView(
-            runs_count=2, max_extent=520, child_aspect_ratio=1.9,
-            spacing=theme.space("4"), run_spacing=theme.space("4"),
+        # Use the page's outer ListView as the only vertical scroll owner.
+        # GridView's fixed child_aspect_ratio used to force these cards to a
+        # short height and clip the action row at the bottom.
+        self._grid = ft.ResponsiveRow(
+            alignment=ft.MainAxisAlignment.START,
+            vertical_alignment=ft.CrossAxisAlignment.START,
+            spacing=theme.space("4"),
+            run_spacing=theme.space("4"),
         )
         self._stat_bar = ft.Row(spacing=theme.space("4"), wrap=True)
         self._history_items: List[Dict] = []
         self._history_container = ft.Column(spacing=theme.space("2"))
+        self._details_cache: Dict = {}
+        self._details_loaded_at = 0.0
+        self._details_cache_ttl = 8.0
 
     def _safe(self, fn, default):
         try:
@@ -77,11 +88,18 @@ class IdeToolsPage:
     # ── render tool cards ─────────────────────────────────────────
     def _render(self) -> None:
         p = self.ctx.palette
-        all_details = self._safe(self.ctx.ide.get_detection_details, {})
+        now = time.monotonic()
+        if not self._details_cache or now - self._details_loaded_at >= self._details_cache_ttl:
+            self._details_cache = self._safe(self.ctx.ide.get_detection_details, {})
+            self._details_loaded_at = now
+        all_details = self._details_cache
         details = {name: detail for name, detail in all_details.items() if detail.get("installed")}
 
         if not details:
-            self._grid.controls = [empty_state(p, "未检测到任何 AI IDE", icon=ft.Icons.DEVELOPER_MODE)]
+            self._grid.controls = [ft.Container(
+                content=empty_state(p, "未检测到任何 AI IDE", icon=ft.Icons.DEVELOPER_MODE),
+                col={"sm": 12},
+            )]
             self._stat_bar.controls = [
                 stat_chip(p, "已安装", "0", icon=ft.Icons.CHECK_CIRCLE, accent=p.text_muted),
                 stat_chip(p, "已配置", "0", icon=ft.Icons.SETTINGS, accent=p.text_muted),
@@ -90,7 +108,13 @@ class IdeToolsPage:
             return
 
         sorted_details = sorted(details.items(), key=lambda kv: STATUS_ORDER.get(self._ide_status(kv[0], kv[1]), 99))
-        self._grid.controls = [self._tool_card(n, d) for n, d in sorted_details]
+        self._grid.controls = [
+            ft.Container(
+                content=self._tool_card(name, detail),
+                col={"sm": 12, "md": 6, "lg": 4, "xl": 4},
+            )
+            for name, detail in sorted_details
+        ]
 
         stats = self._stat_bar_data(details)
         self._stat_bar.controls = [
@@ -164,10 +188,11 @@ class IdeToolsPage:
             ft.Column(visible_paths, spacing=theme.space("2")),
             ft.Container(expand=True),
             ft.Row(actions, spacing=theme.space("2"), wrap=True),
-        ], spacing=theme.space("3"))
+        ], spacing=theme.space("3"), expand=True)
 
         return ft.Container(
             content=content,
+            height=IDE_CARD_HEIGHT,
             bgcolor=p.card,
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
@@ -239,6 +264,10 @@ class IdeToolsPage:
         except Exception:
             pass
 
+    def _invalidate_detection_cache(self) -> None:
+        self._details_cache = {}
+        self._details_loaded_at = 0.0
+
     # ── actions ───────────────────────────────────────────────────
     def _configure(self, name: str) -> None:
         self.ctx.add_log(f"正在配置 {name}…")
@@ -251,6 +280,8 @@ class IdeToolsPage:
             ok, msg = result if isinstance(result, tuple) else (bool(result), "")
             self.ctx.add_log(f"[{'OK' if ok else 'FAIL'}] {name}: {msg}")
             self._history_items.append({"name": name, "msg": msg, "ok": ok})
+            del self._history_items[:-20]
+            self._invalidate_detection_cache()
             toast(self.ctx.page, msg or ("已配置" if ok else "配置失败"), "ok" if ok else "error", self.ctx.palette)
             self.refresh()
 
@@ -272,6 +303,8 @@ class IdeToolsPage:
             for n, ok, m in results:
                 self._history_items.append({"name": n, "msg": m, "ok": ok})
                 self.ctx.add_log(f"[{'OK' if ok else 'FAIL'}] {n}: {m}")
+            del self._history_items[:-20]
+            self._invalidate_detection_cache()
             toast(self.ctx.page, f"已配置 {ok_count}/{len(results)} IDE", "ok" if ok_count else "warn", self.ctx.palette)
             self.refresh()
 
@@ -312,23 +345,87 @@ class IdeToolsPage:
 
     def _view_config(self, config_path: str) -> None:
         p = self.ctx.palette
-        if not os.path.isfile(config_path):
-            toast(self.ctx.page, "配置文件不存在", "warn", p)
-            return
+        # A detected IDE can have a global config directory before the file is
+        # created.  Open an empty editor in that case so the user can create
+        # the file directly from this dialog.
         try:
-            with open(config_path, "r", encoding="utf-8", errors="replace") as f:
-                content = f.read(8000)
+            content = ""
+            if os.path.isfile(config_path):
+                with open(config_path, "r", encoding="utf-8", errors="replace") as f:
+                    content = f.read(12000)
         except Exception as exc:
             toast(self.ctx.page, f"读取失败: {exc}", "error", p)
             return
 
-        text_field = ft.TextField(
-            value=content, multiline=True, min_lines=12, max_lines=24,
-            read_only=True, text_size=theme.font_size("xs"),
-            font_family=theme.FONT_MONO, expand=True,
+        extension = os.path.splitext(config_path)[1].lower().lstrip(".") or "text"
+        language = {"yml": "yaml", "yaml": "yaml", "json": "json", "toml": "toml"}.get(extension, "text")
+        editor = ft.TextField(
+            value=content,
+            multiline=True,
+            min_lines=18,
+            max_lines=28,
+            text_size=theme.font_size("xs"),
+            text_style=ft.TextStyle(font_family=theme.FONT_MONO),
+            expand=True,
+            border_color=p.border,
+            focused_border_color=p.primary,
+            bgcolor=p.input_bg,
+            color=p.text_primary,
+        )
+        preview = ft.Markdown(
+            value=f"```{language}\n{content}\n```",
+            code_theme=ft.MarkdownCodeTheme.ATOM_ONE_DARK,
+            selectable=True,
+            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+            expand=True,
         )
 
-        def open_in_editor(e):
+        def update_preview(_event=None) -> None:
+            preview.value = f"```{language}\n{editor.value or ''}\n```"
+            try:
+                preview.update()
+            except Exception:
+                pass
+
+        editor.on_change = update_preview
+
+        editor_panel = ft.Container(
+            content=editor,
+            expand=True,
+            bgcolor=p.input_bg,
+            border=ft.border.all(1, p.border_light),
+            border_radius=theme.radius("lg"),
+            padding=theme.space("2"),
+        )
+        preview_panel = ft.Container(
+            content=preview,
+            expand=True,
+            bgcolor="#0B1220",
+            border_radius=theme.radius("lg"),
+            padding=theme.space("3"),
+        )
+
+        editor_tabs = ft.Row(
+            [editor_panel, preview_panel],
+            expand=True,
+            spacing=theme.space("2"),
+            vertical_alignment=ft.CrossAxisAlignment.STRETCH,
+        )
+
+        def save_config(_event) -> None:
+            try:
+                os.makedirs(os.path.dirname(config_path), exist_ok=True)
+                with open(config_path, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(editor.value or "")
+                self._invalidate_detection_cache()
+                self.ctx.add_log(f"[IDE] 已保存配置: {config_path}")
+                toast(self.ctx.page, "配置已保存", "ok", p)
+                self._close_dialog(dlg)
+                self.refresh()
+            except Exception as exc:
+                show_error(self.ctx.page, exc, "保存配置", p, self.ctx.add_log)
+
+        def open_in_editor(_event):
             try:
                 os.startfile(config_path)
                 toast(self.ctx.page, "已在系统编辑器中打开", "ok", p)
@@ -336,12 +433,21 @@ class IdeToolsPage:
                 toast(self.ctx.page, f"打开失败: {exc2}", "error", p)
 
         dlg = ft.AlertDialog(
-            title=ft.Text(f"配置文件 — {os.path.basename(config_path)}", color=p.text_primary),
-            content=ft.Container(width=600, content=text_field),
+            modal=True,
+            title=ft.Row([
+                ft.Column([
+                    ft.Text(f"{os.path.basename(config_path)}", color=p.text_primary, weight=theme.WEIGHT_SEMIBOLD),
+                    ft.Text(config_path, size=theme.font_size("xs"), color=p.text_muted, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                ], spacing=0, expand=True),
+                ghost_icon_button(ft.Icons.CLOSE, lambda _event: self._close_dialog(dlg), tooltip="关闭"),
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            content=ft.Container(width=820, height=560, content=editor_tabs),
             actions=[
                 ft.TextButton("在编辑器中打开", on_click=open_in_editor),
-                ft.TextButton("关闭", on_click=lambda e: self._close_dialog(dlg)),
+                ft.TextButton("取消", on_click=lambda _event: self._close_dialog(dlg)),
+                ft.FilledButton("保存配置", icon=ft.Icons.SAVE_OUTLINED, on_click=save_config),
             ],
+            on_dismiss=lambda _event: self._close_dialog(dlg) if getattr(dlg, "open", False) else None,
         )
         self.ctx.page.open(dlg)
 
@@ -405,18 +511,21 @@ class IdeToolsPage:
             ], spacing=theme.space("2")),
         )
 
-        body = ft.Column([intro_card, stats_card, self._grid], spacing=theme.space("4"))
-        return ft.ListView(
+        body = ft.Column([intro_card, stats_card, self._grid], spacing=theme.space("4"), tight=True)
+        view = ft.ListView(
             controls=[
-                header,
+                page_banner(p, "AI 工具", "检测本机工具、编辑全局 MCP 配置", "ai"),
                 ft.Container(
                     content=body,
                     padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                    bgcolor=p.card,
                 ),
             ],
             spacing=0,
             expand=True,
         )
+        view.bgcolor = p.card
+        return view
 
 
 __all__ = ["IdeToolsPage"]

@@ -11,6 +11,7 @@ from ..components import (
     section_title, card, gradient_card, page_frame, StatusBadge, CountBadge,
     primary_button, secondary_button, danger_button, ghost_icon_button,
     avatar, stat_chip, field_row, toast, show_error,
+    page_banner,
 )
 from ..state import AppContext
 from ...core import accounts as accounts_core
@@ -393,52 +394,6 @@ class AccountsPage:
         # Stats bar
         stats_bar = gradient_card(p, self._render_stats(accounts, active), padding=theme.space("4"))
 
-        browser_login_card = ft.Container(
-            content=ft.Row([
-                ft.Container(
-                    content=ft.Icon(ft.Icons.LANGUAGE, color=p.primary, size=22),
-                    bgcolor=p.primary_light,
-                    border_radius=theme.radius("lg"),
-                    width=44,
-                    height=44,
-                    alignment=ft.alignment.center,
-                ),
-                ft.Column([
-                    ft.Text("默认浏览器登录与自动同步", size=theme.font_size("base"),
-                            weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                    ft.Text("一键登录会弹出蓝湖登录窗口并读取真实账号信息；已在默认浏览器登录时可点同步浏览器 Cookie。",
-                            size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=0, expand=True),
-                StatusBadge(p, "登录窗口", "info"),
-            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor=p.primary_light,
-            border=ft.border.all(1, p.border_light),
-            border_radius=theme.radius("xl"),
-            padding=theme.space("4"),
-        )
-
-        security_card = ft.Container(
-            content=ft.Row([
-                ft.Container(
-                    content=ft.Icon(ft.Icons.SHIELD_OUTLINED, color=p.success, size=20),
-                    bgcolor=p.success_light,
-                    border_radius=theme.radius("lg"),
-                    width=42,
-                    height=42,
-                    alignment=ft.alignment.center,
-                ),
-                ft.Column([
-                    ft.Text("账号与 Cookie 仅保存在本机", size=theme.font_size("base"), weight=theme.WEIGHT_SEMIBOLD, color=p.text_primary),
-                    ft.Text("启动服务时会把当前账号 Cookie 注入本地 MCP 进程，不会主动上传到第三方服务。",
-                            size=theme.font_size("xs"), color=p.text_muted),
-                ], spacing=0, expand=True),
-            ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor=p.success_light,
-            border=ft.border.all(1, p.border_light),
-            border_radius=theme.radius("xl"),
-            padding=theme.space("4"),
-        )
-
         # Profile card (merged info + actions)
         profile_card = gradient_card(
             p,
@@ -458,25 +413,27 @@ class AccountsPage:
         ], spacing=theme.space("2"), wrap=True)
 
         header = ft.Container(
-            content=ft.Row([
-                section_title(p, "账号", "登录管理 · 资料查看 · 账号切换"),
-                ft.Container(expand=True),
-                top_actions,
-            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
+            content=ft.Column([
+                page_banner(p, "账号", "登录管理 · 资料查看 · 账号切换", "accounts"),
+                ft.Row([ft.Container(expand=True), top_actions], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ], spacing=theme.space("3")),
+            bgcolor=p.card,
         )
-        body = ft.Column([stats_bar, browser_login_card, security_card, profile_card], spacing=theme.space("4"))
-        return ft.ListView(
+        body = ft.Column([stats_bar, profile_card], spacing=theme.space("4"))
+        view = ft.ListView(
             controls=[
                 header,
                 ft.Container(
                     content=body,
                     padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+                    bgcolor=p.card,
                 ),
             ],
             spacing=0,
             expand=True,
         )
+        view.bgcolor = p.card
+        return view
 
 
 __all__ = ["AccountsPage"]

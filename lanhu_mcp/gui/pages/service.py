@@ -27,6 +27,32 @@ from lanhu_login_helper import has_valid_auth_cookie
 MCP_URL_MAP: dict = {}
 
 
+def project_argument_values(project: Optional[dict]) -> dict[str, str]:
+    """Build the common project arguments used by the inline MCP tester.
+
+    ``lanhu_get_designs`` requires a project URL.  Older UI code only filled
+    numeric ids, which made the server return HTTP 200 with a FastMCP
+    validation error.  Keep the URL fallback in one testable helper so every
+    project-backed method receives the same complete context.
+    """
+    selected = project if isinstance(project, dict) else {}
+    project_id = str(selected.get("id") or selected.get("project_id") or "")
+    team_id = str(selected.get("team_id") or selected.get("tid") or "")
+    project_url = str(selected.get("url") or "")
+    if not project_url and project_id:
+        query = f"pid={project_id}"
+        if team_id:
+            query += f"&tid={team_id}"
+        project_url = f"https://lanhuapp.com/web/#/item/project/stage?{query}"
+    return {
+        "project_id": project_id,
+        "pid": project_id,
+        "team_id": team_id,
+        "tid": team_id,
+        "url": project_url,
+    }
+
+
 class ServicePage:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
@@ -318,7 +344,21 @@ class ServicePage:
         specs = tool_argument_specs(method_name)
         try:
             active = accounts_core.get_active_account() or {}
-            projects = projects_core.cached_projects_for_account(str(active.get("id") or ""))
+            account_id = str(active.get("id") or "")
+            projects = projects_core.cached_projects_for_account(account_id)
+            # A project may have been opened before the API cache was
+            # refreshed. Recent-project behavior is still enough to provide a
+            # valid Lanhu URL for a direct method test.
+            seen_project_keys = {
+                projects_core.project_identity_key(item)
+                for item in projects
+                if isinstance(item, dict)
+            }
+            for recent in projects_core.recent_projects(account_id, limit=10):
+                key = projects_core.project_identity_key(recent)
+                if key not in seen_project_keys:
+                    projects.append(recent)
+                    seen_project_keys.add(key)
         except Exception:
             projects = []
         project_index = {
@@ -331,7 +371,7 @@ class ServicePage:
         if project_index:
             project_selector = ft.Dropdown(
                 label="操作项目",
-                hint_text="选择后自动填充 project_id 和 team_id",
+                hint_text="选择后自动填充 url、project_id 和 team_id",
                 options=[ft.DropdownOption(key, key) for key in project_index],
                 dense=True,
                 enable_filter=True,
@@ -353,13 +393,27 @@ class ServicePage:
         if not specs:
             controls.append(ft.Text("此方法没有声明参数。", size=theme.font_size("sm"), color=p.text_muted))
 
+        # Prefer the first cached/recent project as a useful default. The
+        # user can still change it, but a one-click test no longer produces a
+        # request with an empty argument object when a project is available.
+        default_project = next(iter(project_index.values()), None)
+        if default_project:
+            default_key = next(iter(project_index))
+            if project_selector is not None:
+                project_selector.value = default_key
+            default_values = project_argument_values(default_project)
+            for field_name, value in default_values.items():
+                if field_name in fields and value:
+                    fields[field_name].value = value
+
         def apply_project(_event) -> None:
             selected = project_index.get(str(project_selector.value or "")) if project_selector else None
             if not selected:
                 return
-            for field_name, project_key in (("project_id", "id"), ("pid", "id"), ("team_id", "team_id"), ("tid", "team_id")):
+            values = project_argument_values(selected)
+            for field_name, value in values.items():
                 if field_name in fields:
-                    fields[field_name].value = str(selected.get(project_key) or "")
+                    fields[field_name].value = value
             self.ctx.page.update()
 
         if project_selector is not None:
@@ -373,6 +427,9 @@ class ServicePage:
                 self.ctx.page.update()
 
         def submit(_event) -> None:
+            if not specs and method_name != "lanhu_health_check":
+                toast(self.ctx.page, "当前方法参数定义未加载，请重启应用后再试", "error", p)
+                return
             arguments: dict[str, object] = {}
             missing: list[str] = []
             for spec in specs:
@@ -384,7 +441,11 @@ class ServicePage:
                     continue
                 arguments[name] = self._coerce_argument(value, str(spec.get("annotation") or ""))
             if missing:
-                toast(self.ctx.page, f"请填写必填参数: {', '.join(missing)}", "warn", p)
+                if "url" in missing:
+                    message = "请先选择项目，或手动填写必填参数 url"
+                else:
+                    message = f"请填写必填参数: {', '.join(missing)}"
+                toast(self.ctx.page, message, "warn", p)
                 return
             close_dialog()
             self._invoke_method(method_name, arguments)
@@ -425,8 +486,12 @@ class ServicePage:
         return value
 
     def _invoke_method(self, method_name: str, arguments: dict[str, object]) -> None:
+        if method_name == "lanhu_get_designs" and not str(arguments.get("url") or "").strip():
+            self.ctx.add_log("[MCP] GUI 阻止了 lanhu_get_designs 空 url 调用")
+            toast(self.ctx.page, "lanhu_get_designs 需要 url，请先选择项目或填写 URL", "warn", self.ctx.palette)
+            return
         url = self._mcp_url()
-        self.ctx.add_log(f"[MCP] tools/call {method_name} arguments={json.dumps(arguments, ensure_ascii=False)}")
+        self.ctx.add_log(f"[MCP] GUI tools/call {method_name} arguments={json.dumps(arguments, ensure_ascii=False)}")
         self._test_results[method_name] = {"status": "loading"}
         self._build_methods()
         self.ctx.page.update()
@@ -850,7 +915,7 @@ class ServicePage:
             self._methods_container,
         ], spacing=theme.space("5"))
 
-        return page_frame(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试", body)
+        return page_frame(p, "服务", "启动 MCP 服务 · 健康监控 · 方法清单与测试", body, banner="service")
 
 
 __all__ = ["ServicePage"]

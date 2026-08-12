@@ -23,6 +23,7 @@ __all__ = [
     "tool_sort_key",
     "group_mcp_tools",
     "tool_argument_specs",
+    "clear_tool_discovery_cache",
     "MCP_TOOL_NAMES",
 ]
 
@@ -99,6 +100,22 @@ TOOL_GROUPS = {
 
 _MCP_TOOLS_CACHE: Optional[list[tuple[str, str]]] = None
 
+# PyInstaller can run without the editable source files. Keep the critical
+# project URL schema available as a last-resort fallback so the inline tester
+# can never silently submit ``arguments={}`` for this required-argument tool.
+TOOL_ARGUMENT_FALLBACKS: dict[str, list[dict[str, object]]] = {
+    "lanhu_get_designs": [
+        {"name": "url", "required": True, "annotation": "str", "default": None},
+        {"name": "sector_filter", "required": False, "annotation": "Optional[str]", "default": None},
+    ],
+}
+
+
+def clear_tool_discovery_cache() -> None:
+    """Release the GUI-side AST discovery cache after a cache cleanup."""
+    global _MCP_TOOLS_CACHE
+    _MCP_TOOLS_CACHE = None
+
 
 def tool_source_candidates() -> list[Path]:
     """返回可能包含 MCP 工具定义的源码文件。"""
@@ -170,7 +187,7 @@ def tool_argument_specs(tool_name: str) -> list[dict[str, object]]:
             defaults = [None] * (len(positional) - len(node.args.defaults)) + list(node.args.defaults)
             specs: list[dict[str, object]] = []
             for argument, default in zip(positional, defaults):
-                if argument.arg in {"self", "cls"}:
+                if argument.arg in {"self", "cls", "ctx", "context", "request"}:
                     continue
                 annotation = ast.unparse(argument.annotation) if argument.annotation is not None else "str"
                 specs.append({
@@ -180,6 +197,8 @@ def tool_argument_specs(tool_name: str) -> list[dict[str, object]]:
                     "default": None if default is None else ast.unparse(default),
                 })
             for argument, default in zip(node.args.kwonlyargs, node.args.kw_defaults):
+                if argument.arg in {"ctx", "context", "request"}:
+                    continue
                 annotation = ast.unparse(argument.annotation) if argument.annotation is not None else "str"
                 specs.append({
                     "name": argument.arg,
@@ -188,7 +207,7 @@ def tool_argument_specs(tool_name: str) -> list[dict[str, object]]:
                     "default": None if default is None else ast.unparse(default),
                 })
             return specs
-    return []
+    return [dict(spec) for spec in TOOL_ARGUMENT_FALLBACKS.get(tool_name, [])]
 
 def discover_mcp_tools(refresh: bool = False) -> list[tuple[str, str]]:
     """发现当前服务支持的全部 MCP 工具。"""

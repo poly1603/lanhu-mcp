@@ -17,13 +17,15 @@ from ...services.lanhu_api import _fetch_designs_api, _download_image_bytes
 
 THUMB_MAX_BYTES = 2 * 1024 * 1024
 THUMB_CONCURRENCY = 4
+THUMB_CACHE_LIMIT = 8
 
 
 class DesignBrowser:
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
         self._dialog: Optional[ft.AlertDialog] = None
-        self._grid = ft.GridView(expand=True, runs_count=3, max_extent=260,
+        self._detail_dialog: Optional[ft.AlertDialog] = None
+        self._grid = ft.GridView(height=450, runs_count=3, max_extent=260,
                                   child_aspect_ratio=0.8, spacing=12, run_spacing=12)
         self._status = ft.Text("正在加载设计稿…", color=ctx.palette.text_muted,
                                size=theme.font_size("sm"))
@@ -219,6 +221,8 @@ class DesignBrowser:
             if data:
                 b64 = base64.b64encode(data).decode("ascii")
                 with self._thumb_lock:
+                    while len(self._thumb_cache) >= THUMB_CACHE_LIMIT:
+                        self._thumb_cache.pop(next(iter(self._thumb_cache)))
                     self._thumb_cache[url] = b64
                     design["_thumb_b64"] = b64
             with self._thumb_lock:
@@ -313,6 +317,9 @@ class DesignBrowser:
             except Exception:
                 dialog.open = False
                 self._safe_update()
+            finally:
+                if self._detail_dialog is dialog:
+                    self._detail_dialog = None
 
         def copy_prompt(_event) -> None:
             try:
@@ -322,6 +329,7 @@ class DesignBrowser:
                 show_error(self.ctx.page, exc, "Copy design prompt", p, self.ctx.add_log)
 
         dialog = ft.AlertDialog(
+            modal=True,
             title=ft.Text(str(design.get("name") or "Design page"), color=p.text_primary),
             content=ft.Container(
                 width=760,
@@ -333,26 +341,44 @@ class DesignBrowser:
             ),
             actions=[
                 ft.TextButton("Close", on_click=lambda _event: close_dialog()),
+                ft.IconButton(ft.Icons.CLOSE, tooltip="关闭", on_click=lambda _event: close_dialog()),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
+        self._detail_dialog = dialog
+        dialog.on_dismiss = lambda _event: setattr(self, "_detail_dialog", None)
         self.ctx.page.open(dialog)
 
     def _close(self) -> None:
+        if self._detail_dialog is not None:
+            try:
+                self.ctx.page.close(self._detail_dialog)
+            except Exception:
+                self._detail_dialog.open = False
+            self._detail_dialog = None
         if self._thumb_pool is not None:
             self._thumb_pool.shutdown(wait=False, cancel_futures=True)
             self._thumb_pool = None
+        with self._thumb_lock:
+            self._thumb_cache.clear()
+            self._designs.clear()
+            self._selected.clear()
         if self._dialog is not None:
+            dialog = self._dialog
+            self._dialog = None
             try:
-                self.ctx.page.close(self._dialog)
-            finally:
-                self._dialog = None
+                self.ctx.page.close(dialog)
+            except Exception:
+                try:
+                    self._dialog.open = False
+                except Exception:
+                    pass
             self._safe_update()
 
     # ── dialog ────────────────────────────────────────────────────
     def _build_dialog(self) -> ft.AlertDialog:
         p = self.ctx.palette
-        return ft.AlertDialog(
+        dialog = ft.AlertDialog(
             modal=True,
             title=ft.Row(
                 [
@@ -360,6 +386,7 @@ class DesignBrowser:
                             color=p.text_primary, expand=True),
                     self._status,
                     self._progress,
+                    ft.IconButton(ft.Icons.CLOSE, tooltip="关闭", on_click=lambda _event: self._close()),
                 ],
                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                 wrap=True,
@@ -369,15 +396,17 @@ class DesignBrowser:
                     self._sector_bar,
                     ft.Divider(height=1, color=p.border_light),
                     self._grid,
-                ], spacing=theme.space("2"), expand=True),
+                ], spacing=theme.space("2")),
                 width=860,
-                height=540,
+                height=520,
             ),
             actions=[
                 ft.TextButton("关闭", on_click=lambda _event: self._close()),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
+        dialog.on_dismiss = lambda _event: self._close() if self._dialog is dialog else None
+        return dialog
 
 
 __all__ = ["DesignBrowser"]

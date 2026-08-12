@@ -1,22 +1,28 @@
-"""Logs page — full-featured log viewer with MCP method call tracking."""
+"""Real-time terminal-style log viewer for the desktop shell."""
 
 from __future__ import annotations
 
 import re
-import time
 import threading
+import time
 from datetime import datetime
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
 
 import flet as ft
 
 from .. import theme
 from ..components import (
-    section_title, card, gradient_card, StatusBadge, CountBadge, stat_chip,
-    primary_button, secondary_button, empty_state,
+    empty_state,
+    gradient_card,
+    primary_button,
+    secondary_button,
+    section_title,
+    stat_chip,
     toast,
+    page_banner,
 )
 from ..state import AppContext
+from ...core.cleanup import clear_local_cache
 
 
 LEVEL_STYLES = {
@@ -28,13 +34,13 @@ LEVEL_STYLES = {
     "mcp": ("#7B61FF", "#F0ECFF"),
 }
 
-LEVEL_ICONS = {
-    "error": ft.Icons.ERROR,
-    "warn": ft.Icons.WARNING,
-    "ok": ft.Icons.CHECK_CIRCLE,
-    "info": ft.Icons.INFO,
-    "debug": ft.Icons.FIBER_MANUAL_RECORD,
-    "mcp": ft.Icons.CALL_MADE,
+TERMINAL_COLORS = {
+    "info": "#D7E3F4",
+    "warn": "#FBBF72",
+    "error": "#FB7185",
+    "ok": "#86EFAC",
+    "debug": "#8FA3BF",
+    "mcp": "#C4B5FD",
 }
 
 MCP_PATTERNS = [
@@ -48,23 +54,40 @@ MCP_PATTERNS = [
 
 
 class LogsPage:
+    """A bounded, persistent console that follows the newest line."""
+
+    TERMINAL_HEIGHT = 540
+
     def __init__(self, ctx: AppContext) -> None:
         self.ctx = ctx
-        self._list = ft.ListView(expand=True, spacing=2, auto_scroll=True, padding=12)
-        self._search_field = ft.TextField(
-            label="搜索日志关键词", dense=True, expand=True, prefix_icon=ft.Icons.SEARCH,
-            on_change=lambda e: self._apply_filter(do_update=True),
+        self._terminal = ft.ListView(
+            expand=True,
+            spacing=0,
+            padding=0,
+            auto_scroll=True,
+            clip_behavior=ft.ClipBehavior.HARD_EDGE,
         )
-        self._filter_level: str = "all"
+        self._search_field = ft.TextField(
+            label="搜索日志关键词",
+            hint_text="例如：tools/call、ERROR、lanhu_get_designs",
+            dense=True,
+            expand=True,
+            prefix_icon=ft.Icons.SEARCH,
+            on_change=lambda _event: self._apply_filter(do_update=True),
+        )
+        self._filter_level = "all"
+        self._show_mcp_only = False
+        self._time_range = "all"
         self._log_unsub: Optional[Callable] = None
+        self._mounted = False
+        self._refresh_lock = threading.Lock()
+        self._refresh_pending = False
         self._stat_bar = ft.Row(spacing=theme.space("3"), wrap=True)
-        self._all_lines_cache: List[str] = []
-        self._expanded_index: Optional[int] = None
-        self._time_range: str = "all"
         self._count_text = ft.Text("", size=theme.font_size("xs"))
-        self._show_mcp_only: bool = False
+        self._all_lines_cache: List[str] = []
+        self._cleanup_dialog: Optional[ft.AlertDialog] = None
 
-    # ── filter chips ──────────────────────────────────────────────
+    # ── filters ───────────────────────────────────────────────────
     def _level_chips(self) -> ft.Control:
         p = self.ctx.palette
         kinds = [
@@ -76,17 +99,18 @@ class LogsPage:
             ("ok", "成功"),
         ]
         chips = []
-        for k, label in kinds:
-            active = (k == "mcp" and self._show_mcp_only) or (k == self._filter_level and not self._show_mcp_only)
-            fg, bg = LEVEL_STYLES.get(k, (p.text_secondary, p.surface))
+        for kind, label in kinds:
+            active = (kind == "mcp" and self._show_mcp_only) or (
+                kind == self._filter_level and not self._show_mcp_only
+            )
+            fg, bg = LEVEL_STYLES.get(kind, (p.text_secondary, p.surface))
             chips.append(
                 ft.Container(
-                    content=ft.Text(label, size=theme.font_size("sm"),
-                                    color="#FFFFFF" if active else fg),
+                    content=ft.Text(label, size=theme.font_size("sm"), color="#FFFFFF" if active else fg),
                     bgcolor=fg if active else bg,
                     border_radius=theme.radius("full"),
                     padding=ft.padding.symmetric(horizontal=14, vertical=6),
-                    on_click=lambda e, kind=k: self._set_level(kind),
+                    on_click=lambda _event, selected=kind: self._set_level(selected),
                     ink=True,
                     animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 )
@@ -102,44 +126,100 @@ class LogsPage:
             self._filter_level = level if self._filter_level != level else "all"
         self._apply_filter(do_update=True)
 
-    # ── time range chips ──────────────────────────────────────────
     def _time_chips(self) -> ft.Control:
         p = self.ctx.palette
-        kinds = [
-            ("all", "全部时间"),
-            ("1h", "最近 1 小时"),
-            ("24h", "最近 24 小时"),
-            ("7d", "最近 7 天"),
-        ]
+        kinds = [("all", "全部时间"), ("1h", "最近 1 小时"), ("24h", "最近 24 小时"), ("7d", "最近 7 天")]
         chips = []
-        for k, label in kinds:
-            active = self._time_range == k
+        for kind, label in kinds:
+            active = self._time_range == kind
             chips.append(
                 ft.Container(
-                    content=ft.Text(label, size=theme.font_size("xs"),
-                                    color=p.text_on_primary if active else p.text_secondary),
+                    content=ft.Text(
+                        label,
+                        size=theme.font_size("xs"),
+                        color=p.text_on_primary if active else p.text_secondary,
+                    ),
                     bgcolor=p.primary if active else p.surface,
                     border_radius=theme.radius("full"),
                     padding=ft.padding.symmetric(horizontal=12, vertical=4),
-                    on_click=lambda e, kind=k: self._set_time_range(kind),
+                    on_click=lambda _event, selected=kind: self._set_time_range(selected),
                     ink=True,
                     animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
                 )
             )
         return ft.Row(chips, spacing=theme.space("2"))
 
-    def _set_time_range(self, r: str) -> None:
-        self._time_range = r if self._time_range != r else "all"
+    def _set_time_range(self, value: str) -> None:
+        self._time_range = value if self._time_range != value else "all"
         self._apply_filter(do_update=True)
 
-    # ── stats ─────────────────────────────────────────────────────
-    def _render_stat_bar(self, lines: list) -> None:
+    # ── classification and filtering ─────────────────────────────
+    @staticmethod
+    def _is_mcp_log(line: str) -> bool:
+        return any(pattern.search(line) for pattern in MCP_PATTERNS)
+
+    @classmethod
+    def _classify(cls, line: str) -> str:
+        if cls._is_mcp_log(line):
+            return "mcp"
+        if "[ERR]" in line or "[FAIL]" in line or "[ERROR]" in line:
+            return "error"
+        if "[WARN]" in line or "[WARNING]" in line:
+            return "warn"
+        if "[OK]" in line:
+            return "ok"
+        if "[DEBUG]" in line:
+            return "debug"
+        return "info"
+
+    @staticmethod
+    def _extract_timestamp(line: str) -> Optional[float]:
+        full = re.search(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})", line)
+        if full:
+            try:
+                return datetime.strptime(full.group(1), "%Y-%m-%d %H:%M:%S").timestamp()
+            except ValueError:
+                pass
+        short = re.search(r"(\d{2}:\d{2}:\d{2})", line)
+        if short:
+            try:
+                now = datetime.now()
+                return datetime.strptime(
+                    f"{now:%Y-%m-%d} {short.group(1)}", "%Y-%m-%d %H:%M:%S"
+                ).timestamp()
+            except ValueError:
+                pass
+        return None
+
+    def _filtered_lines(self) -> List[str]:
+        lines = self.ctx.get_logs()
+        self._all_lines_cache = list(lines)
+        if self._time_range != "all":
+            cutoff = {"1h": 3600, "24h": 86400, "7d": 604800}.get(self._time_range, 0)
+            if cutoff:
+                now = time.time()
+                lines = [
+                    line for line in lines
+                    if not self._extract_timestamp(line)
+                    or self._extract_timestamp(line) > now - cutoff
+                ]
+
+        if self._show_mcp_only:
+            lines = [line for line in lines if self._is_mcp_log(line)]
+        elif self._filter_level != "all":
+            lines = [line for line in lines if self._classify(line) == self._filter_level]
+
+        query = (self._search_field.value or "").strip().lower()
+        if query:
+            lines = [line for line in lines if query in line.lower()]
+        return lines
+
+    def _render_stat_bar(self, lines: list[str]) -> None:
         p = self.ctx.palette
-        err_count = sum(1 for l in lines if "[ERR]" in l or "[FAIL]" in l)
-        warn_count = sum(1 for l in lines if "[WARN]" in l)
-        ok_count = sum(1 for l in lines if "[OK]" in l)
-        mcp_count = sum(1 for l in lines if self._is_mcp_log(l))
-        info_count = len(lines) - err_count - warn_count - ok_count - mcp_count
+        err_count = sum(1 for line in lines if self._classify(line) == "error")
+        warn_count = sum(1 for line in lines if self._classify(line) == "warn")
+        ok_count = sum(1 for line in lines if self._classify(line) == "ok")
+        mcp_count = sum(1 for line in lines if self._is_mcp_log(line))
         self._stat_bar.controls = [
             stat_chip(p, "全部", str(len(lines)), icon=ft.Icons.ARTICLE, accent=p.primary),
             stat_chip(p, "MCP 调用", str(mcp_count), icon=ft.Icons.CALL_MADE, accent=p.accent),
@@ -148,186 +228,92 @@ class LogsPage:
             stat_chip(p, "成功", str(ok_count), icon=ft.Icons.CHECK_CIRCLE, accent=p.success),
         ]
 
-    # ── MCP log detection ─────────────────────────────────────────
-    @staticmethod
-    def _is_mcp_log(line: str) -> bool:
-        return any(p.search(line) for p in MCP_PATTERNS)
-
-    # ── classify a log line ───────────────────────────────────────
-    @staticmethod
-    def _classify(line: str) -> str:
-        if any(p.search(line) for p in MCP_PATTERNS):
-            return "mcp"
-        if "[ERR]" in line or "[FAIL]" in line:
-            return "error"
-        if "[WARN]" in line:
-            return "warn"
-        if "[OK]" in line:
-            return "ok"
-        if "[DEBUG]" in line:
-            return "debug"
-        return "info"
-
-    # ── highlight search matches ──────────────────────────────────
-    def _highlight(self, line: str, query: str) -> ft.Control:
-        p = self.ctx.palette
-        if not query:
-            return ft.Text(line, size=theme.font_size("sm"), font_family=theme.FONT_MONO,
-                           color=p.text_primary, selectable=True, expand=True)
-        parts = re.split(f"({re.escape(query)})", line, flags=re.IGNORECASE)
-        spans = []
-        for part in parts:
-            if part.lower() == query.lower():
-                spans.append(ft.TextSpan(part, bgcolor=p.warning_light, color=p.warning, weight=theme.WEIGHT_BOLD))
-            else:
-                spans.append(ft.TextSpan(part, style=ft.TextStyle(color=p.text_primary)))
-        return ft.Text(spans=spans, size=theme.font_size("sm"), font_family=theme.FONT_MONO, selectable=True, expand=True)
-
-    # ── render ────────────────────────────────────────────────────
     def _render(self) -> None:
+        lines = self._filtered_lines()
         p = self.ctx.palette
-        query = (self._search_field.value or "").strip().lower()
-        lines = self.ctx.get_logs()
-        self._all_lines_cache = list(lines)
-
-        # Time range filter
-        if self._time_range != "all":
-            now = time.time()
-            cutoff = {"1h": 3600, "24h": 86400, "7d": 604800}.get(self._time_range, 0)
-            if cutoff:
-                filtered = []
-                for l in lines:
-                    ts = self._extract_timestamp(l)
-                    if ts and ts > now - cutoff:
-                        filtered.append(l)
-                    elif not ts:
-                        filtered.append(l)
-                lines = filtered
-
-        # MCP only filter
-        if self._show_mcp_only:
-            lines = [l for l in lines if self._is_mcp_log(l)]
-        elif self._filter_level != "all":
-            level_map = {
-                "info": lambda x: "[INFO]" in x or ("=== " in x and "[ERR]" not in x and not self._is_mcp_log(x)),
-                "warn": lambda x: "[WARN]" in x,
-                "error": lambda x: "[ERR]" in x or "[FAIL]" in x,
-                "ok": lambda x: "[OK]" in x,
-            }
-            check = level_map.get(self._filter_level)
-            if check:
-                lines = [l for l in lines if check(l)]
-
-        # Text search
-        if query:
-            lines = [l for l in lines if query in l.lower()]
-
-        self._count_text.value = f"共 {len(lines)} 条"
+        self._count_text.value = f"显示 {len(lines)} 条 · 共保存 {len(self._all_lines_cache)} 条"
         self._count_text.color = p.text_muted
-
-        if not lines:
-            self._list.controls = [
-                empty_state(p, "没有匹配的日志项",
-                            icon=ft.Icons.SEARCH_OFF if query else ft.Icons.ARTICLE_OUTLINED)
-            ]
-        else:
-            items: List[ft.Control] = []
-            for idx, line in enumerate(lines):
-                level = self._classify(line)
-                fg, bg = LEVEL_STYLES.get(level, (p.text_secondary, p.surface))
-                icon = LEVEL_ICONS.get(level, ft.Icons.FIBER_MANUAL_RECORD)
-                is_expanded = self._expanded_index == idx
-
-                content_row = ft.Row([
-                    ft.Icon(icon, size=14, color=fg),
-                    ft.Container(content=self._highlight(line, query), expand=True),
-                ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.START)
-
-                detail_content = None
-                if is_expanded:
-                    meta_parts = []
-                    tag_match = re.search(r"\[(ERR|FAIL|WARN|OK|INFO|DEBUG|MCP|TEST)\]", line)
-                    if tag_match:
-                        meta_parts.append(f"级别: {tag_match.group(1)}")
-                    ts = self._extract_timestamp(line)
-                    if ts:
-                        meta_parts.append(f"时间: {datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')}")
-                    meta_parts.append(f"长度: {len(line)} 字符")
-                    meta_parts.append(f"序号: #{idx + 1}")
-                    if level == "mcp":
-                        meta_parts.append("类型: MCP 方法调用")
-
-                    detail_content = ft.Container(
-                        content=ft.Column([
-                            ft.Divider(height=1, color=p.border_light),
-                            ft.Text("  ".join(meta_parts), size=theme.font_size("xs"), color=p.text_muted, font_family=theme.FONT_MONO),
-                        ], spacing=theme.space("1")),
-                        padding=ft.padding.only(left=theme.space("4"), top=theme.space("1")),
-                    )
-
-                clickable = ft.Container(
-                    content=ft.Column(
-                        [content_row] + ([detail_content] if detail_content else []),
-                        spacing=0, data=idx,
-                    ),
-                    bgcolor=bg if is_expanded or level == "mcp" else p.card,
-                    border=ft.border.all(1, p.border_light),
-                    border_radius=theme.radius("md"),
-                    padding=theme.space("2"),
-                    on_click=lambda e, i=idx: self._toggle_detail(i),
-                    ink=True,
-                    animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
-                )
-                items.append(clickable)
-            self._list.controls = items
-
         self._render_stat_bar(self._all_lines_cache)
 
-    def _extract_timestamp(self, line: str) -> Optional[float]:
-        m = re.search(r"(\d{2}:\d{2}:\d{2})", line)
-        if m:
-            try:
-                now = datetime.now()
-                parts = m.group(1).split(":")
-                h, mi, s = int(parts[0]), int(parts[1]), int(parts[2])
-                dt = now.replace(hour=h, minute=mi, second=s, microsecond=0)
-                return dt.timestamp()
-            except Exception:
-                pass
-        return None
+        if not lines:
+            self._terminal.controls = [
+                ft.Container(
+                    content=ft.Text(
+                        "$ 等待 MCP 服务输出…",
+                        color="#86EFAC",
+                        size=theme.font_size("sm"),
+                        font_family=theme.FONT_MONO,
+                        selectable=True,
+                    ),
+                    padding=ft.padding.symmetric(horizontal=14, vertical=12),
+                )
+            ]
+            return
 
-    def _toggle_detail(self, idx: int) -> None:
-        self._expanded_index = idx if self._expanded_index != idx else None
-        self._apply_filter(do_update=True)
+        spans = []
+        for index, line in enumerate(lines):
+            suffix = "\n" if index < len(lines) - 1 else ""
+            color = TERMINAL_COLORS.get(self._classify(line), TERMINAL_COLORS["info"])
+            spans.append(ft.TextSpan(line + suffix, style=ft.TextStyle(color=color)))
+        console_text = ft.Text(
+            spans=spans,
+            size=theme.font_size("sm"),
+            font_family=theme.FONT_MONO,
+            selectable=True,
+            expand=True,
+        )
+        self._terminal.controls = [
+            ft.Container(
+                content=console_text,
+                padding=ft.padding.symmetric(horizontal=14, vertical=12),
+                alignment=ft.alignment.top_left,
+            )
+        ]
 
-    def _apply_filter(self, do_update: bool = False) -> None:
-        self._render()
-        if do_update:
-            try:
-                self.ctx.page.update()
-            except Exception:
-                pass
+    # ── live updates ──────────────────────────────────────────────
+    def _schedule_refresh(self, _line: str = "") -> None:
+        with self._refresh_lock:
+            if not self._mounted or self._refresh_pending:
+                return
+            self._refresh_pending = True
+        try:
+            self.ctx.page.run_thread(self._flush_scheduled_refresh)
+        except Exception:
+            self._flush_scheduled_refresh()
 
-    # ── lifecycle ─────────────────────────────────────────────────
+    def _flush_scheduled_refresh(self) -> None:
+        with self._refresh_lock:
+            self._refresh_pending = False
+        if self._mounted:
+            self.refresh()
+
+    def _scroll_to_bottom(self) -> None:
+        try:
+            self._terminal.auto_scroll = True
+            self._terminal.scroll_to(offset=-1, duration=0)
+        except Exception:
+            pass
+
     def refresh(self) -> None:
         self._render()
         try:
             self.ctx.page.update()
+            # Replacing the single console text control does not always trigger
+            # Flet's auto-scroll by itself, so explicitly follow the tail.
+            self._scroll_to_bottom()
         except Exception:
             pass
 
     def _on_mount(self) -> None:
-        def on_log(line: str) -> None:
-            self.refresh()
-        if self._log_unsub is not None:
-            try:
-                self._log_unsub()
-            except Exception:
-                pass
-        self._log_unsub = self.ctx.subscribe_logs(on_log)
+        self._mounted = True
+        if self._log_unsub is None:
+            self._log_unsub = self.ctx.subscribe_logs(self._schedule_refresh)
         self.refresh()
 
     def _on_unmount(self) -> None:
+        self._mounted = False
+        with self._refresh_lock:
+            self._refresh_pending = False
         if self._log_unsub is not None:
             try:
                 self._log_unsub()
@@ -338,103 +324,183 @@ class LogsPage:
     # ── actions ───────────────────────────────────────────────────
     def _clear(self) -> None:
         self.ctx.clear_logs()
-        self._expanded_index = None
         self.refresh()
+        toast(self.ctx.page, "日志已清空", "ok", self.ctx.palette)
 
-    def _export(self) -> None:
+    def _clear_cache(self) -> None:
+        """Ask before removing disposable logs and local behavior state."""
+        if self._cleanup_dialog is not None:
+            return
         p = self.ctx.palette
-        lines = self.ctx.get_logs()
-        text = "\n".join(lines)
+
+        def close_dialog() -> None:
+            self._cleanup_dialog = None
+            try:
+                self.ctx.page.close(dialog)
+            except Exception:
+                dialog.open = False
+
+        def confirm(_event) -> None:
+            close_dialog()
+            summary = clear_local_cache(self.ctx)
+            self._filter_level = "all"
+            self._show_mcp_only = False
+            self._time_range = "all"
+            self._search_field.value = ""
+            self.refresh()
+            # AppShell reloads its in-memory close preference on this signal,
+            # so the next top-right close asks again after cleanup.
+            self.ctx.notify_state_change("cache_cleared")
+            removed = (
+                f"日志 {summary['logs']} 条、最近项目 {summary['recent_projects']} 条、"
+                f"头像缓存 {summary['avatars']} 个"
+            )
+            if summary["close_behavior"]:
+                removed += "，关闭行为已重置"
+            toast(self.ctx.page, f"已清理 {removed}", "ok", p)
+
+        dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("清理本地缓存与行为", color=p.text_primary),
+            content=ft.Container(
+                width=520,
+                content=ft.Column([
+                    ft.Text(
+                        "将清理持久化日志、最近项目记录、头像缓存和窗口关闭行为。",
+                        color=p.text_primary,
+                    ),
+                    ft.Text(
+                        "不会删除账号 Cookie、账号资料、项目配置或 AI 工具配置。清理后下次点击右上角关闭按钮会重新询问行为。",
+                        size=theme.font_size("sm"),
+                        color=p.text_muted,
+                    ),
+                ], spacing=theme.space("2"), tight=True),
+            ),
+            actions=[
+                ft.TextButton("取消", on_click=lambda _event: close_dialog()),
+                ft.FilledButton(
+                    "确认清理",
+                    icon=ft.Icons.CLEANING_SERVICES_OUTLINED,
+                    on_click=confirm,
+                ),
+            ],
+        )
+        self._cleanup_dialog = dialog
         try:
-            self.ctx.page.set_clipboard(text)
-            toast(self.ctx.page, f"已复制 {len(lines)} 条日志到剪贴板", "ok", p)
+            self.ctx.page.open(dialog)
         except Exception:
-            toast(self.ctx.page, "复制失败", "error", p)
+            self._cleanup_dialog = None
+
+    def _copy_all(self) -> None:
+        lines = self.ctx.get_logs()
+        try:
+            self.ctx.page.set_clipboard("\n".join(lines))
+            toast(self.ctx.page, f"已复制 {len(lines)} 条日志", "ok", self.ctx.palette)
+        except Exception:
+            toast(self.ctx.page, "复制日志失败", "error", self.ctx.palette)
 
     # ── view ──────────────────────────────────────────────────────
     def build(self) -> ft.Control:
         p = self.ctx.palette
         self._render()
 
-        toolbar_row1 = ft.Row([
-            self._level_chips(),
-            ft.Container(expand=True),
-            self._count_text,
-        ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
-
-        toolbar_row2 = ft.Row([
-            self._time_chips(),
-            ft.Container(width=theme.space("2")),
-            ft.Container(content=self._search_field, expand=True),
-        ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER)
-
         toolbar = ft.Container(
-            content=ft.Column([toolbar_row1, toolbar_row2], spacing=theme.space("3")),
+            content=ft.Column([
+                ft.Row([
+                    self._level_chips(),
+                    ft.Container(expand=True),
+                    self._count_text,
+                ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Row([
+                    self._time_chips(),
+                    ft.Container(width=theme.space("2")),
+                    ft.Container(content=self._search_field, expand=True),
+                ], spacing=theme.space("3"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ], spacing=theme.space("3")),
             padding=theme.space("4"),
             bgcolor=p.card,
             border_radius=theme.radius("lg"),
             border=ft.border.all(1, p.border_light),
         )
 
+        terminal_header = ft.Container(
+            content=ft.Row([
+                ft.Container(width=8, height=8, bgcolor="#22C55E", border_radius=theme.radius("full")),
+                ft.Text("MCP SERVICE OUTPUT", size=theme.font_size("xs"), color="#A5B4FC",
+                        font_family=theme.FONT_MONO, weight=theme.WEIGHT_BOLD),
+                ft.Container(expand=True),
+                ft.Text("LIVE · FOLLOW TAIL", size=theme.font_size("xs"), color="#86EFAC",
+                        font_family=theme.FONT_MONO),
+            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=theme.space("3"), right=theme.space("3"), top=theme.space("2"), bottom=theme.space("2")),
+        )
         log_viewer = ft.Container(
             content=ft.Column([
-                ft.Container(
-                    content=ft.Row([
-                        ft.Container(width=8, height=8, bgcolor="#22C55E", border_radius=theme.radius("full")),
-                        ft.Text("MCP SERVICE OUTPUT", size=theme.font_size("xs"), color="#A5B4FC", font_family=theme.FONT_MONO, weight=theme.WEIGHT_BOLD),
-                        ft.Container(expand=True),
-                        ft.Text("live", size=theme.font_size("xs"), color="#86EFAC", font_family=theme.FONT_MONO),
-                    ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=ft.padding.only(left=theme.space("3"), right=theme.space("3"), top=theme.space("2"), bottom=theme.space("2")),
-                ),
+                terminal_header,
                 ft.Divider(height=1, color="#253550"),
-                self._list,
+                self._terminal,
             ], spacing=0, expand=True),
-            expand=True,
+            height=self.TERMINAL_HEIGHT,
             border_radius=theme.radius("lg"),
             border=ft.border.all(1, "#253550"),
             padding=theme.space("2"),
             bgcolor="#0B1020",
         )
-        guide_card = ft.Container(
+        guide = ft.Container(
             content=ft.Row([
                 ft.Icon(ft.Icons.TIPS_AND_UPDATES_OUTLINED, size=18, color=p.primary),
-                ft.Text("点击日志行可展开查看元信息；可按 MCP 调用、错误、警告筛选，也可以一键复制全部日志用于排障。",
-                        size=theme.font_size("sm"), color=p.text_secondary, expand=True),
+                ft.Text(
+                    "服务端会实时记录 AI 的 tools/call 请求、耗时和结果；窗口自动跟随最新输出。文本可选择，支持 Ctrl+C 或复制全部。",
+                    size=theme.font_size("sm"), color=p.text_secondary, expand=True,
+                ),
             ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor=p.primary_light,
             border=ft.border.all(1, p.border_light),
             border_radius=theme.radius("xl"),
             padding=theme.space("4"),
         )
-
-        header = ft.Container(
-            content=ft.Row([
-                section_title(p, "日志", "实时输出 · MCP 方法调用 · 分类筛选 · 搜索"),
-                ft.Container(expand=True),
-                secondary_button("清空", lambda e: self._clear(), icon=ft.Icons.DELETE_OUTLINE),
-                primary_button("导出", lambda e: self._export(), icon=ft.Icons.SAVE),
-            ], spacing=theme.space("2"), vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=theme.space("6"), top=theme.space("5"), right=theme.space("6"), bottom=theme.space("3")),
-        )
-
+        header = ft.Column([
+            page_banner(p, "日志", "命令行输出 · AI MCP 调用 · 持久化 · 自动跟随底部", "logs"),
+            ft.Container(
+                content=ft.Row([
+                    ft.Container(expand=True),
+                    secondary_button("复制全部", lambda _event: self._copy_all(), icon=ft.Icons.CONTENT_COPY),
+                    primary_button("清空日志", lambda _event: self._clear(), icon=ft.Icons.DELETE_OUTLINE),
+                    secondary_button("清理缓存与行为", lambda _event: self._clear_cache(), icon=ft.Icons.CLEANING_SERVICES_OUTLINED),
+                ], spacing=theme.space("2"), wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=ft.padding.only(left=theme.space("6"), right=theme.space("6")),
+                bgcolor=p.card,
+            ),
+        ], spacing=theme.space("3"), tight=True)
         body = ft.Column([
             gradient_card(p, self._stat_bar, padding=theme.space("4")),
-            guide_card,
+            guide,
             toolbar,
             log_viewer,
-        ], spacing=theme.space("3"))
-        return ft.ListView(
+        ], spacing=theme.space("3"),
+            tight=True,
+            horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
+        body_surface = ft.Container(
+            content=body,
+            padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
+            bgcolor=p.card,
+        )
+        # Keep exactly one vertical scroll owner for the page.  A scrollable
+        # Column nested in the animated shell can receive an unconstrained
+        # height and leave the content below a large neutral canvas.  The
+        # page ListView owns vertical scrolling; all direct children are
+        # content-sized and the terminal keeps its own fixed-height viewport.
+        scroll_view = ft.ListView(
             controls=[
                 header,
-                ft.Container(
-                    content=body,
-                    padding=ft.padding.only(left=theme.space("6"), top=theme.space("1"), right=theme.space("6"), bottom=theme.space("6")),
-                ),
+                body_surface,
             ],
             spacing=0,
             expand=True,
+            padding=0,
         )
+        scroll_view.bgcolor = p.card
+        return scroll_view
 
 
 __all__ = ["LogsPage"]

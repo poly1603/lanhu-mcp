@@ -33,6 +33,7 @@ __all__ = [
     "merge_project_lists",
     "record_recent_project",
     "recent_projects",
+    "clear_recent_projects",
 ]
 
 RECENT_PROJECTS_FILE = DATA_DIR / "recent_projects.json"
@@ -204,6 +205,17 @@ def recent_projects(account_id: str = "", limit: int = RECENT_PROJECTS_LIMIT) ->
             if not it.get("account_id") or it.get("account_id") == account_id
         ]
     return items[: max(1, int(limit or RECENT_PROJECTS_LIMIT))]
+
+
+def clear_recent_projects() -> int:
+    """清空最近项目记录，并返回被清理的条目数。
+
+    这只删除“最近打开”行为数据，不会影响 ``projects.json`` 中的项目缓存
+    或用户手动保存的项目配置。
+    """
+    items = _read_recents()
+    _write_recents([])
+    return len(items)
 
 
 def cached_projects_for_account(account_id: str = "") -> list[dict]:

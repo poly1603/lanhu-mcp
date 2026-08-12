@@ -117,6 +117,11 @@ class ServiceManager:
 
         env['SERVER_PORT'] = str(port)
         env['MCP_TRANSPORT'] = 'http'
+        # The GUI owns the persisted console log.  Capture every child output
+        # line once in the parent instead of writing it both here and in the
+        # child's app.log handler.
+        env['LANHU_LOG_TO_FILE'] = '0'
+        env['PYTHONUNBUFFERED'] = '1'
 
         ServiceManager._stop_event.clear()
 
