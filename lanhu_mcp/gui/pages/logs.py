@@ -459,19 +459,28 @@ class LogsPage:
             border_radius=theme.radius("xl"),
             padding=theme.space("4"),
         )
-        header = ft.Column([
-            page_banner(p, "日志", "命令行输出 · AI MCP 调用 · 持久化 · 自动跟随底部", "logs"),
-            ft.Container(
-                content=ft.Row([
-                    ft.Container(expand=True),
-                    secondary_button("复制全部", lambda _event: self._copy_all(), icon=ft.Icons.CONTENT_COPY),
-                    primary_button("清空日志", lambda _event: self._clear(), icon=ft.Icons.DELETE_OUTLINE),
-                    secondary_button("清理缓存与行为", lambda _event: self._clear_cache(), icon=ft.Icons.CLEANING_SERVICES_OUTLINED),
-                ], spacing=theme.space("2"), wrap=True, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=ft.padding.only(left=theme.space("6"), right=theme.space("6")),
-                bgcolor=p.card,
-            ),
-        ], spacing=theme.space("3"), tight=True)
+        # Keep the banner and its actions in one fixed-height surface.  An
+        # expanding Row/Column here receives an unbounded height during the
+        # first Flet measurement; when it is followed by a scrollable body,
+        # the body is laid out below a large neutral canvas.  The banner is
+        # already fixed-height, so the title block must remain content-sized.
+        header = ft.Container(
+            content=ft.Column([
+                page_banner(p, "日志", "命令行输出 · AI MCP 调用 · 持久化 · 自动跟随底部", "logs"),
+                ft.Container(
+                    content=ft.Row([
+                        secondary_button("复制全部", lambda _event: self._copy_all(), icon=ft.Icons.CONTENT_COPY),
+                        primary_button("清空日志", lambda _event: self._clear(), icon=ft.Icons.DELETE_OUTLINE),
+                        secondary_button("清理缓存与行为", lambda _event: self._clear_cache(), icon=ft.Icons.CLEANING_SERVICES_OUTLINED),
+                    ], spacing=theme.space("2"), wrap=True,
+                        alignment=ft.MainAxisAlignment.END,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=ft.padding.only(left=theme.space("6"), right=theme.space("6")),
+                    bgcolor=p.card,
+                ),
+            ], spacing=theme.space("3"), tight=True),
+            bgcolor=p.card,
+        )
         body = ft.Column([
             gradient_card(p, self._stat_bar, padding=theme.space("4")),
             guide,

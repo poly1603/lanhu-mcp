@@ -104,10 +104,10 @@ def test_overview_chart_controls_construct_without_browser_runtime() -> None:
     assert len(chart.bar_groups) == 1
 
 
-def test_page_frame_stretches_body_for_responsive_rows() -> None:
+def test_page_frame_keeps_body_content_sized_inside_scroll_view() -> None:
     view = page_frame(theme.LIGHT, "总览", "测试", ft.Column([ft.Text("content")]))
 
-    assert view.controls[1].expand is True
+    assert view.controls[1].expand is not True
 
 
 def test_overview_uses_stable_stack_for_metrics_and_activity() -> None:

@@ -22,9 +22,10 @@ def test_page_banners_are_project_assets() -> None:
 def test_page_banner_has_fixed_compact_height() -> None:
     banner = page_banner(SimpleNamespace(), "总览", "说明", "overview")
     assert banner.height == 126
-    assert isinstance(banner.content, ft.Stack)
+    assert isinstance(banner.content, ft.Column)
     assert banner.image is not None
-    assert banner.content.fit == ft.StackFit.EXPAND
+    assert banner.gradient is not None
+    assert banner.content.expand is not True
 
 
 def test_native_icons_include_an_exact_48px_frame() -> None:

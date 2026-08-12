@@ -135,10 +135,11 @@ def section_title(palette: Palette, text: str, subtitle: str = "") -> ft.Control
 def page_banner(palette: Palette, title: str, subtitle: str = "", name: str = "shared") -> ft.Container:
     """Compact visual identity strip shared by the main menu pages."""
     image = banner_path(name)
-    # Use Container.image as a decoration rather than putting an Image inside
-    # Stack.  An Image child can keep its intrinsic width during Flet's first
-    # layout pass, leaving the right side of the banner as the gray canvas.
-    # A decoration is painted into the already-resolved container bounds.
+    # Keep the artwork, overlay and copy on one fixed-height Container.  A
+    # Stack whose children use ``expand`` can receive an unbounded height on
+    # the first ListView measurement; the following page content then appears
+    # below a large neutral canvas.  Container decorations are painted after
+    # the bounds are resolved and do not participate in that measurement.
     return ft.Container(
         image=ft.DecorationImage(
             src=str(image),
@@ -146,25 +147,17 @@ def page_banner(palette: Palette, title: str, subtitle: str = "", name: str = "s
             filter_quality=ft.FilterQuality.HIGH,
             anti_alias=True,
         ),
-        content=ft.Stack([
-            ft.Container(
-                gradient=ft.LinearGradient(
-                    begin=ft.alignment.center_left,
-                    end=ft.alignment.center_right,
-                    colors=["#D90B1224", "#660B1224", "#000B1224"],
-                ),
-                expand=True,
-            ),
-            ft.Container(
-                content=ft.Column([
-                    ft.Text(title, size=theme.font_size("3xl"), weight=theme.WEIGHT_BOLD, color="#FFFFFF"),
-                    ft.Text(subtitle, size=theme.font_size("sm"), color="#D9E7FF") if subtitle else ft.Container(),
-                ], spacing=theme.space("1")),
-                padding=ft.padding.symmetric(horizontal=24, vertical=18),
-                alignment=ft.alignment.center_left,
-                expand=True,
-            ),
-        ], fit=ft.StackFit.EXPAND, expand=True, height=126),
+        gradient=ft.LinearGradient(
+            begin=ft.alignment.center_left,
+            end=ft.alignment.center_right,
+            colors=["#D90B1224", "#660B1224", "#000B1224"],
+        ),
+        content=ft.Column([
+            ft.Text(title, size=theme.font_size("3xl"), weight=theme.WEIGHT_BOLD, color="#FFFFFF"),
+            ft.Text(subtitle, size=theme.font_size("sm"), color="#D9E7FF") if subtitle else ft.Container(),
+        ], spacing=theme.space("1")),
+        padding=ft.padding.symmetric(horizontal=24, vertical=18),
+        alignment=ft.alignment.center_left,
         height=126,
         bgcolor="#0B1220",
         border_radius=theme.radius("xl"),
@@ -194,7 +187,6 @@ def page_frame(palette: Palette, title: str, subtitle: str, body: ft.Control, *,
                 # Give the page surface an explicit fill color; otherwise a
                 # short/animated child can reveal Flet's neutral canvas.
                 bgcolor=palette.card,
-                expand=True,
             ),
         ],
         spacing=0,

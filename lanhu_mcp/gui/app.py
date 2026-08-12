@@ -63,14 +63,16 @@ class AppShell:
         self._close_behavior = self._load_close_behavior()
         self._close_dialog: ft.AlertDialog | None = None
 
-        self._switcher = ft.AnimatedSwitcher(
+        # Keep the workspace page mounted directly.  AnimatedSwitcher uses
+        # an overlay-style layout while measuring its old and new children;
+        # with a scrollable page that can leave the new page's content below
+        # Flet's neutral canvas (the banner remains visible, which made this
+        # look like a page-specific gray block).  Navigation is cheap here,
+        # so a plain expanding surface is both deterministic and lighter.
+        self._switcher = ft.Container(
             content=ft.Container(),
             expand=True,
-            duration=240,
-            reverse_duration=160,
-            transition=ft.AnimatedSwitcherTransition.FADE,
-            switch_in_curve=ft.AnimationCurve.EASE_OUT,
-            switch_out_curve=ft.AnimationCurve.EASE_IN,
+            bgcolor=self.ctx.palette.card,
         )
         self._content_container = ft.Container(
             content=self._switcher,
@@ -158,7 +160,7 @@ class AppShell:
         self._tray.update()
         self._floating.update(running)
 
-    def _apply_runtime_windows_icon(self, attempts: int = 6) -> None:
+    def _apply_runtime_windows_icon(self, attempts: int = 20) -> None:
         """Retry after Flet creates its native HWND, without blocking startup."""
         if apply_windows_app_identity(APP_TITLE) or attempts <= 0:
             return
@@ -399,9 +401,6 @@ class AppShell:
         self._current = key
         page_obj = self._page(key)
         # 先 build（创建控件树），再 refresh 注入数据
-        self._switcher.duration = 180 if now - previous_nav_time < 1.0 else 260
-        self._switcher.reverse_duration = 140
-        self._switcher.transition = ft.AnimatedSwitcherTransition.FADE
         self._switcher.content = self._page_transition_content(key)
         try:
             on_mount = getattr(page_obj, "_on_mount", None)
