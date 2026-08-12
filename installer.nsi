@@ -1,113 +1,82 @@
-; ========================================
-;  Lanhu MCP Server - NSIS 安装脚本
-; ========================================
-; 编译命令: makensis installer.nsi
+﻿; Unicode NSIS script. Build with: makensis installer.nsi
+; Build with: makensis installer.nsi
 
 !include "MUI2.nsh"
 
-; ========================================
-; 基本配置
-; ========================================
-Name "Lanhu MCP Server"
-OutFile "LanhuMCP-Setup.exe"
-InstallDir "$PROGRAMFILES\Lanhu MCP"
-InstallDirRegKey HKLM "Software\LanhuMCP" "InstallDir"
-RequestExecutionLevel admin
+!ifndef APP_DIST_DIR
+!define APP_DIST_DIR "dist"
+!endif
+!ifndef APP_VERSION
+!define APP_VERSION "2.0.0"
+!endif
+!ifndef APP_PAYLOAD
+!define APP_PAYLOAD "${APP_DIST_DIR}\LanhuMCP.exe"
+!endif
 
-; 版本信息
-VIProductVersion "2.0.0.0"
-VIAddVersionKey "ProductName" "Lanhu MCP Server"
+Name "Lanhu MCP"
+OutFile "${APP_DIST_DIR}\LanhuMCP-Setup-v${APP_VERSION}.exe"
+InstallDir "$LOCALAPPDATA\Programs\Lanhu MCP"
+InstallDirRegKey HKCU "Software\LanhuMCP" "InstallDir"
+RequestExecutionLevel user
+SetCompressor /SOLID lzma
+
+VIProductVersion "${APP_VERSION}.0"
+VIAddVersionKey "ProductName" "Lanhu MCP"
 VIAddVersionKey "CompanyName" "Lanhu MCP"
-VIAddVersionKey "FileDescription" "蓝湖MCP服务器 - 让AI助手读取蓝湖设计"
-VIAddVersionKey "FileVersion" "2.0.0"
-VIAddVersionKey "ProductVersion" "2.0.0"
+VIAddVersionKey "FileDescription" "Lanhu MCP desktop application"
+VIAddVersionKey "FileVersion" "${APP_VERSION}"
+VIAddVersionKey "ProductVersion" "${APP_VERSION}"
 
-; ========================================
-; 界面配置
-; ========================================
-!define MUI_ICON "icon.ico"
-!define MUI_UNICON "icon.ico"
+!define MUI_ICON "assets\lanhu_mcp.ico"
+!define MUI_UNICON "assets\lanhu_mcp.ico"
 !define MUI_ABORTWARNING
-!define MUI_WELCOMEPAGE_TITLE "欢迎安装 Lanhu MCP Server"
-!define MUI_WELCOMEPAGE_TEXT "Lanhu MCP Server 让所有AI助手（Cursor、Windsurf、Claude Desktop等）都能读取蓝湖设计稿和需求文档。$\n$\n功能特性：$\n• 智能需求分析$\n• UI设计稿解析$\n• 切图自动提取$\n• 团队知识共享$\n$\n点击下一步继续安装。"
+!define MUI_WELCOMEPAGE_TITLE "欢迎安装 Lanhu MCP"
+!define MUI_WELCOMEPAGE_TEXT "Lanhu MCP 提供蓝湖设计稿读取、分析和 MCP 服务能力。$\n$\n安装完成后，桌面会创建 Lanhu MCP 快捷方式。"
 !define MUI_FINISHPAGE_TITLE "安装完成"
-!define MUI_FINISHPAGE_TEXT "Lanhu MCP Server 已成功安装！$\n$\n您可以通过以下方式使用：$\n1. 从开始菜单启动管理面板$\n2. 配置蓝湖Cookie$\n3. 一键配置AI IDE"
-!define MUI_FINISHPAGE_RUN "$INSTDIR\LanhuMCP-GUI.exe"
-!define MUI_FINISHPAGE_RUN_TEXT "启动管理面板"
+!define MUI_FINISHPAGE_TEXT "Lanhu MCP 已成功安装。$\n$\n您可以通过桌面快捷方式启动应用。"
+!define MUI_FINISHPAGE_RUN "$INSTDIR\LanhuMCP.exe"
+!define MUI_FINISHPAGE_RUN_TEXT "启动 Lanhu MCP"
 
-; ========================================
-; 安装页面
-; ========================================
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_LICENSE "LICENSE"
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
-
-; ========================================
-; 卸载页面
-; ========================================
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+!insertmacro MUI_LANGUAGE "SimpChinese"
 
-; ========================================
-; 语言
-; ========================================
-!insertmacro MUI_LANGUAGE "SimplifiedChinese"
-
-; ========================================
-; 安装内容
-; ========================================
-Section "主程序" SecMain
+Section "Lanhu MCP" SecMain
     SectionIn RO
-
-    ; 设置输出路径
+    SetShellVarContext current
     SetOutPath "$INSTDIR"
+    File /oname=LanhuMCP.exe "${APP_PAYLOAD}"
 
-    ; 安装文件
-    File "dist\LanhuMCP.exe"
-
-    ; 创建卸载程序
     WriteUninstaller "$INSTDIR\Uninstall.exe"
+    WriteRegStr HKCU "Software\LanhuMCP" "InstallDir" "$INSTDIR"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "DisplayName" "Lanhu MCP"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "UninstallString" '"$INSTDIR\Uninstall.exe"'
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "InstallLocation" "$INSTDIR"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "DisplayVersion" "${APP_VERSION}"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "Publisher" "Lanhu MCP"
 
-    ; 写入注册表
-    WriteRegStr HKLM "Software\LanhuMCP" "InstallDir" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "DisplayName" "Lanhu MCP Server"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "UninstallString" '"$INSTDIR\Uninstall.exe"'
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "InstallLocation" "$INSTDIR"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "DisplayVersion" "2.0.0"
-    WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP" "Publisher" "Lanhu MCP"
-
-    ; 创建开始菜单快捷方式
     CreateDirectory "$SMPROGRAMS\Lanhu MCP"
-    CreateShortCut "$SMPROGRAMS\Lanhu MCP\Lanhu MCP 管理面板.lnk" "$INSTDIR\LanhuMCP-GUI.exe"
-    CreateShortCut "$SMPROGRAMS\Lanhu MCP\Lanhu MCP 服务.lnk" "$INSTDIR\lanhu_mcp.exe"
-    CreateShortCut "$SMPROGRAMS\Lanhu MCP\卸载.lnk" "$INSTDIR\Uninstall.exe"
-
-    ; 创建桌面快捷方式
-    CreateShortCut "$DESKTOP\Lanhu MCP.lnk" "$INSTDIR\LanhuMCP-GUI.exe"
-
+    CreateShortCut "$SMPROGRAMS\Lanhu MCP\Lanhu MCP.lnk" "$INSTDIR\LanhuMCP.exe"
+    CreateShortCut "$SMPROGRAMS\Lanhu MCP\卸载 Lanhu MCP.lnk" "$INSTDIR\Uninstall.exe"
+    CreateShortCut "$DESKTOP\Lanhu MCP.lnk" "$INSTDIR\LanhuMCP.exe"
 SectionEnd
 
-; ========================================
-; 卸载内容
-; ========================================
 Section "Uninstall"
-    ; 删除文件
-    Delete "$INSTDIR\lanhu_mcp.exe"
-    Delete "$INSTDIR\LanhuMCP-GUI.exe"
+    SetShellVarContext current
+    Delete "$INSTDIR\LanhuMCP.exe"
     Delete "$INSTDIR\Uninstall.exe"
-    RMDir /r "$INSTDIR\_internal"
     RMDir "$INSTDIR"
 
-    ; 删除快捷方式
-    Delete "$SMPROGRAMS\Lanhu MCP\Lanhu MCP 管理面板.lnk"
-    Delete "$SMPROGRAMS\Lanhu MCP\Lanhu MCP 服务.lnk"
-    Delete "$SMPROGRAMS\Lanhu MCP\卸载.lnk"
+    Delete "$SMPROGRAMS\Lanhu MCP\Lanhu MCP.lnk"
+    Delete "$SMPROGRAMS\Lanhu MCP\卸载 Lanhu MCP.lnk"
     RMDir "$SMPROGRAMS\Lanhu MCP"
     Delete "$DESKTOP\Lanhu MCP.lnk"
 
-    ; 删除注册表
-    DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP"
-    DeleteRegKey HKLM "Software\LanhuMCP"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanhuMCP"
+    DeleteRegKey HKCU "Software\LanhuMCP"
 SectionEnd

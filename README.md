@@ -31,11 +31,15 @@
 
 
 🔥 **核心创新**：
-- 🖥️ **Flet 桌面工作台**：现代化 GUI，集成账号、多项目、服务状态、AI 工具配置、设计稿浏览和日志查看
+- 🖥️ **现代化 Tkinter 桌面工作台**：左侧菜单导航，右侧总览/服务/AI工具/项目/账号/日志六大页面，默认 1360x860 居中打开，支持响应式双栏/单栏切换和滚动容器
 - 📋 **智能需求分析**：自动提取 Axure 原型，三种分析模式（开发/测试/探索），需求分析准确率>95%
+- � **多账号管理**：一键登录（pywebview WebView2）、浏览器 Cookie 读取、手动输入、多账号切换、Cookie 指纹去重、账号资料（邮箱/手机/头像/公司/团队/角色）展示
+- 📁 **蓝湖项目管理**：三路合并项目列表（API 读取/登录缓存提取/手动保存），项目链接打开和复制，团队/负责人/更新时间展示
+- 🎨 **35个 MCP 工具矩阵**：需求与原型 5 + UI 设计 5 + 高还原开发 15 + 协作 6 + 代码生成 4，完整覆盖产品设计到前端交付全流程
+- 🎨 **高还原设计支持**：设计系统提取、布局规格、组件模式、设计 QA、版本对比、框架代码生成、批量资源下载、SVG 提取、元素测量、动效规格、导出选项、响应式变体
+- 🛠️ **20+ AI 工具一键配置**：Cursor、Windsurf、Claude Desktop/Code、VS Code/Cline、Trae、Cherry Studio、ChatBox、Continue、OpenCode、CodeBuddy、MimoCode、Junie、Codex、Gemini CLI、Roo Code、Qoder、Kiro、Zed
 - 💬 **团队知识库**：打破 AI IDE 孤岛，让所有 AI 助手共享知识库和上下文
-- 🎨 **UI设计支持**：自动下载设计稿，智能提取切图，语义化命名；设计图分析可获取尺寸/间距/颜色/字体等精确参数，并得到转换后的 HTML+CSS 代码参考
-- ⚡ **性能优化**：基于版本号的智能缓存，增量更新，并发处理
+- ⚡ **性能优化**：AST 工具扫描缓存、头像下载大小限制、项目按 tid+pid 去重、防重复点击标记、动画降频与失焦暂停
 
 🎯 **适用场景**：
 - ✅ Cursor + 蓝湖：让 Cursor AI 直接读取蓝湖需求文档和设计稿
@@ -113,14 +117,24 @@
 - **增量更新**：只下载变更的资源
 - **并发处理**：支持批量页面截图和资源下载
 
-### 🖥️ 桌面工作台（Flet 版）
-- **一体化入口**：默认启动 GUI；`--server` 启动 MCP 服务分支；`--login-helper` 作为登录辅助子进程保留。
-- **账号与登录**：支持一键登录、浏览器登录、手动 Cookie、多账号切换、Cookie 过期状态提示。
-- **项目管理**：支持蓝湖项目刷新、搜索过滤、手动项目链接、最近打开项目持久化。
-- **服务接入**：服务页可执行健康检查，并一键复制通用 JSON / Claude HTTP / Codex TOML 配置片段。
-- **设计稿浏览**：项目页可打开设计稿浏览器，选择设计图并复制高还原前端提示词。
+### 🖥️ 桌面工作台（Tkinter 原生 GUI）
+- **一体化入口**：默认启动 GUI；`--server` 启动 MCP 服务分支；`--login-helper` 作为登录辅助子进程。
+- **六页导航**：总览（账号/服务/项目/方法/AI工具统计）、服务（启停/健康检查/配置片段复制）、AI 工具（20+ IDE 识别与配置写入）、项目（蓝湖项目刷新/合并/打开/复制）、账号（一键登录/多账号切换/Cookie 管理/资料展示）、日志（实时滚动查看）。
+- **登录方式**：
+  - 🚀 **一键登录**：pywebview WebView2 弹窗登录，自动提取 Cookie/localStorage/sessionStorage/前端状态
+  - 📥 **浏览器导入**：自动读取本机已安装浏览器的蓝湖 Cookie
+  - ✏️ **手动粘贴**：Cookie 摘要显示 + 内存完整值
+- **多账号管理**：`%APPDATA%\LanhuMCP\accounts.json` 持久化，当前账号高亮，切换和单独退出，Cookie 指纹合并重复账号。
+- **项目合并**：蓝湖 API + 登录缓存提取 + 手动保存，三路合并按 `team_id + project_id` 去重，支持搜索过滤和最近打开。
+- **AI 工具配置**：一键识别安装路径/PATH 命令，按 MCP 客户端格式直接写入 JSON/YAML/TOML 配置文件。
+- **视觉体验**：现代化卡片、指标块、装饰线条、侧栏呼吸状态条、页面切换进度线、hover 颜色过渡；Canvas 滚动容器适配小窗口。
 
-> 截图待本机完成 Flet/PyInstaller 打包与 GUI 验证后补充；当前自动化环境无法渲染 Flet 窗口。
+![总览页](assets/banner-overview.png)
+![服务页](assets/banner-service.png)
+![AI 工具页](assets/banner-ai.png)
+![项目页](assets/banner-projects.png)
+![账号页](assets/banner-accounts.png)
+![日志页](assets/banner-logs.png)
 
 ## 🚀 快速开始
 
@@ -157,17 +171,20 @@ AI 会自动完成：克隆项目 → 安装依赖 → 引导获取 Cookie → �
 
 **2.1 Windows 桌面版（推荐给非开发用户）**
 
-发布包提供单文件 `LanhuMCP.exe`：
+发布包提供单文件 `LanhuMCP.exe`（~85MB，PyInstaller onefile 打包）：
 
 ```powershell
-# 默认打开 Flet 桌面工作台
+# 默认打开 Tkinter 桌面工作台（总览/服务/AI工具/项目/账号/日志 六页导航）
 .\LanhuMCP.exe
 
-# 需要作为 MCP HTTP 服务运行时
+# 需要作为 MCP HTTP 服务运行时（前台常驻，监听 0.0.0.0:PORT/mcp）
 .\LanhuMCP.exe --server
+
+# 登录辅助子进程（通常由 GUI 内部调用）
+.\LanhuMCP.exe --login-helper
 ```
 
-桌面工作台会引导完成蓝湖登录、项目选择、服务启动和 AI 工具配置。发布前的本地打包与三分支验证见 [PACKAGING.md](PACKAGING.md)。
+桌面工作台会引导完成蓝湖登录、项目选择、服务启动和 AI 工具配置。本地打包与三分支验证见 [PACKAGING.md](PACKAGING.md)。
 
 **2.2 Docker 部署（推荐给服务器环境）**
 
@@ -272,12 +289,21 @@ export DEBUG="false"               # 调试模式（true/false）
 
 **桌面工作台源码运行：**
 ```bash
-python lanhu_mcp_gui.py
+python lanhu_mcp_gui.py          # 入口一：独立 Tkinter 脚本
+# 或
+python -m lanhu_mcp.gui          # 入口二：包模式（pyproject.toml console_scripts: lanhu-mcp-gui）
 ```
 
 **MCP 服务源码运行：**
 ```bash
-python lanhu_mcp_server.py
+python lanhu_mcp_server.py       # 入口一：独立脚本
+# 或
+python -m lanhu_mcp.runtime      # 入口二：包模式（pyproject.toml console_scripts: lanhu-mcp）
+```
+
+**登录辅助源码运行（供 GUI 内部子进程调用）：**
+```bash
+python lanhu_login_helper.py     # 独立登录 helper
 ```
 
 **按需启动（stdio，本地 MCP 客户端推荐）：**
@@ -421,22 +447,71 @@ AI 会自动：
 查看所有关于"测试"的知识库类型留言
 ```
 
-## 🛠️ 可用工具列表
+## 🛠️ 可用工具列表（共 35 个，按功能分组）
+
+### 📋 需求与原型（5 个）
 
 | 工具名称 | 功能描述 | 使用场景 |
 |---------|---------|---------|
-| `lanhu_resolve_invite_link` | 解析邀请链接 | 用户提供分享链接时 |
-| `lanhu_get_pages` | 获取原型页面列表 | 分析需求文档前必调用 |
-| `lanhu_get_ai_analyze_page_result` | 分析原型页面内容 | 提取需求细节 |
-| `lanhu_get_designs` | 获取UI设计图列表 | 查看设计稿前必调用 |
-| `lanhu_get_ai_analyze_design_result` | 分析UI设计图 | 查看设计稿 |
-| `lanhu_get_design_slices` | 获取切图信息 | 下载图标、素材 |
-| `lanhu_say` | 发布留言 | 团队协作、@提醒 |
-| `lanhu_say_list` | 查看留言列表 | 查询历史消息 |
-| `lanhu_say_detail` | 查看留言详情 | 查看完整内容 |
+| `lanhu_resolve_invite_link` | 解析蓝湖邀请/分享链接 | 用户提供分享链接时，提取 tid/pid |
+| `lanhu_list_product_documents` | 列出产品文档（原型/需求文档） | 项目下有多个需求文档时，先获取文档清单 |
+| `lanhu_get_pages` | 获取原型页面列表 | 分析需求文档前必调用，建立页面树 |
+| `lanhu_get_ai_analyze_page_result` | AI 分析原型页面内容 | 提取需求细节、业务逻辑、字段规则 |
+| `lanhu_extract_interactions` | 提取 Axure 交互事件 | 获取按钮点击、跳转、校验等交互规格 |
+
+### 🎨 UI 设计（5 个）
+
+| 工具名称 | 功能描述 | 使用场景 |
+|---------|---------|---------|
+| `lanhu_get_designs` | 获取 UI 设计图列表 | 查看设计稿前必调用，获取设计图名称/索引 |
+| `lanhu_get_ai_analyze_design_result` | AI 分析 UI 设计图 | 获取设计参数（尺寸/间距/颜色/字体）+ HTML+CSS 参考 |
+| `lanhu_get_design_slices` | 获取切图信息 | 查询设计稿切图清单（名称/尺寸/URL） |
+| `lanhu_batch_download_slices` | 批量下载切图 | 一键下载所有切图并生成语义化文件名 |
+| `lanhu_batch_download_assets` | 分类批量下载资源 | 按 PNG/JPG/SVG/字体等分类，生成资源清单 |
+
+### 🏗️ 高还原开发（15 个）
+
+| 工具名称 | 功能描述 | 使用场景 |
+|---------|---------|---------|
+| `lanhu_extract_design_system` | 提取完整设计系统 | 色板、字体、间距、圆角、阴影、CSS 变量 |
+| `lanhu_get_layout_spec` | 提取布局规格 | 栅格、容器、对齐方式、断点、响应式规则 |
+| `lanhu_extract_component_patterns` | 识别组件模式 | 按钮/表单/卡片/导航等组件复用模式与变体 |
+| `lanhu_design_qa` | 设计质量检查 | 一致性检查、间距对齐、字体规范化、对比度 |
+| `lanhu_compare_designs` | 设计版本对比 | 两版设计稿差异高亮，变更点清单 |
+| `lanhu_generate_framework_code` | 框架代码生成 | React/Vue/Svelte/Flutter/HTML 多框架输出 |
+| `lanhu_extract_svg` | SVG 资源提取 | 导出所有矢量图层为独立 SVG |
+| `lanhu_measure_elements` | 全图元素测量 | 每个元素的 x/y/w/h、间距、字体、颜色精确值 |
+| `lanhu_extract_animation_specs` | 动效规格提取 | 过渡时间、缓动曲线、触发条件、动画参数 |
+| `lanhu_get_export_options` | 导出选项查询 | 支持的导出格式、倍率、切图命名规则 |
+| `lanhu_get_responsive_variants` | 响应式变体提取 | 移动端/平板/桌面多尺寸设计差异 |
+| `lanhu_get_design_annotations` | 设计标注提取 | 蓝湖设计图上所有文字标注与说明 |
+| `lanhu_get_version_history` | 版本历史提取 | 设计稿迭代记录、更新人、更新时间 |
+
+### 💻 代码生成 IR（4 个）
+
+| 工具名称 | 功能描述 | 使用场景 |
+|---------|---------|---------|
+| `lanhu_generate_code` | 基于设计 IR 生成代码 | 设计中间表示 → React/Vue/Svelte 代码 |
+| `lanhu_analyze_semantic` | 语义层分析 | 组件语义化识别（Header/Nav/Section/Footer 等） |
+| `lanhu_analyze_interaction` | 交互层分析 | 状态机、事件绑定、数据流转识别 |
+| `lanhu_preview_ir` | 预览设计 IR | 查看中间表示结构，调试代码生成 |
+
+### 💬 协作与留言板（6 个）
+
+| 工具名称 | 功能描述 | 使用场景 |
+|---------|---------|---------|
+| `lanhu_say` | 发布留言/知识库 | 团队协作、@提醒、知识沉淀（knowledge/task/question/urgent/normal） |
+| `lanhu_say_list` | 查看留言列表 | 按项目/类型/关键词筛选，支持正则搜索 |
+| `lanhu_say_detail` | 查看留言详情 | 查看完整内容、回复、元数据 |
 | `lanhu_say_edit` | 编辑留言 | 修改已发布消息 |
 | `lanhu_say_delete` | 删除留言 | 移除消息 |
-| `lanhu_get_members` | 查看协作者 | 查看团队成员 |
+| `lanhu_get_members` | 查看协作者/访问记录 | 查看团队成员、AI 访问历史、首次/最近访问时间 |
+
+### 🩺 系统（1 个）
+
+| 工具名称 | 功能描述 | 使用场景 |
+|---------|---------|---------|
+| `lanhu_health_check` | MCP 服务健康检查 | 连通性、版本、账号状态、工具数量探测 |
 ## 🎯 团队留言板：突破 AI 协作的最后一公里
 
 ### 为什么需要团队留言板？
@@ -784,33 +859,147 @@ lanhu_say(
 ## 📁 项目结构
 
 ```
-lanhu-mcp-server/
-├── lanhu_mcp_server.py          # 主服务器文件（3800+ 行）
-├── requirements.txt              # Python 依赖
+lanhu-mcp/
+├── lanhu_mcp_server.py          # MCP 主服务入口（legacy 单文件，含 16 个基础工具）
+├── lanhu_mcp_gui.py             # Tkinter GUI 入口（独立脚本）
+├── lanhu_login_helper.py        # 登录辅助子进程（pywebview WebView2 弹窗）
+├── pyproject.toml               # 项目配置（setuptools / ruff / mypy / pytest / coverage / bandit）
+├── requirements.txt              # Python 依赖清单
+├── LanhuMCP-onefile.spec        # PyInstaller onefile 打包 spec（生产使用）
+├── LanhuMCP.spec / LanhuMCP-GUI.spec / LanhuMCP-CLI.spec  # 其他打包配置
+├── hook_*.py                    # PyInstaller 自定义 hooks（Tkinter / FastMCP / Flet 依赖）
+├── build_onefile.bat / build.bat / build_full.bat  # Windows 打包脚本
 ├── Dockerfile                    # Docker 镜像
 ├── docker-compose.yml            # Docker Compose 配置
 ├── config.example.env            # 配置文件示例
-├── quickstart.sh                 # Linux/Mac 快速启动脚本
-├── quickstart.bat                # Windows 快速启动脚本
+├── quickstart.sh / quickstart.bat   # 快速启动脚本
+├── easy-install.sh / easy-install.bat  # 一键安装脚本
+├── setup-env.sh / setup-env.bat       # 环境配置脚本
+├── run-stdio.sh                  # 按需 stdio 启动脚本（Cursor/Claude Code 等）
+├── .env.example                  # 环境变量示例
 ├── .gitignore                    # Git 忽略文件
 ├── LICENSE                       # MIT 许可证
 ├── README.md                     # 中文文档（本文件）
 ├── README_EN.md                  # 英文文档
 ├── CONTRIBUTING.md               # 贡献指南
 ├── CHANGELOG.md                  # 更新日志
-├── data/                         # 数据存储目录（自动创建）
-│   ├── messages/                 # 留言数据（JSON文件）
-│   │   └── {project_id}.json    # 每个项目一个文件
+├── PACKAGING.md                  # 打包与验证文档
+├── DEPLOY.md                     # Docker 部署指南
+├── GET-COOKIE-TUTORIAL.md        # Cookie 获取教程
+├── ai-install-guide.md           # AI 安装指南
+├── SECURITY.md                   # 安全策略
+├── CODE_OF_CONDUCT.md            # 行为准则
+├── DEMO.md / RELEASE_NOTES_v1.0.0.md  # 演示与发布说明
+├── assets/                       # 静态资源
+│   ├── banner-overview.png       # 总览页截图
+│   ├── banner-service.png        # 服务页截图
+│   ├── banner-ai.png             # AI 工具页截图
+│   ├── banner-projects.png       # 项目页截图
+│   ├── banner-accounts.png       # 账号页截图
+│   ├── banner-logs.png           # 日志页截图
+│   ├── banner-shared.png         # 共享用 banner
+│   ├── lanhu_mcp_logo.png        # Logo（大）
+│   ├── lanhu_mcp_logo_256.png    # Logo（256px）
+│   ├── lanhu_mcp.ico             # 程序图标
+│   ├── lanhu_mcp_status_idle.ico/png   # 空闲状态图标
+│   └── lanhu_mcp_status_running.ico/png # 运行中状态图标
+├── images/
+│   └── wechat.jpg                # 微信群二维码
+├── lanhu_mcp/                    # 核心包（模块化拆分）
+│   ├── __init__.py
+│   ├── runtime.py                # 包模式 MCP 运行时入口
+│   ├── server.py                 # 高还原设计扩展工具（15 个新工具注册）
+│   ├── core/                     # 核心领域
+│   │   ├── accounts.py           # 多账号管理（APPDATA 持久化、指纹去重）
+│   │   ├── avatar.py             # 头像下载与缓存
+│   │   ├── cache.py              # 基于版本号的智能缓存
+│   │   ├── cleanup.py            # 资源清理
+│   │   ├── config.py             # 环境变量与配置
+│   │   ├── errors.py             # 错误类型
+│   │   ├── messages.py           # 留言板数据层
+│   │   ├── paths.py              # 路径常量（APPDATA/data/logs）
+│   │   ├── project_types.py      # 项目类型与归一化
+│   │   ├── projects.py           # 项目三路合并与去重
+│   │   └── user.py               # 用户资料解析（Cookie/JWT/接口）
+│   ├── gui/                      # Tkinter GUI 包（与 lanhu_mcp_gui.py 对应）
+│   │   ├── __main__.py           # python -m lanhu_mcp.gui 入口
+│   │   ├── app.py                # 主窗口与六页导航
+│   │   ├── state.py              # GUI 共享状态
+│   │   ├── theme.py              # 现代化主题与样式
+│   │   ├── branding.py           # 品牌与顶部统计区
+│   │   ├── tray.py               # 系统托盘
+│   │   ├── floating.py           # 悬浮状态指示器
+│   │   ├── components/widgets.py # 自定义控件（卡片/指标块/图标）
+│   │   └── pages/                # 六个页面
+│   │       ├── overview.py       # 总览页
+│   │       ├── service.py        # 服务页
+│   │       ├── ide_tools.py      # AI 工具配置页
+│   │       ├── projects.py       # 项目页
+│   │       ├── accounts.py       # 账号页
+│   │       └── logs.py           # 日志页
+│   ├── services/                 # 业务服务
+│   │   ├── lanhu_api.py          # 蓝湖 Web API 封装（多路候选端点）
+│   │   ├── browser_login.py      # 浏览器 Cookie 读取（browser-cookie3）
+│   │   ├── login_helper.py       # 登录 helper 子进程封装
+│   │   ├── service_manager.py    # 内置 MCP 服务启停
+│   │   ├── ide_config.py         # 20+ AI 工具识别与配置写入
+│   │   └── tools_registry.py     # AST 扫描工具发现与缓存
+│   ├── tools/                    # 高还原设计工具实现
+│   │   ├── design_system.py      # 设计系统提取
+│   │   ├── layout_spec.py        # 布局规格提取
+│   │   ├── components.py         # 组件模式识别
+│   │   ├── quality_check.py      # 设计 QA
+│   │   ├── compare.py            # 版本对比
+│   │   ├── code_gen.py           # 多框架代码生成（轻量版）
+│   │   ├── batch_download.py     # 资源分类下载
+│   │   ├── interactions.py       # Axure 交互提取
+│   │   ├── annotations.py        # 设计标注提取
+│   │   ├── version_history.py    # 版本历史提取
+│   │   ├── svg_extract.py        # SVG 提取
+│   │   ├── measurements.py       # 元素测量
+│   │   ├── animation.py          # 动效规格
+│   │   ├── export_options.py     # 导出选项
+│   │   └── responsive.py         # 响应式变体
+│   ├── codegen/                  # IR 代码生成引擎（强化版）
+│   │   ├── mcp_tools.py          # 4 个 IR 工具注册
+│   │   ├── ir.py                 # 中间表示定义
+│   │   ├── pipeline.py           # 设计 → IR → 代码流水线
+│   │   ├── semantic.py           # 语义层分析
+│   │   ├── interaction.py        # 交互层分析
+│   │   ├── style_system.py       # 样式系统
+│   │   ├── fidelity_check.py     # 还原度自检
+│   │   ├── incremental_gen.py    # 增量代码生成
+│   │   ├── project_scaffolder.py # 工程脚手架
+│   │   ├── dependency_detector.py # 依赖探测
+│   │   └── frameworks/           # 多框架后端
+│   │       ├── html_gen.py       # HTML/CSS
+│   │       ├── react_gen.py      # React
+│   │       ├── vue_gen.py        # Vue
+│   │       ├── svelte_gen.py     # Svelte
+│   │       └── flutter_gen.py    # Flutter
+│   ├── converters/               # 格式转换器
+│   ├── prompts/                  # AI Prompt 模板
+│   └── utils/                    # 通用工具
+├── src/                          # 预留 src 布局（兼容其他打包约定）
+├── scripts/                      # 辅助脚本
+│   ├── print-mcp-config.sh       # 打印 MCP 配置片段（Linux/Mac）
+│   └── print-mcp-config.bat      # 打印 MCP 配置片段（Windows）
+├── tests/                        # 测试套件（25+ 测试文件）
+│   ├── test_basic.py             # 基础冒烟
+│   ├── test_account_*.py         # 账号/Cookie/登录
+│   ├── test_gui_*.py             # GUI 构造、交互、视觉、优化
+│   ├── test_codegen_*.py         # 代码生成注册与冒烟
+│   ├── test_messages.py          # 留言板
+│   ├── test_*.py                 # 其他功能
+│   └── __init__.py
+├── data/                         # 数据存储目录（运行时自动创建）
+│   ├── messages/                 # 留言板 JSON
+│   ├── accounts.json             # 多账号数据（也可能在 %APPDATA%/LanhuMCP）
+│   ├── projects.json             # 手动保存项目
 │   ├── axure_extract_*/          # Axure 资源缓存
-│   │   ├── *.html                # 页面HTML
-│   │   ├── data/                 # Axure数据文件
-│   │   ├── resources/            # CSS/JS资源
-│   │   ├── images/               # 图片资源
-│   │   └── .lanhu_cache.json     # 缓存元数据
 │   └── lanhu_designs/            # 设计稿缓存
-│       └── {project_id}/         # 按项目分类
 └── logs/                         # 日志文件（自动创建）
-    └── *.log                     # 运行日志
+    └── *.log
 ```
 
 ## 🔧 高级配置
@@ -862,7 +1051,28 @@ export DATA_DIR="/path/to/cache"
 <details>
 <summary><b>Q: Cookie 过期怎么办？</b></summary>
 
-A: 重新登录蓝湖网页版，获取新的 Cookie 并更新环境变量或配置文件。
+A: 桌面工作台会提示 Cookie 失效，点击账号页的「一键登录」重新弹窗登录即可；或重新登录蓝湖网页版后，在账号页使用「浏览器导入」自动读取本机 Cookie；也可以手动粘贴新 Cookie 到账号页「手动输入」区。
+</details>
+
+<details>
+<summary><b>Q: 一键登录窗口一闪而过 / 黑屏？</b></summary>
+
+A: 登录 helper 会忽略蓝湖首页匿名 Cookie，只在检测到有效 auth/token/session 类 Cookie 后才返回成功。请确保在弹窗中完成真实账号登录（手机扫码 / 密码 / SSO）并进入已登录路由。若持续黑屏或 ERR_TIMED_OUT，可改用浏览器登录后通过「浏览器导入」或「手动 Cookie」方式添加账号。
+</details>
+
+<details>
+<summary><b>Q: 登录成功但项目列表为空？</b></summary>
+
+A: 项目页采用三路合并：蓝湖 API → 登录缓存提取 → 手动保存。前两种方式失败时：
+1. 确认该账号在蓝湖中确实已加入团队/项目
+2. 在项目页点击「手动添加项目链接」粘贴项目 URL 兜底
+3. 查看日志页的失败原因（接口格式变化 / 权限不足 / 网络代理）
+</details>
+
+<details>
+<summary><b>Q: AI 工具没有出现在识别列表里？</b></summary>
+
+A: AI 工具页会同时扫描固定安装路径和 `PATH` 环境变量。对于命令行式工具（Claude Code / Codex / MimoCode / Gemini CLI 等），请确保可在终端直接执行对应命令；仍不识别可点击配置区的「手动写入」按钮直接写入 ~/.codex/config.toml、~/.claude.json 等配置文件。
 </details>
 
 <details>
@@ -889,11 +1099,21 @@ A: 检查：
 A: 删除 `data/` 目录下的对应缓存文件即可。系统会自动重新下载。
 </details>
 
+<details>
+<summary><b>Q: PyInstaller 打包后 exe 启动就崩溃？</b></summary>
+
+A: 打包使用 `LanhuMCP-onefile.spec`，它已显式打包 Tkinter/Tcl/Tk 资源、pywebview WebView2 依赖、PIL 隐式依赖。如果仍有问题：
+1. 先运行 `python lanhu_mcp_gui.py` 验证源码是否正常
+2. 检查 `dist\warn-LanhuMCP.txt` 中的告警（openai/tzdata/pywebview 多平台属于可选依赖，可忽略）
+3. 查看 `%APPDATA%\LanhuMCP\logs\` 下的日志文件
+</details>
+
 ## 🔒 安全说明
 
-- ⚠️ **Cookie 安全**：请勿将含有 Cookie 的配置文件提交到公开仓库
-- 🔐 **访问控制**：建议在内网环境部署或配置防火墙规则
-- 📝 **数据隐私**：留言数据存储在本地，请妥善保管
+- ⚠️ **Cookie 安全**：请勿将含有 Cookie 的配置文件、`accounts.json`、日志文件提交到公开仓库
+- 🔐 **访问控制**：MCP HTTP 服务默认监听 `0.0.0.0`，建议在内网环境部署或配置防火墙规则；仅本地使用可改为 `127.0.0.1`
+- 📝 **数据隐私**：留言、账号、项目、头像数据存储在本地（`data/` 或 `%APPDATA%\LanhuMCP`），请妥善保管
+- 🛡️ **任务类型限制**：留言板的 `task` 类型仅用于只读查询提示，不会实际执行任何修改代码或删除文件的操作
 
 ## 🤝 贡献指南
 
@@ -911,6 +1131,9 @@ A: 删除 `data/` 目录下的对应缓存文件即可。系统会自动重新�
 # 安装开发、GUI 与构建依赖
 python -m pip install -e ".[dev,gui,build]"
 
+# 入口语法快速检查（无需 pytest）
+python -m py_compile lanhu_mcp_gui.py lanhu_login_helper.py lanhu_mcp_server.py
+
 # 静态检查
 python -m ruff check .
 python -m ruff format --check .
@@ -919,8 +1142,13 @@ python -m mypy lanhu_mcp
 # 运行测试
 python -m pytest -q
 
-# 本地 onefile 打包
+# 本地 onefile 打包（生产使用的 exe）
 python -m PyInstaller LanhuMCP-onefile.spec --clean --noconfirm
+# 输出：dist\LanhuMCP.exe（~85MB）
+
+# 打包后快速冒烟验证
+.\dist\LanhuMCP.exe --login-helper   # 写入登录结果 JSON
+.\dist\LanhuMCP.exe --server         # 启动 HTTP MCP 服务
 ```
 
 CI 会在 Python 3.10 / 3.11 / 3.12 上执行 ruff、mypy、关键入口 `py_compile` 与 pytest。
@@ -1043,4 +1271,4 @@ CI 会在 Python 3.10 / 3.11 / 3.12 上执行 ruff、mypy、关键入口 `py_com
 
 如有任何疑问或建议，欢迎通过 [GitHub Issues](https://github.com/dsphper/lanhu-mcp/issues) 与我们交流。
 
-<!-- Last checked: 2026-06-17 09:01 -->
+<!-- Last checked: 2026-08-12 00:00 -->

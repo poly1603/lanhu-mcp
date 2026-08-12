@@ -8,12 +8,15 @@ event loop or a second embedded browser surface.
 from __future__ import annotations
 
 import ctypes
+import json
 import os
 import threading
 from ctypes import wintypes
+from pathlib import Path
 from typing import Callable, Optional
 
 from .branding import logo_ico_path, logo_path, _asset_path
+from ..core.paths import WINDOW_PREFERENCES_FILE
 
 
 Callback = Callable[[], None]
@@ -146,6 +149,20 @@ if os.name == "nt":
     _user32.AppendMenuW.restype = wintypes.BOOL
     _user32.GetCursorPos.argtypes = [ctypes.POINTER(_Point)]
     _user32.GetCursorPos.restype = wintypes.BOOL
+    _user32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(_Rect)]
+    _user32.GetWindowRect.restype = wintypes.BOOL
+    _user32.SetCapture.argtypes = [wintypes.HWND]
+    _user32.SetCapture.restype = wintypes.HWND
+    _user32.SetWindowPos.argtypes = [
+        wintypes.HWND,
+        wintypes.HWND,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        wintypes.UINT,
+    ]
+    _user32.SetWindowPos.restype = wintypes.BOOL
     _user32.TrackPopupMenu.argtypes = [
         wintypes.HMENU, wintypes.UINT, ctypes.c_int, ctypes.c_int,
         ctypes.c_int, wintypes.HWND, ctypes.POINTER(_Rect),
@@ -169,7 +186,58 @@ if os.name == "nt":
     _gdi32.CreateCompatibleBitmap.restype = ctypes.c_void_p
     _gdi32.BitBlt.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_void_p, ctypes.c_int, ctypes.c_int, wintypes.DWORD]
     _gdi32.BitBlt.restype = wintypes.BOOL
-    _gdi32.CreateSolidBrush.argtypes = [wintypes.COLORREF]
+
+
+def load_floating_position(path: Path = WINDOW_PREFERENCES_FILE) -> Optional[tuple[int, int]]:
+    """Read the last floating-widget position without making startup fragile."""
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        position = payload.get("floating_position") if isinstance(payload, dict) else None
+        if not isinstance(position, dict):
+            return None
+        x, y = position.get("x"), position.get("y")
+        if isinstance(x, bool) or isinstance(y, bool):
+            return None
+        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+            return int(x), int(y)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        pass
+    return None
+
+
+def save_floating_position(x: int, y: int, path: Path = WINDOW_PREFERENCES_FILE) -> None:
+    """Persist the widget position while preserving other window settings."""
+    payload: dict[str, object] = {}
+    try:
+        existing = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(existing, dict):
+            payload.update(existing)
+    except (OSError, TypeError, ValueError, json.JSONDecodeError):
+        pass
+    payload["floating_position"] = {"x": int(x), "y": int(y)}
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        # A read-only profile must never prevent the status widget from moving.
+        pass
+
+
+def clamp_floating_position(
+    x: int,
+    y: int,
+    *,
+    screen_left: int,
+    screen_top: int,
+    screen_width: int,
+    screen_height: int,
+    width: int,
+    height: int,
+) -> tuple[int, int]:
+    """Keep a restored position visible on the current virtual desktop."""
+    max_x = screen_left + max(0, screen_width - width)
+    max_y = screen_top + max(0, screen_height - height)
+    return max(screen_left, min(int(x), max_x)), max(screen_top, min(int(y), max_y))
 
 
 class FloatingStatus:
@@ -182,10 +250,14 @@ class FloatingStatus:
     _WM_CLOSE = 0x0010
     _WM_DESTROY = 0x0002
     _WM_SETCURSOR = 0x0020
+    _WM_MOUSEMOVE = 0x0200
+    _WM_LBUTTONDOWN = 0x0201
     _WM_LBUTTONUP = 0x0202
     _WM_RBUTTONUP = 0x0205
+    _WM_CAPTURECHANGED = 0x0215
     _WM_NCLBUTTONDOWN = 0x00A1
-    _HTCAPTION = 2
+    _MK_LBUTTON = 0x0001
+    _IDC_SIZEALL = 32646
     _SW_HIDE = 0
     _SW_SHOWNOACTIVATE = 4
     _WS_EX_TOOLWINDOW = 0x00000080
@@ -235,6 +307,10 @@ class FloatingStatus:
         self._logo_hicon = None
         self._logo_bitmap = None
         self._icon_running = False
+        self._dragging = False
+        self._drag_moved = False
+        self._drag_offset_x = 0
+        self._drag_offset_y = 0
 
     def start(self) -> None:
         if os.name != "nt":
@@ -294,10 +370,21 @@ class FloatingStatus:
             wnd_class.lpszClassName = class_name
             _user32.RegisterClassW(ctypes.byref(wnd_class))
 
-            screen_w = _user32.GetSystemMetrics(0)
-            screen_h = _user32.GetSystemMetrics(1)
-            x = max(0, screen_w - self.WIDTH - 24)
-            y = max(0, screen_h - self.HEIGHT - 80)
+            screen_left, screen_top, screen_w, screen_h = self._virtual_screen()
+            default_x = screen_left + max(0, screen_w - self.WIDTH - 24)
+            default_y = screen_top + max(0, screen_h - self.HEIGHT - 80)
+            saved = load_floating_position()
+            x, y = saved if saved is not None else (default_x, default_y)
+            x, y = clamp_floating_position(
+                x,
+                y,
+                screen_left=screen_left,
+                screen_top=screen_top,
+                screen_width=screen_w,
+                screen_height=screen_h,
+                width=self.WIDTH,
+                height=self.HEIGHT,
+            )
             hwnd = _user32.CreateWindowExW(
                 self._WS_EX_TOOLWINDOW | self._WS_EX_TOPMOST | self._WS_EX_NOACTIVATE,
                 class_name,
@@ -357,15 +444,30 @@ class FloatingStatus:
             _user32.InvalidateRect(hwnd, None, True)
             return 0
         if message == self._WM_SETCURSOR:
-            cursor = _user32.LoadCursorW(None, 32512)  # IDC_ARROW
+            cursor_id = self._IDC_SIZEALL if self._dragging else 32512  # IDC_ARROW
+            cursor = _user32.LoadCursorW(None, cursor_id)
             if cursor:
                 _user32.SetCursor(cursor)
             return 1
+        if message == self._WM_LBUTTONDOWN:
+            self._begin_drag(hwnd)
+            return 0
+        if message == self._WM_MOUSEMOVE:
+            if self._dragging and (int(wparam) & self._MK_LBUTTON):
+                self._move_with_cursor(hwnd)
+            return 0
         if message == self._WM_LBUTTONUP:
-            try:
-                self._on_show()
-            except Exception as error:  # noqa: BLE001
-                self._report_error(f"打开主窗口失败: {error}")
+            was_dragging = self._dragging
+            self._end_drag(hwnd)
+            if not was_dragging or not self._drag_moved:
+                try:
+                    self._on_show()
+                except Exception as error:  # noqa: BLE001
+                    self._report_error(f"打开主窗口失败: {error}")
+            return 0
+        if message == self._WM_CAPTURECHANGED:
+            if self._dragging:
+                self._end_drag(hwnd)
             return 0
         if message == self._WM_RBUTTONUP:
             self._show_menu(hwnd)
@@ -455,6 +557,55 @@ class FloatingStatus:
         except Exception:
             return None
 
+    @staticmethod
+    def _virtual_screen() -> tuple[int, int, int, int]:
+        """Return the full Windows virtual desktop, including other monitors."""
+        return (
+            _user32.GetSystemMetrics(76),  # SM_XVIRTUALSCREEN
+            _user32.GetSystemMetrics(77),  # SM_YVIRTUALSCREEN
+            max(1, _user32.GetSystemMetrics(78)),  # SM_CXVIRTUALSCREEN
+            max(1, _user32.GetSystemMetrics(79)),  # SM_CYVIRTUALSCREEN
+        )
+
+    def _begin_drag(self, hwnd) -> None:
+        point = _Point()
+        rect = _Rect()
+        if not _user32.GetCursorPos(ctypes.byref(point)) or not _user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            return
+        self._dragging = True
+        self._drag_moved = False
+        self._drag_offset_x = point.x - rect.left
+        self._drag_offset_y = point.y - rect.top
+        _user32.SetCapture(hwnd)
+
+    def _move_with_cursor(self, hwnd) -> None:
+        point = _Point()
+        if not _user32.GetCursorPos(ctypes.byref(point)):
+            return
+        target_x = point.x - self._drag_offset_x
+        target_y = point.y - self._drag_offset_y
+        rect = _Rect()
+        if _user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            self._drag_moved = self._drag_moved or abs(target_x - rect.left) >= 2 or abs(target_y - rect.top) >= 2
+        _user32.SetWindowPos(
+            hwnd,
+            self._HWND_TOPMOST,
+            target_x,
+            target_y,
+            0,
+            0,
+            self._SWP_NOSIZE | self._SWP_NOACTIVATE,
+        )
+
+    def _end_drag(self, hwnd) -> None:
+        if not self._dragging:
+            return
+        self._dragging = False
+        _user32.ReleaseCapture()
+        rect = _Rect()
+        if _user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+            save_floating_position(rect.left, rect.top)
+
     def _safe_running(self) -> bool:
         try:
             return bool(self._is_running())
@@ -473,4 +624,9 @@ class FloatingStatus:
                 pass
 
 
-__all__ = ["FloatingStatus"]
+__all__ = [
+    "FloatingStatus",
+    "clamp_floating_position",
+    "load_floating_position",
+    "save_floating_position",
+]

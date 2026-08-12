@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node build.js",
     "build:clean": "node build.js --clean",
+    "build:portable": "node build.js --clean --no-installer",
     "build:fast": "node build.js --no-upx",
     "build:debug": "node build.js --debug"
   },

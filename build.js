@@ -4,7 +4,7 @@
  * 使用方法: node build.js [--clean] [--no-upx] [--debug]
  */
 
-const { execSync, spawn } = require('child_process');
+const { execFileSync, execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -14,7 +14,12 @@ const CONFIG = {
   outputName: 'LanhuMCP',
   distDir: 'dist',
   buildDir: 'build',
+  installerScript: 'installer.nsi',
 };
+
+const PACKAGE_VERSION = JSON.parse(
+  fs.readFileSync(path.join(__dirname, 'package.json'), 'utf-8'),
+).version;
 
 // 颜色输出
 const colors = {
@@ -58,6 +63,7 @@ const options = {
   clean: args.includes('--clean'),
   noUpx: args.includes('--no-upx'),
   debug: args.includes('--debug'),
+  noInstaller: args.includes('--no-installer'),
   help: args.includes('--help') || args.includes('-h'),
 };
 
@@ -68,6 +74,7 @@ function showHelp() {
   log('  --clean    清理旧的构建文件后重新打包');
   log('  --no-upx   不使用 UPX 压缩（打包更快但文件更大）');
   log('  --debug    启用调试模式（保留控制台窗口）');
+  log('  --no-installer  只生成 exe，不编译 NSIS 安装程序');
   log('  --help     显示帮助信息');
   log('');
 }
@@ -161,14 +168,15 @@ function checkDependencies() {
 }
 
 // 清理旧构建
-function cleanBuild() {
+function cleanBuild(releaseDir) {
   if (!options.clean) return;
 
   logStep('4/6', '清理旧构建文件');
 
-  const dirsToClean = [CONFIG.buildDir, CONFIG.distDir];
-  const filesToClean = [`${CONFIG.outputName}.spec`];
-
+  // If the old portable exe is running, chooseReleaseDir() has already
+  // selected an isolated release directory. Never remove the live dist tree.
+  const dirsToClean = [CONFIG.buildDir];
+  if (releaseDir === CONFIG.distDir) dirsToClean.push(CONFIG.distDir);
   for (const dir of dirsToClean) {
     if (fs.existsSync(dir)) {
       fs.rmSync(dir, { recursive: true, force: true });
@@ -176,16 +184,57 @@ function cleanBuild() {
     }
   }
 
-  for (const file of filesToClean) {
-    if (fs.existsSync(file)) {
-      fs.unlinkSync(file);
-      logSuccess(`已删除: ${file}`);
-    }
+}
+
+function isLanhuProcessRunning() {
+  if (process.platform !== 'win32') return false;
+  try {
+    const output = execSync('tasklist /FI "IMAGENAME eq LanhuMCP.exe" /NH', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    return /LanhuMCP\.exe/i.test(output);
+  } catch (e) {
+    return false;
   }
 }
 
+function chooseReleaseDir() {
+  const configured = process.env.LANHU_RELEASE_DIR;
+  if (configured) return configured;
+
+  const currentExe = path.join(CONFIG.distDir, `${CONFIG.outputName}.exe`);
+  if (isLanhuProcessRunning() && fs.existsSync(currentExe)) {
+    const fallback = `dist-release-${Date.now()}`;
+    logWarning(`检测到正在运行的 ${currentExe}，本次输出改用 ${fallback}/，不会强制结束旧进程`);
+    return fallback;
+  }
+  return CONFIG.distDir;
+}
+
+function findMakensis() {
+  const candidates = [
+    process.env.MAKENSIS,
+    'makensis',
+    path.join(process.env.LOCALAPPDATA || '', 'Programs', 'NSIS', 'makensis.exe'),
+    path.join(process.env['ProgramFiles(x86)'] || '', 'NSIS', 'makensis.exe'),
+    path.join(process.env.ProgramFiles || '', 'NSIS', 'makensis.exe'),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    try {
+      if (candidate !== 'makensis' && !fs.existsSync(candidate)) continue;
+      execFileSync(candidate, ['/VERSION'], { stdio: ['ignore', 'pipe', 'ignore'] });
+      return candidate;
+    } catch (e) {
+      // Try the next standard NSIS installation location.
+    }
+  }
+  return null;
+}
+
 // 执行打包
-function build() {
+function build(releaseDir) {
   const step = options.clean ? '5/6' : '4/6';
   logStep(step, '开始打包');
 
@@ -194,6 +243,8 @@ function build() {
     CONFIG.specFile,
     '--noconfirm',
     '--clean',
+    '--distpath', releaseDir,
+    '--workpath', path.join(CONFIG.buildDir, path.basename(releaseDir)),
   ];
 
   if (options.noUpx) {
@@ -221,11 +272,11 @@ function build() {
 }
 
 // 后处理
-function postBuild() {
+function postBuild(releaseDir) {
   const step = options.clean ? '6/6' : '5/6';
   logStep(step, '后处理');
 
-  const exePath = path.join(CONFIG.distDir, `${CONFIG.outputName}.exe`);
+  const exePath = path.join(releaseDir, `${CONFIG.outputName}.exe`);
 
   if (!fs.existsSync(exePath)) {
     logError(`未找到输出文件: ${exePath}`);
@@ -237,11 +288,66 @@ function postBuild() {
   const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
   const modifiedTime = stats.mtime.toLocaleString('zh-CN');
 
+  // Keep both deliverables in dist even when the currently running old exe
+  // prevents replacing dist/LanhuMCP.exe. In that case publish a versioned
+  // portable exe beside it; the next build after closing the old process can
+  // return to the canonical name.
+  let publishedExePath = exePath;
+  if (path.resolve(releaseDir) !== path.resolve(CONFIG.distDir)) {
+    publishedExePath = path.join(CONFIG.distDir, `LanhuMCP-v${PACKAGE_VERSION}.exe`);
+    fs.mkdirSync(CONFIG.distDir, { recursive: true });
+    fs.copyFileSync(exePath, publishedExePath);
+    logInfo(`检测到旧版 exe 正在运行，新便携版已复制为: ${publishedExePath}`);
+  }
+
   logSuccess(`打包成功!`);
-  logInfo(`输出文件: ${exePath}`);
+  logInfo(`输出文件: ${publishedExePath}`);
   logInfo(`文件大小: ${sizeMB} MB`);
   logInfo(`修改时间: ${modifiedTime}`);
   return true;
+}
+
+function buildInstaller(releaseDir) {
+  if (options.noInstaller) {
+    logWarning('已跳过安装程序（--no-installer）');
+    return true;
+  }
+
+  if (process.platform !== 'win32') {
+    logWarning('安装程序仅支持 Windows，已跳过 NSIS');
+    return true;
+  }
+
+  const makensis = findMakensis();
+  if (!makensis) {
+    logError('未找到 NSIS makensis.exe，无法生成安装程序');
+    logInfo('请安装 NSIS：https://nsis.sourceforge.io/Download');
+    logInfo('或使用 --no-installer 仅生成便携版 exe');
+    return false;
+  }
+
+  const releasePath = path.resolve(releaseDir);
+  const payloadPath = path.join(releasePath, `${CONFIG.outputName}.exe`);
+  const installerOutputDir = path.resolve(CONFIG.distDir);
+  const installerPath = path.join(CONFIG.distDir, `LanhuMCP-Setup-v${PACKAGE_VERSION}.exe`);
+  logStep('6/6', '生成 Windows 安装程序');
+  try {
+    execFileSync(makensis, [
+      `/DAPP_VERSION=${PACKAGE_VERSION}`,
+      `/DAPP_DIST_DIR=${installerOutputDir}`,
+      `/DAPP_PAYLOAD=${payloadPath}`,
+      CONFIG.installerScript,
+    ], { stdio: 'inherit', cwd: __dirname });
+    if (!fs.existsSync(installerPath)) {
+      logError(`未找到安装程序: ${installerPath}`);
+      return false;
+    }
+    logSuccess(`安装程序已生成: ${installerPath}`);
+    return true;
+  } catch (e) {
+    logError('NSIS 安装程序生成失败');
+    return false;
+  }
 }
 
 // 主函数
@@ -266,12 +372,13 @@ function main() {
   if (!checkPyInstaller()) process.exit(1);
   if (!checkDependencies()) process.exit(1);
 
+  const releaseDir = chooseReleaseDir();
   if (options.clean) {
-    cleanBuild();
+    cleanBuild(releaseDir);
   }
-
-  if (!build()) process.exit(1);
-  if (!postBuild()) process.exit(1);
+  if (!build(releaseDir)) process.exit(1);
+  if (!postBuild(releaseDir)) process.exit(1);
+  if (!buildInstaller(releaseDir)) process.exit(1);
 
   log('\n========================================', 'green');
   log('   打包完成!', 'green');

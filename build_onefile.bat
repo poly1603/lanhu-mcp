@@ -1,52 +1,21 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal
+cd /d "%~dp0"
 
-echo.
 echo ========================================
-echo   Lanhu MCP Server - One File Build
+echo   Lanhu MCP - Portable EXE + Installer
 echo ========================================
 echo.
 
-python --version >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python not found, please install Python 3.10+
-    pause
-    exit /b 1
-)
+node build.js --clean %*
+set "EXIT_CODE=%ERRORLEVEL%"
 
-echo [1/4] Installing dependencies...
-python -m pip install --upgrade pip
-python -m pip install -e ".[build,gui]" -q
-
-echo [2/4] Cleaning old build...
-if exist dist rmdir /s /q dist
-if exist build rmdir /s /q build
-
-echo [3/4] Building single exe, please wait...
-echo.
-
-pyinstaller LanhuMCP-onefile.spec --noconfirm --clean
-
-echo.
-echo [4/4] Checking result...
-echo.
-
-if exist dist\LanhuMCP.exe (
-    echo ========================================
-    echo   Build Success!
-    echo ========================================
+if "%EXIT_CODE%"=="0" (
     echo.
-    echo   Output: dist\LanhuMCP.exe
-    echo.
-    echo   Usage:
-    echo     1. Double click LanhuMCP.exe to start
-    echo     2. Config dir: %APPDATA%\LanhuMCP\
-    echo     3. Set Cookie then start service
-    echo.
-) else (
-    echo ========================================
-    echo   Build Failed! Check errors above
-    echo ========================================
+    echo Outputs:
+    echo   dist\LanhuMCP.exe              portable version
+    echo   dist\LanhuMCP-Setup-v^<version^>.exe installer with desktop shortcut
 )
 
 pause
+exit /b %EXIT_CODE%
