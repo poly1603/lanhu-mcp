@@ -1271,4 +1271,4 @@ CI 会在 Python 3.10 / 3.11 / 3.12 上执行 ruff、mypy、关键入口 `py_com
 
 如有任何疑问或建议，欢迎通过 [GitHub Issues](https://github.com/dsphper/lanhu-mcp/issues) 与我们交流。
 
-<!-- Last checked: 2026-08-29 19:16 -->
+<!-- Last checked: 2026-08-29 22:28 -->
